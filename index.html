@@ -9,9 +9,15 @@
 <meta property="og:title" content="FriesGo Global">
 <meta property="og:description" content="中国工业产品供应商｜全球146国工业市场、每日商机雷达、实时地图采客与多语种开发信系统">
 <meta property="og:image" content="https://jasunmr389-ship-it.github.io/friesgo-market/apple-touch-icon.png?v=2">
-<title>FriesGo Global</title>
+<meta name="description" content="FriesGo Global 工业品外贸工作台：146 国工业品市场数据、每日商机雷达、地图采客、客户跟进与 FOB/CIF 报价工具。">
+<meta name="theme-color" content="#fdf8f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#19110a" media="(prefers-color-scheme: dark)">
+<title>FriesGo Global · 工业品外贸工作台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 非阻塞加载 Web 字体：国内网络访问 Google Fonts 不稳定时，页面先用系统苹方/微软雅黑渲染，不会白屏等待 -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet"></noscript>
 <style>
 :root{
   --bg:#fdf8f1; --surface:#ffffff; --surface2:#f7ecdd; --ink:#2b1a10; --muted:#745f4d; --line:#e8d9c6;
@@ -19,6 +25,8 @@
   --high:#b3540a; --high-bg:#fdebd7; --med:#7a5a12; --med-bg:#fbf0cd; --low:#6d6d6d; --low-bg:#eeeeea;
   --danger:#a61c1c; --danger-bg:#fbe7e7; --good:#1e6b3a; --good-bg:#e2f2e6;
   --radius:14px; --shadow:0 6px 24px rgba(74,44,23,.07);
+  --cta:#bf570a; --cta-ink:#fff;
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC","STSong",serif;
 }
 html[data-theme="dark"]{
   --bg:#19110a; --surface:#261a10; --surface2:#322316; --ink:#f5e9da; --muted:#c4a88d; --line:#4a3520;
@@ -26,11 +34,14 @@ html[data-theme="dark"]{
   --high:#ffb26b; --high-bg:#4a2f16; --med:#f2d38a; --med-bg:#453a17; --low:#bdbdb2; --low-bg:#33322c;
   --danger:#ff9a9a; --danger-bg:#4a1f1f; --good:#8fd6a8; --good-bg:#1e3a28;
   --shadow:0 6px 24px rgba(0,0,0,.38);
+  --cta:#ff9a3d; --cta-ink:#241305;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6;font-size:15px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans SC",-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:none}
 a{color:var(--brown2);text-decoration-color:var(--orange);text-underline-offset:3px}
 button,select,input,textarea{font:inherit}
 button,select,input{min-height:38px}
@@ -54,7 +65,7 @@ html[data-theme="dark"] .logo,html[data-theme="dark"] footer img{filter:drop-sha
 .ws-btn[aria-selected="true"]{background:var(--brown);color:#fff;border-color:var(--brown)}
 html[data-theme="dark"] .ws-btn[aria-selected="true"]{background:var(--orange);color:#241305;border-color:var(--orange)}
 .ws-btn .ws-ico{font-size:15px;width:20px;text-align:center;flex:0 0 20px}
-.tab-badge{margin-left:auto;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--orange);color:#fff;font-weight:900;line-height:1.45}
+.tab-badge{margin-left:auto;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--cta);color:var(--cta-ink);font-weight:900;line-height:1.45}
 .ws-btn[aria-selected="true"] .tab-badge{background:rgba(255,255,255,.25);color:#fff}
 html[data-theme="dark"] .ws-btn[aria-selected="true"] .tab-badge{background:rgba(0,0,0,.22);color:#241305}
 
@@ -84,7 +95,7 @@ html[data-theme="dark"] .inner-tool-btn.active{background:var(--orange);color:#2
 
 /* Today's Workspace Home */
 .home-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.home-head h1{font-family:"Noto Serif SC",serif;font-size:clamp(22px,3vw,30px);margin:0;color:var(--brown);font-weight:900;line-height:1.2}
+.home-head h1{font-family:var(--serif);font-size:clamp(22px,3vw,30px);margin:0;color:var(--brown);font-weight:900;line-height:1.2}
 .home-head .sub-line{font-size:13px;color:var(--muted);margin-top:2px}
 .home-ctas{display:flex;gap:8px;flex-wrap:wrap}
 .home-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-top:14px}
@@ -92,6 +103,11 @@ html[data-theme="dark"] .inner-tool-btn.active{background:var(--orange);color:#2
 .due-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
 .due-item:first-child{border-top:none;padding-top:2px}
 .recent-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.home-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:22px 12px 10px;color:var(--muted);font-size:13px}
+.home-empty b{color:var(--brown);font-size:14.5px}
+.home-empty span{max-width:360px;line-height:1.6}
+.home-empty-ico{width:46px;height:46px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:2px}
+.home-empty-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
 
 /* Client-Centric CRM Table & Inline Detail Panel */
 .crm-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
@@ -108,7 +124,7 @@ html[data-theme="dark"] .crm-detail-tab.active{background:var(--orange);color:#2
 
 /* Hero */
 .hero{padding:6px 0 8px}
-.hero h1{font-family:"Noto Serif SC",serif;font-size:clamp(22px,3.6vw,32px);line-height:1.18;margin:0 0 6px;color:var(--brown);font-weight:900}
+.hero h1{font-family:var(--serif);font-size:clamp(22px,3.6vw,32px);line-height:1.18;margin:0 0 6px;color:var(--brown);font-weight:900}
 .hero p.lead{max-width:900px;color:var(--muted);font-size:14px;margin:0}
 .hero p.lead b{color:var(--ink)}
 .meta-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
@@ -134,8 +150,13 @@ html[data-theme="dark"] .crm-detail-tab.active{background:var(--orange);color:#2
 .pill[aria-pressed="true"]{background:var(--brown);color:#fff;border-color:var(--brown)}
 html[data-theme="dark"] .pill[aria-pressed="true"]{background:var(--orange);color:#241305;border-color:var(--orange)}
 .pill.danger[aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:#fff}
-.pill.primary{background:var(--orange);color:#fff;border-color:var(--orange)}
-.pill.primary:hover{filter:brightness(1.06)}
+.pill.primary{background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
+.pill.primary:hover{filter:brightness(1.08)}
+.pill:active{transform:translateY(1px)}
+/* 外链检索按钮：用柔和强调色，与「生成 / 开始」等真正的主操作区分层级 */
+a.pill.primary[target="_blank"]{background:var(--orange-soft);color:var(--high);border-color:color-mix(in srgb,var(--orange) 45%,transparent)}
+a.pill.primary[target="_blank"]:hover{filter:none;background:color-mix(in srgb,var(--orange-soft) 70%,var(--orange) 18%)}
+.ytd-line{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;margin-top:1px}
 .pill.good-btn{background:var(--good-bg);color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
 .result-count{margin-left:auto;font-size:13px;color:var(--muted);font-weight:700}
 @media(max-width:820px){.controls-card{grid-template-columns:1fr 1fr}}
@@ -235,7 +256,7 @@ details.method-note ul{margin:6px 0;padding-left:18px}
 /* Sections & Cards */
 section.block{margin-top:0}
 section.block + section.block.fg-active{margin-top:20px}
-section.block h2{font-family:"Noto Serif SC",serif;font-size:21px;color:var(--brown);margin:0 0 5px}
+section.block h2{font-family:var(--serif);font-size:21px;color:var(--brown);margin:0 0 5px}
 section.block .sub{color:var(--muted);margin:0 0 12px;max-width:860px;font-size:13.5px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
@@ -511,7 +532,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
     </details>
     <div class="stats">
       <div class="stat"><div class="k">覆盖国家 / 地区</div><div class="v" id="stat-count">146 个</div><div class="d">117 国 UN Comtrade 2025 官方年报 · 29 国保留 2024*</div></div>
-      <div class="stat"><div class="k">最大工业品进口市场 · 美国</div><div class="v">$606.1<em> 十亿</em></div><div class="d">2025 工业品口径（全口径 $1,178.7bn；注意 232/301 关税）</div></div>
+      <div class="stat"><div class="k">最大工业品进口市场 · 美国</div><div class="v">$606.1<em>bn</em></div><div class="d">2025 工业品口径（全口径 $1,178.7bn；注意 232/301 关税）</div></div>
       <div class="stat"><div class="k">高潜力国家</div><div class="v" id="stat-high">28 个</div><div class="d">含印度、越南、墨西哥、沙特、印尼等（已标转口风险）</div></div>
       <div class="stat"><div class="k">黄金替代区（无制裁/转口）</div><div class="v" id="stat-gold">—</div><div class="d">中国占比 20%–50% 且无合规红黄牌，最易切入</div></div>
     </div>
@@ -807,7 +828,7 @@ Best regards,
       <div class="mini-scroll" style="margin-top:10px">
         <table>
           <thead><tr><th>公司 / 客户名</th><th>国家</th><th>邮箱 &amp; 邮局 MX 状态</th><th>电话 / WhatsApp（自动补国码）</th><th>官网</th><th>一键行动</th></tr></thead>
-          <tbody id="csvTbody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">暂无客户数据。上传 CSV、粘贴 Excel 内容，或在上方「🗺️ 网页地图采客」抓完点一键送入。</td></tr></tbody>
+          <tbody id="csvTbody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">暂无客户数据。上传 CSV、粘贴 Excel 内容，或在「地图找客户」抓取后点「送入导入与洗名单」。</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -815,8 +836,8 @@ Best regards,
 
   <!-- NEW: Email Pattern Guesser + SPF/DMARC Deliverability Health Check -->
   <section class="block" id="email-tools">
-    <h2>📧 采购人邮箱猜想器 &amp; 发信防进垃圾箱体检（SPF / DMARC）</h2>
-    <p class="sub">左边解决「在 LinkedIn 找到了采购经理名字，怎么猜他企业邮箱」；右边解决「开发信发出去怎么避免 60% 进垃圾箱」。</p>
+    <h2>猜邮箱与防进垃圾箱</h2>
+    <p class="sub">左侧：已知采购经理姓名，推测其企业邮箱；右侧：检测发信域名 SPF / DMARC，降低开发信进垃圾箱的概率。</p>
     <div class="grid2">
       <div class="card">
         <h3>🎯 采购经理企业邮箱猜想</h3>
@@ -856,8 +877,8 @@ Best regards,
 
   <!-- NEW: Live Multi-Currency Foreign Trade Exchange Rate Converter -->
   <section class="block" id="fx-converter">
-    <h2>💱 外贸多币种实时汇率换算器（含 17 国买家本币 &amp; 一键同步安全结汇价到报价器）</h2>
-    <p class="sub">自动拉取国际实时参考汇率（离线自动切内置基准兜底）：秒换 <b>人民币 / 美元 / 欧元 / 越南盾 / 印尼盾 / 沙特里亚尔 / 墨西哥比索 / 巴西雷亚尔 / 南非兰特</b> 等 17 种货币，并支持减去安全结汇缓冲一键填入下方报价器。</p>
+    <h2>实时汇率换算</h2>
+    <p class="sub">自动拉取国际实时参考汇率（离线自动切内置基准兜底）：支持 <b>人民币 / 美元 / 欧元 / 越南盾 / 印尼盾 / 沙特里亚尔 / 墨西哥比索 / 巴西雷亚尔 / 南非兰特</b> 等 17 种买家常用货币，可扣除安全结汇缓冲后一键填入「成本与报价计算」。</p>
     <div class="card">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:10px">
         <span class="meta-pill" id="fxStatusBadge">⏳ 正在获取实时汇率…</span>
@@ -1328,7 +1349,7 @@ Best regards,
 
   <!-- NEW: High-Frequency Industrial HS6 Quick Reference -->
   <section class="block" id="hs-ref">
-    <h2>📑 高频工业品 6 位国际 HS 编码 &amp; 关税/退税速查卡</h2>
+    <h2>HS6 编码与关税速查</h2>
     <p class="sub">报价前核对国际通用前 6 位 HS 编码，一键直达 ITC MacMap 查任意目的国实际进口关税（中国出口退税率请以最新国税编码库为准）。</p>
     <div class="table-card"><div class="mini-scroll"><table>
       <thead><tr><th>工业品类</th><th>国际通用 HS6 示例</th><th>英文报关常用名</th><th>中国参考退税率</th><th>一键查全球关税 / 进口国</th></tr></thead>
@@ -1337,7 +1358,7 @@ Best regards,
   </section>
 
   <section class="block" id="matrix">
-    <h2>🔥 国家 × 产品线热力矩阵（点击任意产品列头，秒排目标国！）</h2>
+    <h2>国家 × 产品线热力矩阵</h2>
     <p class="sub">想知道「这周推阀门 / 泵 / 钢铁五金 / 农机，先打哪些国家？」——直接<b>点击表头产品名即可从高到低排序</b>；<b>点击国家名直接跳回总表展开详情</b>。</p>
     <div class="table-card matrix-wrap"><table>
       <thead><tr>
@@ -1409,8 +1430,8 @@ Best regards,
   </div>
 
   <section class="block" id="china">
-    <h2>从中国进口：已经买多少中国货，还剩多少替代空间（39 大市场 · UN Comtrade 2025 官方）</h2>
-    <p class="sub">绿色高亮为经验「黄金区间」（中国占比 20%–50%：已接受中国货且仍有替代空间）；&gt;60% 竞争激烈；&lt;10% 多有壁垒。</p>
+    <h2>39 国中国占比：已买多少中国货，还剩多少替代空间</h2>
+    <p class="sub">数据：UN Comtrade 2025 官方年报。绿色高亮为经验「黄金区间」（中国占比 20%–50%：已接受中国货且仍有替代空间）；&gt;60% 竞争激烈；&lt;10% 多有壁垒。</p>
     <div class="table-card"><div class="mini-scroll"><table>
       <thead><tr><th>国家</th><th>总进口 HS84+85</th><th>从中国 HS84</th><th>从中国 HS85</th><th>从中国合计</th><th>中国占比</th><th>从中国 CAGR 23→25</th><th>替代空间（总−中国）</th><th>备注</th></tr></thead>
       <tbody id="chinaTbody"></tbody>
@@ -1422,8 +1443,8 @@ Best regards,
   </section>
 
   <section class="block" id="suppliers">
-    <h2>前三大供应国：每个市场主要在跟谁买（34 国 · 31 国 UN Comtrade 2025 / 未报国 2024*）</h2>
-    <p class="sub">实时按联合国 2025 伙伴国进口流重算（越南、阿联酋、台湾尚未报送 2025 保留 2024* BACI 核实基准）。</p>
+    <h2>34 国前三大供应国：每个市场主要在跟谁买</h2>
+    <p class="sub">31 国为 UN Comtrade 2025 官方数据，其余 3 国为 2024*。按联合国 2025 伙伴国进口流重算（越南、阿联酋、台湾尚未报送 2025 保留 2024* BACI 核实基准）。</p>
     <div class="table-card"><div class="mini-scroll"><table>
       <thead><tr><th>市场</th><th>HS84+85 总进口</th><th>第 1 大供应国</th><th>第 2 大供应国</th><th>第 3 大供应国</th><th>纯国家口径前三（剔除残差/自报）</th><th>来源</th></tr></thead>
       <tbody id="supTbody"></tbody>
@@ -1438,7 +1459,7 @@ Best regards,
   </section>
 
   <section class="block" id="scope">
-    <h2>工业品口径（默认）vs 全口径：剔除消费电子后前 31 大市场排名变化（2025 官方年报）</h2>
+    <h2>工业品口径 vs 全口径：前 31 大市场排名变化</h2>
     <p class="sub">剔除电脑/手机/音视频/芯片 9 个税号后（28 国已升级 UN Comtrade 2025，越/阿联酋/台湾保留 2024* BACI）：美国第 1（$606.1bn）、中国第 2（$327.6bn）、德国第 3（$316.3bn）、墨西哥第 4（$161.6bn），香港由全口径第 3 掉至第 7、新加坡掉至第 11。</p>
     <div class="card">
       <div class="pills" style="margin:0 0 12px" role="group" aria-label="口径切换">
@@ -1500,7 +1521,7 @@ Best regards,
   </section>
 
   <section class="block" id="ytd2026">
-    <h2>📈 2026 年最新月度实况：中国海关（截至 2026 年 10 月）+ 联合国各国最新月度 YTD</h2>
+    <h2>2026 最新月度实况</h2>
     <p class="sub"><b>坚持真实官方口径、不猜不估：</b>上方为中国海关总署（GACC）<b>2026 年 1–10 月</b>正式公报；下方为联合国 UN Comtrade 各国<b>实际已报送的最新 2026 月份累计（YTD）</b>与去年同期同比增速（每个国家均精准标注其最新截止月份，如 2026.01–09 / 2026.01–08）。</p>
     <div class="grid3" style="margin-bottom:12px">
       <div class="card" style="border-top:4px solid var(--orange)">
@@ -1755,7 +1776,8 @@ Best regards,
   </section>
 
   <section class="block" id="compliance">
-    <h2>🛡️ 制裁与转口合规标签（核查日期：2026-11-24）</h2>
+    <h2>制裁与转口合规标签</h2>
+    <p class="sub">核查日期：2026-11-24。名单随时更新，正式签约发货前务必再查官方制裁名单。</p>
     <div class="grid3">
       <div class="card"><h3>🔴 全面制裁</h3>
         <p><b>伊朗</b>——美国 ITSR 全面禁运，次级制裁及于非美企业。</p>
@@ -1785,7 +1807,7 @@ Best regards,
   </section>
 
   <section class="block" id="sources">
-    <h2>📚 口径与数据来源</h2>
+    <h2>口径与数据来源</h2>
     <div class="note-box">
       <ul>
         <li><b>三层真实时间口径（不猜不估）：</b>① <b>2026 最新月度动态</b>：中国海关总署（GACC）<b>2026 年 1–10 月</b>官方统计 + 联合国 UN Comtrade 各国<b>2026 年最新月度已报 YTD 数据</b>（逐国标注实际截止月份，如 2026.01–09 / 2026.01–08）；② <b>全球年度结构大盘</b>：146 国主表（117 国 UN Comtrade 2025 全年 + 29 国未报 2024*），中国双边占比、前三大供应国及细分工业品同步升级至 <b>UN Comtrade 2025 官方年报</b>；③ <b>每日商机雷达</b>：直连世界银行实时招投标流（IFB/GPN/授标，含官方采购邮箱）+ GDACS 灾害 + 45 天内新鲜新闻。</li>
@@ -1945,8 +1967,8 @@ Best regards,
 
   <!-- Module 3: Typhoon, Disaster & Seasonal Trigger Radar (Heavy focus on Steel Structures + Emergency Bundles) -->
   <section class="block" id="radar-weather">
-    <h2>🌪️ 全球台风灾害 &amp; 季节刚需触发雷达（含钢结构抗风 / 旱季灌溉专包）</h2>
-    <p class="sub">盯准台风登陆路径、雨季/旱季与限电高峰，提前 1–2 个月卡位推送。<b>切记：</b>灾前/灾后重点推给当地<b>工业园区、大型物流仓、钢构工程商、农场/农业合作社与保险理赔修缮商</b>，受灾小厂注意核查现金流防坏账！</p>
+    <h2>灾后与旱季刚需雷达</h2>
+    <p class="sub">覆盖台风抗风加固、灾后抢修与旱季灌溉专包。盯准台风登陆路径、雨季/旱季与限电高峰，提前 1–2 个月卡位推送。<b>切记：</b>灾前/灾后重点推给当地<b>工业园区、大型物流仓、钢构工程商、农场/农业合作社与保险理赔修缮商</b>，受灾小厂注意核查现金流防坏账！</p>
     <div class="card" style="margin-bottom:14px">
       <div style="font-size:13px;font-weight:800;color:var(--brown);margin-bottom:8px">🛰️ 3 大免费全球台风与灾害实时预警入口（建议每周看 1 次）：</div>
       <div class="pills" style="margin-top:0">
@@ -3148,6 +3170,15 @@ if(hFind) hFind.addEventListener("click", function(){ navigateTo("map-scraper");
 var hQuote = document.getElementById("homeBtnQuote");
 if(hQuote) hQuote.addEventListener("click", function(){ navigateTo("quote-calc"); });
 
+/* 商机标题清洗：卡片已用徽章显示预警级别 / 国家时，标题里不再重复；同时清理源数据里的空项逗号 */
+function radarCleanText(t){ return String(t||"").replace(/,(\s*,)+/g, ",").replace(/\s{2,}/g, " ").trim(); }
+function radarTitle(x, opts){
+  opts = opts || {};
+  var t = radarCleanText(x.titleCn || x.title);
+  if(opts.dropSev && x.severityLabel && t.indexOf(x.severityLabel) === 0) t = t.slice(x.severityLabel.length).trim();
+  if(opts.dropCountry) t = t.replace(/^【[^】]{1,24}】\s*/, "");
+  return t || radarCleanText(x.title);
+}
 function renderHomeWorkspace(){
   var kToday = document.getElementById("homeKpiToday");
   if(!kToday) return;
@@ -3175,7 +3206,7 @@ function renderHomeWorkspace(){
     if(!dueItems.length){
       dueBox.innerHTML = crmLeads.length
         ? '<p style="color:var(--muted);margin:6px 0">今天暂无到期或逾期的跟进任务（当前共维护 '+crmLeads.length+' 位客户）。</p>'
-        : '<p style="color:var(--muted);margin:6px 0">还没有客户档案。点上方「＋ 新增客户」，或去「找客户」导入名单后即可自动排程提醒。</p>';
+        : '<div class="home-empty"><div class="home-empty-ico" aria-hidden="true">🗂️</div><b>还没有客户档案</b><span>点「＋ 新增客户」，或先找客户 / 导入名单，系统会按跟进日期自动提醒今天该联系谁。</span><div class="home-empty-acts"><button class="pill" type="button" data-home-jump="map-scraper">地图找客户</button><button class="pill" type="button" data-home-jump="csv-workbench">导入名单</button></div></div>';
     } else {
       var defNext3 = localDateOffsetStr(3);
       dueBox.innerHTML = dueItems.slice(0, 6).map(function(x){
@@ -3229,7 +3260,7 @@ function renderHomeWorkspace(){
         var dtStr = (x.ongoing && x.startDate && x.lastSeenDate) ? ("起于 " + x.startDate + " · 持续至 " + x.lastSeenDate) : (x.date || "");
         return '<div class="'+cls+'">'
           + '<div class="radar-card-head"><span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span><span class="src-ok">'+esc(dtStr)+' · '+esc(x.source||"")+'</span></div>'
-          + '<h3>'+esc(x.titleCn || x.title)+'</h3>'
+          + '<h3>'+esc(radarTitle(x, {dropCountry:true}))+'</h3>'
           + '<div class="rc-meta">建议主推：'+esc(x.productsCn||"")+'</div>'
           + '<div class="rc-acts">'
           + '<button type="button" class="pill" data-home-jump="radar-live">去商机情报处理</button>'
@@ -3746,14 +3777,14 @@ function render(){
     cLeads.forEach(function(l){ var di = followDueInfo(l.nextDate); if(!bestDue || di.prio < bestDue.prio) bestDue = di; });
     var folBadge = cLeads.length ? '<span class="fta-tag" style="background:var(--orange-soft);color:var(--high)">★ '+cLeads.length+'家客户</span>' + (bestDue && bestDue.prio<=1 ? ' <span class="'+bestDue.cls+'">'+esc(bestDue.label)+'</span>' : '') : '';
     var ytdObj = (typeof YTD2026 !== "undefined" && YTD2026[d.country]) ? YTD2026[d.country] : null;
-    var ytdTag = ytdObj && ytdObj.yoy != null ? (' <span class="src-ok" title="2026-01至'+esc(ytdObj.to)+'官方月度进口同比">26·'+(ytdObj.yoy>=0?'+':'')+ytdObj.yoy.toFixed(0)+'%</span>') : '';
+    var ytdTag = ytdObj && ytdObj.yoy != null ? ('<span class="ytd-line" title="2026-01 至 '+esc(ytdObj.to)+' 官方月度进口累计同比">2026 YTD <span class="'+(ytdObj.yoy>=0?'growth-up':'growth-dn')+'">'+(ytdObj.yoy>=0?'+':'')+ytdObj.yoy.toFixed(0)+'%</span></span>') : '';
     html += '<tr class="country-row" data-c="'+esc(d.country)+'">'
       + '<td class="cname-cell" data-label=""><span class="cname">'+esc(CN[d.country]||d.country)+star+compTag(d.country)+ftaBadge+actBadge+folBadge+'<span class="en">'+esc(d.country)+'</span></span></td>'
       + '<td data-label="地区">'+esc(REGION_CN[d.region]||d.region)+'</td>'
       + '<td data-label="进口（'+yrTag+'）"><span class="num">'+fmt(effImpM(d))+'</span> <span class="src-ok">'+(state.scope==="ind" ? (IND[d.country] ? IND[d.country].basis+'·'+yrTag : '全口径·'+yrTag) : yrTag)+'</span>'+ytdTag+'</td>'
       + '<td data-label="出口 HS 84+85"><span class="num">'+fmt(d.exp)+'</span></td>'
       + '<td data-label="HS 84 两年增速">'+g+'</td>'
-      + '<td data-label="中国占比（前32国）">'+(function(){ var ch=CHINA[d.country]; if(!ch||ch.share==null) return '<span class="src-ok">—</span>'; var txt=ch.shareTxt||(ch.share.toFixed(1)+"%"); return (ch.share>=20&&ch.share<=50)? '<span class="share-best">'+txt+'</span>' : '<span class="num">'+txt+'</span>'; })()+'</td>'
+      + '<td data-label="中国占比">'+(function(){ var ch=CHINA[d.country]; if(!ch||ch.share==null) return '<span class="src-ok">—</span>'; var txt=ch.shareTxt||(ch.share.toFixed(1)+"%"); return (ch.share>=20&&ch.share<=50)? '<span class="share-best">'+txt+'</span>' : '<span class="num">'+txt+'</span>'; })()+'</td>'
       + '<td data-label="未来潜力"><span class="badge b-'+d.potential+'">'+(POT_CN[d.potential]||d.potential)+'</span></td>'
       + '<td data-label="适合产品线"><span class="lines">'+esc(codes||d.lines)+'</span></td></tr>';
     if(openCountry===d.country){
@@ -4017,7 +4048,8 @@ window.getRepSignature = function(){
       var stCls="st-off", stTxt="🌙 已下班（发邮件定时）";
       if(isWeekend){ stCls="st-off"; stTxt="🏖️ 当地周末休息"; }
       else if(hh>=9 && hh<18){ stCls="st-open"; stTxt="🟢 上班中（适合 WhatsApp/电话）"; }
-      else if(hh===8 || hh===18){ stCls="st-mid"; stTxt="🟡 刚上班/将下班"; }
+      else if(hh===8){ stCls="st-mid"; stTxt="🟡 即将上班"; }
+      else if(hh===18){ stCls="st-mid"; stTxt="🟡 临近下班"; }
       return '<div class="clock-item"><div class="clock-top"><span>'+z.label+'</span><span>'+wd+'</span></div>'
         + '<div class="clock-time">'+timeStr+'</div><div class="clock-st '+stCls+'">'+stTxt+'</div></div>';
     }).join("");
@@ -4097,6 +4129,7 @@ window.getRepSignature = function(){
           badge.textContent = "🟢 实时汇率已更新（open.er-api · " + upd + "）";
           try { localStorage.setItem("friesgo_fx_cache", JSON.stringify({rates:ratesUsd, ts:upd})); } catch(e){}
           renderFx();
+          autoSyncQuoteFx();
           if(notify) showToast("已刷新 17 国实时汇率（USD/CNY = " + ratesUsd.CNY.toFixed(4) + "）");
         } else throw new Error("bad data");
       })
@@ -4108,13 +4141,14 @@ window.getRepSignature = function(){
               Object.keys(j2.rates).forEach(function(k){ if(ratesUsd[k]!=null) ratesUsd[k] = j2.rates[k]; });
               badge.textContent = "🟢 欧洲央行参考汇率（" + (j2.date||"最新") + "，其余用内置基准）";
               renderFx();
+              autoSyncQuoteFx();
               if(notify) showToast("已刷新主流币种参考汇率");
             } else throw new Error("fail2");
           })
           .catch(function(){
             try {
               var cached = JSON.parse(localStorage.getItem("friesgo_fx_cache") || "null");
-              if(cached && cached.rates){ ratesUsd = Object.assign(ratesUsd, cached.rates); badge.textContent = "🟡 缓存汇率（" + (cached.ts||"上次在线") + "）"; renderFx(); return; }
+              if(cached && cached.rates){ ratesUsd = Object.assign(ratesUsd, cached.rates); badge.textContent = "🟡 缓存汇率（" + (cached.ts||"上次在线") + "）"; renderFx(); autoSyncQuoteFx(); return; }
             } catch(e){}
             badge.textContent = "🟡 离线参考汇率（联网后点右侧刷新）";
             renderFx();
@@ -4134,6 +4168,20 @@ window.getRepSignature = function(){
     if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function(){ showToast("已复制汇率换算结果"); });
     else showToast(txt);
   });
+  // 报价器的「核算汇率」默认值是静态占位（7.15）；拿到实时/缓存汇率后，若业务员尚未手动改过，自动换成安全结汇价，避免按过时汇率算利润
+  var qcFxTouched = false;
+  window.friesgoMarkQuoteFxTouched = function(){ qcFxTouched = true; };
+  (function(){ var q = document.getElementById("qcFx"); if(q) q.addEventListener("input", function(e){ if(e.isTrusted) qcFxTouched = true; }); })();
+  function autoSyncQuoteFx(){
+    var q = document.getElementById("qcFx");
+    if(!q || qcFxTouched || !ratesUsd.CNY) return;
+    var buf = Math.max(0, parseFloat(document.getElementById("fxBuf").value) || 0);
+    var safe = Math.max(1, ratesUsd.CNY - buf).toFixed(2);
+    if(q.value === safe) return;
+    q.value = safe;
+    q.dispatchEvent(new Event("input"));
+  }
+  window.friesgoAutoSyncQuoteFx = autoSyncQuoteFx;
   document.getElementById("btnSyncFxToQuote").addEventListener("click", function(){
     var buf = Math.max(0, parseFloat(document.getElementById("fxBuf").value) || 0);
     var safeRate = Math.max(1, (ratesUsd.CNY || 7.22) - buf);
@@ -4149,6 +4197,10 @@ window.getRepSignature = function(){
     var card = e.target.closest("[data-fxpick]"); if(!card) return;
     fxFrom.value = "USD"; fxTo.value = card.getAttribute("data-fxpick"); renderFx();
   });
+  try {
+    var bootCache = JSON.parse(localStorage.getItem("friesgo_fx_cache") || "null");
+    if(bootCache && bootCache.rates && bootCache.rates.CNY) ratesUsd = Object.assign(ratesUsd, bootCache.rates);
+  } catch(e){}
   renderFx();
   fetchLiveRates(false);
 })();
@@ -4674,6 +4726,7 @@ window.getRepSignature = function(){
       setVal("qcUnitName", quoteSnap.unitName);
       if(quoteSnap.rebPct != null) setVal("qcRebate", quoteSnap.rebPct);
       setVal("qcFx", quoteSnap.fx);
+      if(window.friesgoMarkQuoteFxTouched) window.friesgoMarkQuoteFxTouched();
       setVal("qcMargin", quoteSnap.marginPct);
       if(quoteSnap.locRmb != null) setVal("qcLocalRmb", quoteSnap.locRmb);
       if(quoteSnap.freightUsd != null) setVal("qcFreightUsd", quoteSnap.freightUsd);
@@ -5369,7 +5422,7 @@ window.getRepSignature = function(){
         recEn = nHq2 + " x 40'HQ";
       }
     }
-    var tp = totCbm <= 0 ? "— 待录入货物" : "🟢 黄金配重（体积重量均衡）", warn = totCbm <= 0 ? "请点击「+ 增加一个拼柜品名」录入箱规" : "实装容积与航线限重均安全";
+    var tp = totCbm <= 0 ? "— 待录入货物" : "🟢 黄金配重（体积重量均衡）", warn = totCbm <= 0 ? "请点击「➕ 增加一个拼柜品名」录入箱规" : "实装容积与航线限重均安全";
     if(isSpecialOog){ tp = "🔴 超尺特种柜预警（OOG）"; warn = "普通干柜门框塞不下，发货前务必向货代核价开顶柜/框架柜！"; }
     else if(dens > (routeMode==="useu"?780:950)){ tp = "🟠 重货预警（先达航线限重）"; warn = "密度 "+Math.round(dens)+" kg/CBM（"+(routeMode==="useu"?"欧美限重严格，20'GP≤19t":"20'GP≤26t")+"），切勿硬塞 40HQ，建议 20'GP 或混装轻泡品！"; }
     else if(dens > 0 && dens < 300){ tp = "🔵 泡货提示（先满实装体积）"; warn = "密度 "+Math.round(dens)+" kg/CBM，优先选 40'HQ 高柜（实装约 "+cap40HqVol+" CBM）摊薄海运费"; }
@@ -5490,7 +5543,8 @@ window.getRepSignature = function(){
     ["钢结构 / 预制钢构厂房","730890","Steel structures & prefabricated steel buildings","核实最新退税"],
     ["工业阀门（闸/球/蝶阀等）","848180","Industrial valves (gate/ball/butterfly)","13%（参考）"],
     ["离心水泵 / 液体泵","841370","Centrifugal pumps for liquids","13%（参考）"],
-    ["空气压缩机 / 风机","841480","Air compressors & industrial fans","13%（参考）"],
+    ["空气压缩机（螺杆/活塞）","841480","Air compressors (screw / piston)","13%（参考）"],
+    ["工业风机","841459","Industrial fans & blowers","13%（参考）"],
     ["电力与控制电缆（≤1000V）","854449","Electric conductors / power cables","13%（参考）"],
     ["多相交流工业电机","850152","AC multi-phase electric motors","13%（参考）"],
     ["配电变压器","850421","Liquid dielectric transformers","13%（参考）"],
@@ -6430,7 +6484,10 @@ window.getRepSignature = function(){
   function updateAgentPitch(){
     var c = raSel.value, cat = document.getElementById("raCat").value, lang = document.getElementById("raLang").value;
     var ch = document.getElementById("raChannel").value;
-    var nm = document.getElementById("raTargetName").value.trim() || "there";
+    var nmRaw = document.getElementById("raTargetName").value.trim();
+    // 未填称呼时：英文用 "there"，其他语种直接省略称呼，避免出现 "Chào Anh/Chị there" 这类中英混杂
+    var nm = nmRaw || (lang === "en" ? "there" : "");
+    var ptLoc = ({Brazil:"no Brasil", Portugal:"em Portugal", Angola:"em Angola", Mozambique:"em Moçambique"})[c] || ("em " + c);
     var sig = repSig();
     var P = {
       en: {
@@ -6454,15 +6511,17 @@ window.getRepSignature = function(){
         detail: "Asunto: Oportunidad de Representante Comercial Independiente (Comisión B2B) en " + c + " | FriesGo Global\n\nHola " + nm + ",\n\nSomos FriesGo Global, proveedor industrial en China especializado en " + cat + ". Buscamos socios comerciales independientes en " + c + " bajo esquema 100% comisión (sin salario base ni horario fijo, ideal para monetizar tu red actual de fábricas, contratistas EPC y distribuidores):\n• Comisión escalonada competitiva según categoría y volumen (sin tope, a definir según línea)\n• Respaldo total desde China: cotizaciones FOB/CIF en 24h, fichas técnicas y consolidación en contenedor\n• Acuerdo de agencia independiente con registro y protección de tus clientes; pago ágil de comisión al cobrarse la orden\n\nSi te interesa, respóndeme o compárteme tu WhatsApp para enviarte nuestro resumen de 1 página.\n\nSaludos,\n" + sig
       },
       pt: {
-        short: "Olá " + nm + ", vi sua experiência em vendas industriais no Brasil. Somos a FriesGo Global (fornecedora da China de " + cat + ") e buscamos representantes comerciais independentes sob comissão (horário livre, sem estoque, comissão escalonada sem teto). Topa uma conversa rápida?",
-        detail: "Assunto: Parceria Comercial Independente (Comissão B2B) no Brasil | FriesGo Global\n\nOlá " + nm + ",\n\nA FriesGo Global fornece " + cat + " diretamente da China. Estamos expandindo no Brasil com representantes comerciais independentes 100% comissionados (sem vínculo empregatício, ideal para rentabilizar sua carteira atual de indústrias, construtoras e distribuidores):\n• Comissão escalonada competitiva conforme categoria e volume (definida de forma transparente)\n• Suporte completo da equipe na China: cotações FOB/CIF em 24h, catálogos técnicos e consolidação de carga\n• Contrato de representação independente protegendo seus clientes cadastrados, com pagamento após liquidação do pedido\n\nSe tiver interesse, envie seu WhatsApp para receber nosso resumo.\n\nAtenciosamente,\n" + sig
+        short: "Olá " + nm + ", vi sua experiência em vendas industriais " + ptLoc + ". Somos a FriesGo Global (fornecedora da China de " + cat + ") e buscamos representantes comerciais independentes sob comissão (horário livre, sem estoque, comissão escalonada sem teto). Topa uma conversa rápida?",
+        detail: "Assunto: Parceria Comercial Independente (Comissão B2B) " + ptLoc + " | FriesGo Global\n\nOlá " + nm + ",\n\nA FriesGo Global fornece " + cat + " diretamente da China. Estamos expandindo " + ptLoc + " com representantes comerciais independentes 100% comissionados (sem vínculo empregatício, ideal para rentabilizar sua carteira atual de indústrias, construtoras e distribuidores):\n• Comissão escalonada competitiva conforme categoria e volume (definida de forma transparente)\n• Suporte completo da equipe na China: cotações FOB/CIF em 24h, catálogos técnicos e consolidação de carga\n• Contrato de representação independente protegendo seus clientes cadastrados, com pagamento após liquidação do pedido\n\nSe tiver interesse, envie seu WhatsApp para receber nosso resumo.\n\nAtenciosamente,\n" + sig
       },
       ar: {
         short: "مرحباً " + nm + "، اطلعت على خبرتك في المبيعات الصناعية في " + c + ". نحن شركة FriesGo Global (مورد معدات صناعية متكاملة من الصين: " + cat + ") ونبحث عن شركاء مبيعات مستقلين بنظام العمولة فقط بدون دوام ثابت أو مخزون. هل يناسبك حديث قصير؟",
-        detail: "الموضوع: فرصة شراكة تجارية مستقلة بنظام العمولة في " + c + " | FriesGo Global\n\nالأستاذ/الأستاذة " + nm + "،\n\nشركة FriesGo Global متخصصة في توريد " + cat + " مباشرة من الصين. نبحث عن وكلاء وشركاء مبيعات مستقلين في " + c + " بنظام العمولة التنافسية (بدون راتب ثابت وبدون التزام بدوام):\n• استثمر شبكة علاقاتك مع المصانع والمقاولين وشركات EPC في " + c + "\n• عمولات تصاعدية مجزية حسب الفئة وحجم الطلب (تُحدد بشفافية عند التواصل)\n• دعم فني وتسعير FOB/CIF خلال 24 ساعة من فريقنا في الصين\n• اتفاقية وكالة مستقلة تحمي عملاءك المسجلين، مع صرف العمولة فور تحصيل كامل قيمة الطلب\n\nإذا كنت مهتماً، أرسل رقم واتساب الخاص بك لنرسل لك ملخص الشراكة.\n\nتحياتنا,\n" + sig
+        detail: "الموضوع: فرصة شراكة تجارية مستقلة بنظام العمولة في " + c + " | FriesGo Global\n\nالأستاذ/الأستاذة " + nm + "،\n\nشركة FriesGo Global متخصصة في توريد " + cat + " مباشرة من الصين. نبحث عن وكلاء وشركاء مبيعات مستقلين في " + c + " بنظام العمولة التنافسية (بدون راتب ثابت وبدون التزام بدوام):\n• استثمر شبكة علاقاتك مع المصانع والمقاولين وشركات EPC في " + c + "\n• عمولات تصاعدية مجزية حسب الفئة وحجم الطلب (تُحدد بشفافية عند التواصل)\n• دعم فني وتسعير FOB/CIF خلال 24 ساعة من فريقنا في الصين\n• اتفاقية وكالة مستقلة تحمي عملاءك المسجلين، مع صرف العمولة فور تحصيل كامل قيمة الطلب\n\nإذا كنت مهتماً، أرسل رقم واتساب الخاص بك لنرسل لك ملخص الشراكة.\n\nتحياتنا،\n" + sig
       }
     };
-    document.getElementById("raPitchOut").textContent = (P[lang] || P.en)[ch];
+    var pitch = (P[lang] || P.en)[ch];
+    if(!nm) pitch = pitch.replace(/ +([,，،])/g, "$1").replace(/ {2,}/g, " ");
+    document.getElementById("raPitchOut").textContent = pitch;
   }
   raSel.addEventListener("change", updateAgentFinder);
   ["raCat","raLang","raChannel","raTargetName"].forEach(function(id){
@@ -7371,7 +7430,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
           + (x.deadline ? ('<span><b>截标日：</b><span class="mx-warn">'+esc(x.deadline)+'</span></span>') : '')
           + '</div>')
         : '';
-      var origLine = (x.title && x.title !== x.titleCn) ? ('<div style="font-size:11.5px;color:var(--muted);margin-top:2px">'+esc(x.title)+'</div>') : '';
+      var origLine = (x.title && x.title !== x.titleCn && x.titleCn && radarTitle(x,{dropSev:true,dropCountry:true}) !== radarCleanText(x.title)) ? ('<div style="font-size:11.5px;color:var(--muted);margin-top:2px">'+esc(radarCleanText(x.title))+'</div>') : '';
       var isDrought = x.hazardType === "DR" || /drought|干旱/i.test((x.title||"")+" "+(x.titleCn||""));
       var dateMeta = (x.ongoing && x.startDate && x.lastSeenDate)
         ? ("起于 " + x.startDate + " · 持续至 " + x.lastSeenDate)
@@ -7379,7 +7438,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var emBtnLbl = x.cat === "weather" ? (isDrought ? "抗旱灌溉话术" : "抢修话术") : "载入开发信";
       return '<div class="'+cls+'">'
         + '<div class="radar-card-head">'+sevBadge+'<span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span><span class="src-ok">'+esc(dateMeta)+' · '+esc(x.source||"")+'</span></div>'
-        + '<h3>'+esc(x.titleCn || x.title)+'</h3>'
+        + '<h3>'+esc(radarTitle(x, {dropSev:true, dropCountry:true}))+'</h3>'
         + origLine
         + '<div class="rc-meta">'+entLine+contactLine+'<div><b>建议主推：</b>'+esc(x.productsCn||"")+'</div></div>'
         + '<div class="rc-angle">'+esc(x.angleCn||"")+'</div>'
