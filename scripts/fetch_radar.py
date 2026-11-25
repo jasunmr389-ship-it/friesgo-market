@@ -1035,17 +1035,53 @@ def fetch_news_rss():
     return items, (ok_queries > 0), last_err
 
 
-def enrich_with_gemini(items):
-    """Optionally translate English titles & extract concise Chinese B2B angles via free Gemini API."""
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if not api_key or not items:
+def enrich_with_gemini(items, prev_items=None):
+    """Translate English titles & extract concise Chinese B2B angles via Gemini API, reusing cached translations from prev_items."""
+    if not items:
         return False
 
-    # Prioritize English loan, power-crisis (PW), and news items
+    # 1. Reuse already-verified AI translations from previous feed for unchanged items (prevents 503 regression & cuts API quota by ~85%)
+    reused_cnt = 0
+    if prev_items:
+        prev_by_key = {}
+        for p in prev_items:
+            if isinstance(p, dict) and p.get("aiFields"):
+                if p.get("id") and str(p["id"]).startswith("wb_"):
+                    prev_by_key[("id", p["id"])] = p
+                if p.get("url") and p.get("title"):
+                    prev_by_key[("ut", p["url"], p["title"])] = p
+        for it in items:
+            matched = None
+            if it.get("id") and str(it["id"]).startswith("wb_"):
+                matched = prev_by_key.get(("id", it["id"]))
+            if not matched and it.get("url") and it.get("title"):
+                matched = prev_by_key.get(("ut", it["url"], it["title"]))
+            if matched:
+                copied_fields = []
+                if "titleCn" in (matched.get("aiFields") or []) and matched.get("titleCn"):
+                    it["titleCn"] = clean_text(matched["titleCn"]).replace("！", "")
+                    copied_fields.append("titleCn")
+                if it.get("cat") != "loan" and "angleCn" in (matched.get("aiFields") or []) and matched.get("angleCn"):
+                    it["angleCn"] = clean_text(matched["angleCn"]).replace("！", "，").replace("实盘", "").strip("， ")
+                    copied_fields.append("angleCn")
+                if not it.get("entity") and "entity" in (matched.get("aiFields") or []) and matched.get("entity"):
+                    v_ent = _verify_ai_entity(matched["entity"], it)
+                    if v_ent:
+                        it["entity"] = v_ent
+                        copied_fields.append("entity")
+                if copied_fields:
+                    it["aiFields"] = copied_fields
+                    reused_cnt += 1
+
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return reused_cnt > 0
+
+    # 2. Only send items that STILL need translation to Gemini
     targets = []
     for cat_prio in ("loan", "weather", "news"):
         for idx, it in enumerate(items):
-            if it["cat"] != cat_prio:
+            if it["cat"] != cat_prio or it.get("aiFields"):
                 continue
             if cat_prio == "weather" and it.get("hazardType") != "PW":
                 continue
@@ -1060,19 +1096,20 @@ def enrich_with_gemini(items):
                     "amount": it["amount"],
                 })
     if not targets:
+        if reused_cnt > 0:
+            print(f"[INFO] Reused {reused_cnt} cached Gemini translations; 0 new items needed API call.")
         return True
 
     import time
     endpoints = [
         ("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent", {"x-goog-api-key": api_key}),
-        ("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent", {"x-goog-api-key": api_key}),
         ("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {"x-goog-api-key": api_key}),
-        ("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {"x-goog-api-key": api_key}),
+        ("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent", {"x-goog-api-key": api_key}),
+        ("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent", {"x-goog-api-key": api_key}),
     ]
 
     enriched_total = 0
     working_ep = None
-    # Process in clean batches of 16 with polite pause so free-tier RPM/timeout never drops batch 2
     for start in range(0, len(targets), 16):
         if start > 0:
             time.sleep(4)
@@ -1097,7 +1134,7 @@ def enrich_with_gemini(items):
                 break
             except Exception as e_ep:
                 print(f"[WARN] Gemini endpoint failed ({ep_url.split('?')[0]}): {e_ep}")
-                time.sleep(2)
+                time.sleep(3)
         if not resp_txt:
             continue
         try:
@@ -1124,13 +1161,13 @@ def enrich_with_gemini(items):
                             else:
                                 print(f"[CLEAN] Dropped unverified AI entity: {obj.get('entity')!r}")
                         if ai_fields:
-                            items[i]["aiFields"] = ai_fields  # 整改：标注哪些字段由 AI 生成，网页据此加「AI」标签
+                            items[i]["aiFields"] = ai_fields
                         enriched_total += 1
         except Exception as e_parse:
             print(f"[WARN] Gemini batch parse failed: {e_parse}")
 
-    if enriched_total > 0:
-        print(f"[INFO] Gemini enriched {enriched_total} items successfully.")
+    if enriched_total > 0 or reused_cnt > 0:
+        print(f"[INFO] Gemini enriched {enriched_total} new items + reused {reused_cnt} cached items.")
         return True
     return False
 
@@ -1389,7 +1426,7 @@ def main():
         # 整改：三个来源全部失败时不覆盖旧数据，并让 Actions 任务失败（GitHub 会发邮件提醒）
         print("[ERROR] All sources failed; keeping previous feed untouched.")
         raise SystemExit(1)
-    ai_used = enrich_with_gemini(all_items)
+    ai_used = enrich_with_gemini(all_items, prev_items)
 
     feed = {
         "updatedIso": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1423,7 +1460,10 @@ def main():
     os.replace(tmp_js, JS_OUT)
 
     print(f"[SUCCESS] Wrote {len(all_items)} items to {JSON_OUT} and {JS_OUT}")
-    push_notifications(feed)
+    if os.environ.get("SKIP_PUSH", "").strip().lower() in ("1", "true", "yes"):
+        print("[INFO] SKIP_PUSH=true: skipping WeChat/webhook morning brief push.")
+    else:
+        push_notifications(feed)
 
 
 if __name__ == "__main__":

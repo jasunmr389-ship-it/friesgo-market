@@ -5,6 +5,11 @@ on:
     # Runs every day at 00:00 UTC (08:00 Beijing Time)
     - cron: "0 0 * * *"
   workflow_dispatch:
+    inputs:
+      skip_notify:
+        description: "仅刷新网站数据，不推送微信早报"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -28,6 +33,7 @@ jobs:
 
       - name: Fetch live global typhoons, World Bank projects & EPC/financing leads
         env:
+          SKIP_PUSH: ${{ github.event.inputs.skip_notify || 'false' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           WX_APP_ID: ${{ secrets.WX_APP_ID }}
           WX_APP_SECRET: ${{ secrets.WX_APP_SECRET }}

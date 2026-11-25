@@ -2,7 +2,7 @@
   "updatedIso": "2026-11-25T14:32:21Z",
   "updatedCn": "2026-11-25 22:32 北京时间",
   "updatedDate": "2026-11-25",
-  "aiEnriched": false,
+  "aiEnriched": true,
   "sourcesStatus": {
     "gdacs": {
       "ok": true,
@@ -900,7 +900,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Construction of Dhobley District Livestock and Agriculture markets, Jubaland State of Somalia",
-      "titleCn": "【Eastern and Southern Africa】Construction of Dhobley District Livestock and Agriculture markets, Jubaland State of Somalia",
+      "titleCn": "索马里朱巴兰农牧市场建设",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Food Systems Resilience Program for Eastern and Southern Africa (Phase ｜ 官方邮箱：moajsslj@gmail.com ｜ 截标日期：2026-12-20 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Ministry of Agriculture and Irrigation - Jubbaland State",
@@ -910,7 +910,10 @@
       "productsEn": "agricultural machinery, irrigation pumps, cold-storage steel structures & tools",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（农业机械、光伏/柴油灌溉泵、钢构粮仓/冷库 & 维修工具）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482404"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482404",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482141",
@@ -929,7 +932,7 @@
       "origNoticeDate": "",
       "procGroup": "NC",
       "title": "Supply, installation and Implantation of Commercial off-the-shelf system (COTS) Tax Administration System",
-      "titleCn": "【West Bank and Gaza】Supply, installation and Implantation of Commercial off-the-shelf system (COTS) Tax Administration System",
+      "titleCn": "巴勒斯坦税务系统商业化设备采购",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Public Financial Management Improvement Project Phase 2 ｜ 官方邮箱：pfmi.bids@pmof.ps ｜ 截标日期：2027-01-11 ｜ 采购类别：非咨询服务",
       "amount": "",
       "entity": "Palestinian Authority-Ministry of Finance and Planning",
@@ -939,7 +942,10 @@
       "productsEn": "industrial valves, pumps, power cables & structural hardware",
       "angleCn": "先下载招标文件核对资格门槛，再决定直接投标还是经当地代理/承包商配套供货（工业泵阀、电力电缆、钢结构与工业五金配套）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482141"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482141",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00481999",
@@ -958,7 +964,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Equipment for Antibiotics, Antiviral Drugs and Their Metabolites Detection in Wastewater.（2.4）",
-      "titleCn": "【China】Equipment for Antibiotics, Antiviral Drugs and Their Metabolites Detection in Wastewater.（2.4）",
+      "titleCn": "海南废水抗生素检测设备采购",
       "summary": "类型：Invitation for Bids ｜ 所属项目：China Emerging Infectious Diseases Prevention, Preparedness and Respon ｜ 官方邮箱：wjwquanjiankang@163.com ｜ 截标日期：2026-12-29 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "Hainan Provincial Disease Control Bureau",
@@ -968,7 +974,10 @@
       "productsEn": "industrial waterworks valves, heavy-duty pumps, pipe fittings & control panels",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（工业阀门、离心/排涝水泵、管道法兰 & 控制柜）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00481999"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00481999",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482131",
@@ -987,7 +996,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "RÉALISATION DES POINTS D’EAU (MINI-ADDUCTION EN EAU POTABLE À ÉNERGIE SOLAIRE, FORAGES) DANS LES COMMUNES (MORA ET WAZA) DANS LES DE...",
-      "titleCn": "【喀麦隆】RÉALISATION DES POINTS D’EAU (MINI-ADDUCTION EN EAU POTABLE À ÉNERGIE SOLAIRE, FORAGES) DANS LES COMMUNES (MORA ET WAZA) DANS LES DE...",
+      "titleCn": "喀麦隆太阳能供水及钻井工程",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Enhancing Connectivity and Resilience in the Far North of Cameroon for ｜ 官方邮箱：alhadjimagra@yahoo.fr ｜ 截标日期：2026-12-17 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "MINISTRY OF ECONOMY, PLANNING AND REGIONAL DEVELOPMENT",
@@ -997,7 +1006,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482131"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482131",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482039",
@@ -1016,7 +1028,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Civil Works for Material Bank at 09 (nine) locations (Barnagar, Dergaon, Golaghat, Khumtai, Ujoni Majuli, Dhakuakhana, Nowboicha, Na...",
-      "titleCn": "【印度】Civil Works for Material Bank at 09 (nine) locations (Barnagar, Dergaon, Golaghat, Khumtai, Ujoni Majuli, Dhakuakhana, Nowboicha, Na...",
+      "titleCn": "印度阿萨姆邦九处物资库土建工程",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Assam Integrated River Basin Management Program ｜ 官方邮箱：piu.asdma.proc@gmail.com ｜ 截标日期：2026-11-25 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Assam Disaster Risk Management Agency",
@@ -1026,7 +1038,10 @@
       "productsEn": "steel structures, construction hardware, industrial pumps/valves & power cables",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482039"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482039",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482120",
@@ -1045,7 +1060,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "RÉALISATION DES POINTS D’EAU (MINI-ADDUCTION EN EAU POTABLE À ÉNERGIE SOLAIRE, FORAGES) DANS LES COMMUNES (KOUSSERI, MAKARY ET LOGON...",
-      "titleCn": "【喀麦隆】RÉALISATION DES POINTS D’EAU (MINI-ADDUCTION EN EAU POTABLE À ÉNERGIE SOLAIRE, FORAGES) DANS LES COMMUNES (KOUSSERI, MAKARY ET LOGON...",
+      "titleCn": "喀麦隆多地太阳能供水工程",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Enhancing Connectivity and Resilience in the Far North of Cameroon for ｜ 官方邮箱：alhadjimagra@yahoo.fr ｜ 截标日期：2026-12-16 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "MINISTRY OF ECONOMY, PLANNING AND REGIONAL DEVELOPMENT",
@@ -1055,7 +1070,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482120"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482120",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "news_0",
@@ -1070,15 +1088,19 @@
       "date": "2026-11-25",
       "ageDays": 0,
       "title": "AfDB and EBRD set out a shared vision for a stronger partnership across Africa",
-      "titleCn": "AfDB and EBRD set out a shared vision for a stronger partnership across Africa",
+      "titleCn": "全球新兴市场：非行与欧开行深化非洲合作",
       "summary": "来源：African Development Bank Group",
       "amount": "",
       "entity": "",
       "productsCn": "工业泵阀、电力电缆、钢结构与工业五金配套",
       "productsEn": "industrial valves, pumps, power cables & structural hardware",
-      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 工业泵阀、电力电缆、钢结构与工业五金配套",
+      "angleCn": "宏观基建风向，提前布局非洲基础设施项目。",
       "source": "African Development Bank Group",
-      "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxQMUlmZzNacHBuNFNwNHhJR095aU1VMy14N2VsQVU0STZxNTR5Skx1UXFyVExLMVA2cWJibzIycVhfOUR0ZkVWbEd2ZGZja1JoYmxBZk9hMHNTY041aEJuelNBdFgxSmdtMXZOX29GU09qcFlRTFQ5ZUtvdVB2c3B4Mk9teWxIMkUxelV4bmdiRV9ydlhvSjh4SXhndHdVM3FkbzVV?oc=5"
+      "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxQMUlmZzNacHBuNFNwNHhJR095aU1VMy14N2VsQVU0STZxNTR5Skx1UXFyVExLMVA2cWJibzIycVhfOUR0ZkVWbEd2ZGZja1JoYmxBZk9hMHNTY041aEJuelNBdFgxSmdtMXZOX29GU09qcFlRTFQ5ZUtvdVB2c3B4Mk9teWxIMkUxelV4bmdiRV9ydlhvSjh4SXhndHdVM3FkbzVV?oc=5",
+      "aiFields": [
+        "titleCn",
+        "angleCn"
+      ]
     },
     {
       "id": "news_1",
@@ -1162,15 +1184,19 @@
       "date": "2026-11-23",
       "ageDays": 2,
       "title": "ADB Supports the Kyrgyz Republic's First Utility-Scale Floating Solar Photovoltaic Power Plant",
-      "titleCn": "ADB Supports the Kyrgyz Republic's First Utility-Scale Floating Solar Photovoltaic Power Plant",
+      "titleCn": "吉尔吉斯斯坦首个水上光伏电站获亚行支持",
       "summary": "来源：Asian Development Bank",
       "amount": "",
       "entity": "",
       "productsCn": "电力电缆、配电变压器、开关柜 & 柴油发电机组",
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
-      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 电力电缆、配电变压器、开关柜 & 柴油发电机组",
+      "angleCn": "切入浮体支架钢结构、电缆及水泵产品供应。",
       "source": "Asian Development Bank",
-      "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxPbHpYNUgzdzZHV3pUWWlqOWtnRG9jbm0ydDlITkVXZ3ZiN09QRmNWVDNsUnRmbTYtaU50VWc5NFRJcVI5dHUybW1oamZoZzBUM1o1cHFKZE9zLWdoVGxxdWZ5SzZ0TTdWTHFweU1oZlVqam15Nmx2R1hqTEx1RjRiV0lSTUkyRVZkVThFWU5UdzhLcU8tZk5ETzZLSkU2NkUtQWhwZ1paV3RSOThpY3JmQms1NnA?oc=5"
+      "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxPbHpYNUgzdzZHV3pUWWlqOWtnRG9jbm0ydDlITkVXZ3ZiN09QRmNWVDNsUnRmbTYtaU50VWc5NFRJcVI5dHUybW1oamZoZzBUM1o1cHFKZE9zLWdoVGxxdWZ5SzZ0TTdWTHFweU1oZlVqam15Nmx2R1hqTEx1RjRiV0lSTUkyRVZkVThFWU5UdzhLcU8tZk5ETzZLSkU2NkUtQWhwZ1paV3RSOThpY3JmQms1NnA?oc=5",
+      "aiFields": [
+        "titleCn",
+        "angleCn"
+      ]
     },
     {
       "id": "news_5",
@@ -1185,15 +1211,19 @@
       "date": "2026-11-24",
       "ageDays": 1,
       "title": "ADB approves financing for 15-MW floating solar project in Kyrgyzstan",
-      "titleCn": "ADB approves financing for 15-MW floating solar project in Kyrgyzstan",
+      "titleCn": "吉尔吉斯斯坦15兆瓦水上光伏项目获批",
       "summary": "来源：Renewables Now",
       "amount": "",
       "entity": "",
       "productsCn": "电力电缆、配电变压器、开关柜 & 柴油发电机组",
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
-      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 电力电缆、配电变压器、开关柜 & 柴油发电机组",
+      "angleCn": "紧盯电站建设商，推销特种电缆与支架。",
       "source": "Renewables Now",
-      "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOb2sxV0lDUXBsTVA4SmZudncyQWt1YTc2THNYUTNLMkNoVUY0TE1FcWdhU3NBNVkzOXpFOTZBY0dGTXpsNlo4Q1pPWERNRF95SFJJY3FzVHcyYzJSQUpLZGZWdk1fdlRKaWNpOUdYTUlueWZDYW5oSXNNQTZsbUVDMWFfZklmMGNlUnJXT3JvQUM1aHJiUEE0V2pVNFVHeXRpT01MWlhzd2c4N3J0elE?oc=5"
+      "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOb2sxV0lDUXBsTVA4SmZudncyQWt1YTc2THNYUTNLMkNoVUY0TE1FcWdhU3NBNVkzOXpFOTZBY0dGTXpsNlo4Q1pPWERNRF95SFJJY3FzVHcyYzJSQUpLZGZWdk1fdlRKaWNpOUdYTUlueWZDYW5oSXNNQTZsbUVDMWFfZklmMGNlUnJXT3JvQUM1aHJiUEE0V2pVNFVHeXRpT01MWlhzd2c4N3J0elE?oc=5",
+      "aiFields": [
+        "titleCn",
+        "angleCn"
+      ]
     },
     {
       "id": "news_6",
@@ -1254,15 +1284,19 @@
       "date": "2026-11-24",
       "ageDays": 1,
       "title": "Northern Vietnam city breaks ground on four port berths, rare earth processing plant",
-      "titleCn": "Northern Vietnam city breaks ground on four port berths, rare earth processing plant",
+      "titleCn": "越南北部城市开工四处港口及稀土厂",
       "summary": "来源：Theinvestor",
       "amount": "",
       "entity": "",
       "productsCn": "基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具",
       "productsEn": "steel structures, construction hardware, industrial pumps/valves & power cables",
-      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具",
+      "angleCn": "全力跟进港口钢结构、起重机械及水泵阀门。",
       "source": "Theinvestor",
-      "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxQampsZWM5Z3dQWTRHTzdvODM0WThZbHZNQVZNbGJxck1iVEpqYkdvUkQ2WmVWeWZIUTNMMWN4ZlJqQmh0dmFJUnIxclBQanVYOFI2dzhYVW1SMjYyUS1EdTdiWml2NHNqTGpEd0d4UHFQTkFSNS1fbUhDZ2V0aURWY1EzNHJrX1A3anBOR2VsTXVLV1dOSTJrYmMzZ3hvcHY4Ym5lRDBlRmptajg5SnhReXV1OHd2NDZfTnc?oc=5"
+      "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxQampsZWM5Z3dQWTRHTzdvODM0WThZbHZNQVZNbGJxck1iVEpqYkdvUkQ2WmVWeWZIUTNMMWN4ZlJqQmh0dmFJUnIxclBQanVYOFI2dzhYVW1SMjYyUS1EdTdiWml2NHNqTGpEd0d4UHFQTkFSNS1fbUhDZ2V0aURWY1EzNHJrX1A3anBOR2VsTXVLV1dOSTJrYmMzZ3hvcHY4Ym5lRDBlRmptajg5SnhReXV1OHd2NDZfTnc?oc=5",
+      "aiFields": [
+        "titleCn",
+        "angleCn"
+      ]
     },
     {
       "id": "news_9",
