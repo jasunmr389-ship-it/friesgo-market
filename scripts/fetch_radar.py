@@ -421,10 +421,11 @@ def fetch_gdacs():
         type_cn = {
             "TC": "🌀 热带气旋 / 台风",
             "FL": "🌊 洪涝灾害",
-            "EQ": "🌋 强地震",
+            "EQ": "🌋 强震预警",
             "DR": "☀️ 干旱预警",
             "VO": "🌋 火山",
-            "WF": "🔥 山火",
+            "WF": "🔥 山火预警",
+            "PW": "⚡ 电网限电/能源危机",
         }
         level_rank = {"Red": 0, "Orange": 1, "Green": 2}
         level_cn = {"Red": "🔴 红色高危", "Orange": "🟠 橙色预警", "Green": "🟢 常规关注"}
@@ -440,11 +441,25 @@ def fetch_gdacs():
             country_raw = clean_text(it.findtext("gdacs:country", "", ns))
             pop_raw = clean_text(it.findtext("gdacs:population", "", ns))
 
-            # Prioritize typhoons, floods, earthquakes, droughts; skip minor green EQ/WF
-            if alert == "Green" and ev_type not in ("TC", "FL", "DR"):
-                continue
+            # Parse earthquake magnitude if EQ
+            eq_mag = 0.0
+            if ev_type == "EQ":
+                m_mag = re.search(r"\bM\s*(\d+(?:\.\d+)?)\b|Magnitude\s*(\d+(?:\.\d+)?)", title + " " + desc, re.I)
+                if m_mag:
+                    try:
+                        eq_mag = float(m_mag.group(1) or m_mag.group(2))
+                    except Exception:
+                        eq_mag = 0.0
 
-            # Parse date cleanly and skip stale alerts (>180d for droughts, >35d for green alerts)
+            # Keep TC/FL/DR, Red/Orange WF/EQ, and populated >=6.0M earthquakes; drop minor noise
+            if alert == "Green":
+                if ev_type == "EQ":
+                    if eq_mag < 6.0:
+                        continue
+                elif ev_type not in ("TC", "FL", "DR"):
+                    continue
+
+            # Parse date cleanly and skip stale alerts (>180d for droughts, >35d for green alerts, >21d for EQ)
             date_str = ""
             age_days = 0
             try:
@@ -455,36 +470,59 @@ def fetch_gdacs():
                 date_str = pub[:16]
             if ev_type == "DR" and age_days > 180:
                 continue
+            if ev_type == "EQ" and age_days > 21:
+                continue
             if alert == "Green" and age_days > 35:
                 continue
 
             c_en, c_cn, reg, lang = normalize_country(country_raw or title)
-            # Filter out zero-impact green micro-island / low-relevance alerts
+            # Filter out unpopulated ocean/micro-island noise
             if alert == "Green":
                 if c_en in skip_green_micro or reg == "其他":
                     continue
-                if re.search(r"\b0\s+people\b|\baffected\s+population\s+is\s+0\b", desc + " " + pop_raw, re.I):
+                if re.search(r"\b0\s+people\b|\baffected\s+population\s+is\s+0\b|\boff\s+the\s+coast\b|\bsea\b", desc + " " + pop_raw, re.I):
                     continue
 
             if ev_type == "TC":
-                rec_cn = "抗风钢结构厂房、彩钢瓦、排水泵、应急柴油发电机"
-                rec_en = "wind-resistant steel structures, metal roofing, dewatering pumps & emergency generators"
-                angle = "台风/飓风路径区：灾前推防风加固钢构与备电，灾后 7–15 天急推厂房抢修钢材与排水泵"
+                rec_cn = "抗风钢结构厂房、彩钢瓦、高强紧固件、排水泵、应急柴油发电机"
+                rec_en = "wind-resistant steel structures, metal roofing, structural bolts, dewatering pumps & emergency generators"
+                win_lbl = "灾后 2–8 周 · 钢构/建材批发商补库 & 园区修缮"
+                map_q = "steel structure roofing building materials distributor"
+                angle = "台风/飓风路径区：优先对接当地大型建材批发商与钢构工程商（补库+厂房修复），警惕受灾小厂现金流风险"
             elif ev_type == "FL":
                 rec_cn = "大流量排涝水泵、球墨阀门、防水电力电缆、应急发电机"
                 rec_en = "high-flow dewatering pumps, industrial valves, waterproof cables & diesel generators"
-                angle = "洪涝受损区：重点跟进当地市政排涝、工业园恢复供电与水泵管件急单"
+                win_lbl = "灾后 2–6 周 · 市政排涝总包 & 泵阀批发商补库"
+                map_q = "water pump industrial valve distributor"
+                angle = "洪涝受损区：重点跟进当地大型泵阀批发商补库、市政排涝工程与工业园恢复供电急单"
+            elif ev_type == "EQ":
+                rec_cn = "快装预制钢结构/活动板房、抗震紧固件、供水/燃气钢管与阀门、抢修五金"
+                rec_en = "prefabricated steel structures, seismic fasteners, water/gas pipes & valves, repair hardware"
+                win_lbl = "灾后 2–8 周 · 政府/保险重建总包 & 建材批发商补库"
+                map_q = "steel structure construction contractor building materials"
+                angle = "强震重建刚需：对接当地大型建材/钢构批发商、市政水务管道承包商及政府/世行重建总包"
             elif ev_type == "DR":
                 rec_cn = "深井/光伏灌溉水泵、喷灌阀门管件、储水钢罐 & 农机设备"
                 rec_en = "deep-well solar/diesel irrigation pumps, agricultural valves, water storage tanks & farm equipment"
-                angle = "干旱农区：切入农场打井提水、光伏灌溉水泵、输水管件与抗旱农机刚需"
+                win_lbl = "旱季持续窗口 · 农机/水务经销商与农场灌溉采购"
+                map_q = "irrigation pump agricultural equipment distributor"
+                angle = "干旱农区：切入当地农机/水泵大经销商、大型种植园打井提水、光伏灌溉水泵与输水管件刚需"
+            elif ev_type == "WF":
+                rec_cn = "电力电缆、消防水泵阀门、预制钢结构厂房与五金工具"
+                rec_en = "power cables, fire pumps & valves, prefabricated steel structures & hardware"
+                win_lbl = "灾后 2–8 周 · 电网抢修与农牧/厂房重建"
+                map_q = "electrical cable fire pump contractor"
+                angle = "山火灾后重建：切入受灾区域输电线路修复、消防管网与钢构仓储重建工程商"
             else:
                 rec_cn = "快装预制钢结构、应急发电机、水泵阀门与建筑五金"
                 rec_en = "prefabricated steel structures, emergency generators, water pumps & construction hardware"
-                angle = "灾后重建刚需：对接当地基建承包商与 NGO/政府应急采购"
+                win_lbl = "灾后 2–8 周 · 重建总包与批发商补库"
+                map_q = "industrial hardware steel structure distributor"
+                angle = "灾后重建刚需：对接当地大型基建承包商、批发商与政府/保险理赔修缮项目"
 
             safe_link = (link or "https://www.gdacs.org/").replace("http://", "https://")
             today_str = now_utc.strftime("%Y-%m-%d")
+            mag_tag = f" M{eq_mag:.1f}" if (ev_type == "EQ" and eq_mag > 0) else ""
             item_obj = {
                 "id": f"gdacs_{len(items)}_{ev_type}",
                 "cat": "weather",
@@ -492,7 +530,9 @@ def fetch_gdacs():
                 "catLabel": type_cn.get(ev_type, "⚠️ 灾害预警"),
                 "severity": alert,
                 "severityLabel": level_cn.get(alert, alert),
-                "_rank": (level_rank.get(alert, 9), 0 if ev_type == "TC" else (1 if ev_type == "FL" else 2)),
+                "windowLabel": win_lbl,
+                "mapQuery": map_q,
+                "_rank": (level_rank.get(alert, 9), {"TC": 0, "EQ": 1, "FL": 2, "WF": 3, "DR": 4}.get(ev_type, 5)),
                 "country": c_en or "Global",
                 "countryCn": c_cn or "全球多国",
                 "region": reg,
@@ -502,7 +542,7 @@ def fetch_gdacs():
                 "lastSeenDate": today_str if ev_type == "DR" else date_str,
                 "ongoing": bool(ev_type == "DR" and age_days > 14),
                 "title": title,
-                "titleCn": f"{level_cn.get(alert, '')} {type_cn.get(ev_type, '')}：{c_cn or country_raw or title}",
+                "titleCn": f"{level_cn.get(alert, '')} {type_cn.get(ev_type, '')}{mag_tag}：{c_cn or country_raw or title}",
                 "summary": desc[:220],
                 "amount": "",
                 "entity": "",
@@ -514,10 +554,93 @@ def fetch_gdacs():
             }
             items.append(item_obj)
 
+        # Also pull fresh global power-grid crisis / blackout / load-shedding signals (hazardType="PW")
+        try:
+            pw_url = (
+                "https://news.google.com/rss/search?q="
+                + urllib.parse.quote(
+                    '("power outage" OR "blackout" OR "load shedding" OR "power shortage" OR "grid collapse" OR "electricity rationing") '
+                    '(Vietnam OR Indonesia OR Mexico OR "South Africa" OR Nigeria OR Pakistan OR Egypt OR Brazil OR Philippines OR India OR Iraq OR Chile OR Ecuador OR Kenya OR Zambia OR Bangladesh OR Argentina) when:14d'
+                )
+                + "&hl=en-US&gl=US&ceid=US:en"
+            )
+            pw_xml = http_get(pw_url, timeout=14)
+            pw_root = ET.fromstring(pw_xml)
+            pw_seen = set()
+            pw_country_cnt = {}
+            pw_neg_re = re.compile(
+                r"\b(no\s+load\s*shedding|load\s*shedding[\s-]*free|without\s+load\s*shedding|"
+                r"celebrat\w+|anniversary|ends?\s+blackout|no\s+blackout|zero\s+load\s*shedding|"
+                r"movie|film|album|concert|game|sports|soccer|football|cricket)\b",
+                re.I,
+            )
+            pw_cnt = 0
+            for pit in pw_root.findall("./channel/item"):
+                raw_t = clean_text(pit.findtext("title"))
+                p_link = clean_text(pit.findtext("link"))
+                p_pub = clean_text(pit.findtext("pubDate"))
+                p_src = clean_text(pit.findtext("source")) or "全球能源/电网快讯"
+                if not raw_t:
+                    continue
+                p_title = re.sub(r"\s+-\s+[^-]{2,45}$", "", raw_t).strip() or raw_t
+                if _is_spam_news(p_title, p_src, p_link) or pw_neg_re.search(p_title):
+                    continue
+                dk = _news_dedup_key(p_title)
+                if dk in pw_seen:
+                    continue
+                p_date, p_age = "", 0
+                try:
+                    pdt = datetime.datetime.strptime(p_pub[:25].strip(), "%a, %d %b %Y %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
+                    p_date = pdt.strftime("%Y-%m-%d")
+                    p_age = max(0, (now_utc - pdt).days)
+                except Exception:
+                    p_date = p_pub[:16]
+                if p_age > 14:
+                    continue
+                pc_en, pc_cn, p_reg, p_lang = normalize_country(p_title)
+                if p_reg == "其他":
+                    continue
+                if pw_country_cnt.get(pc_en, 0) >= 2:
+                    continue
+                pw_country_cnt[pc_en] = pw_country_cnt.get(pc_en, 0) + 1
+                pw_seen.add(dk)
+                items.append({
+                    "id": f"pw_{pw_cnt}",
+                    "cat": "weather",
+                    "hazardType": "PW",
+                    "catLabel": "⚡ 电网限电/能源危机",
+                    "severity": "Orange",
+                    "severityLabel": "⚡ 限电/电网信号",
+                    "windowLabel": "应急备电 & 工业园电缆/配电补库",
+                    "mapQuery": "electrical cable diesel generator distributor",
+                    "_rank": (1, 2),
+                    "country": pc_en,
+                    "countryCn": pc_cn,
+                    "region": p_reg,
+                    "lang": p_lang,
+                    "date": p_date,
+                    "ageDays": p_age,
+                    "title": p_title,
+                    "titleCn": f"【{pc_cn}】{p_title}",
+                    "summary": f"来源：{p_src}",
+                    "amount": "",
+                    "entity": "",
+                    "productsCn": "电力电缆、柴油/燃气发电机、配电稳压设备、工业风机、光伏支架钢构",
+                    "productsEn": "power cables, diesel generators, switchgear & voltage stabilizers, industrial fans, solar steel mounting",
+                    "angleCn": "电网限电/能源缺口：切入当地电力工程安装商、工业园区物业与备电/电缆批发商补库急单",
+                    "source": p_src,
+                    "url": p_link,
+                })
+                pw_cnt += 1
+                if pw_cnt >= 4:
+                    break
+        except Exception as e_pw:
+            print(f"[WARN] Power-crisis RSS optional fetch failed: {e_pw}")
+
         items.sort(key=lambda x: (x["_rank"][0], x["_rank"][1], -(int(x["date"].replace("-", "")[:8]) if re.match(r"^\d{4}-\d{2}-\d{2}$", x["date"]) else 0)))
         for x in items:
             x.pop("_rank", None)
-        return items[:12], True, ""
+        return items[:14], True, ""
     except Exception as e:
         print(f"[WARN] GDACS fetch failed: {e}")
         return [], False, str(e)[:180]
@@ -877,11 +1000,13 @@ def enrich_with_gemini(items):
     if not api_key or not items:
         return False
 
-    # Prioritize English loan & news items (weather alerts already have crisp Chinese titles)
+    # Prioritize English loan, power-crisis (PW), and news items
     targets = []
-    for cat_prio in ("loan", "news"):
+    for cat_prio in ("loan", "weather", "news"):
         for idx, it in enumerate(items):
             if it["cat"] != cat_prio:
+                continue
+            if cat_prio == "weather" and it.get("hazardType") != "PW":
                 continue
             zh_chars = len(re.findall(r"[\u4e00-\u9fff]", it["title"]))
             if zh_chars < 6 and len(targets) < 48:
