@@ -3,13 +3,19 @@
 数据任务异常告警推送（O-01）
 =============================
 当每日商机更新、月度 Comtrade 拉取校验或政策复核到期检查失败时，自动把告警推送到已配置的
-企业微信（WECOM_WEBHOOK）、飞书（FEISHU_WEBHOOK）、钉钉（DINGTALK_WEBHOOK）、
-PushPlus（PUSHPLUS_TOKEN）或 WxPusher（WXPUSHER_APP_TOKEN）。未配置任何密钥时安静退出。
+微信测试号模板消息（WX_APP_ID + WX_APP_SECRET + WX_TEMPLATE_ID）、企业微信（WECOM_WEBHOOK）、
+飞书（FEISHU_WEBHOOK）、钉钉（DINGTALK_WEBHOOK）、PushPlus 或 WxPusher。
 
 用法：
   python3 scripts/notify_alert.py "标题" "告警详情内容"
 """
-import datetime, json, os, sys, urllib.request
+import datetime, json, os, re, sys, urllib.parse, urllib.request
+
+
+def _get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "FriesGo-Alert/1.0"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return r.read().decode("utf-8", errors="ignore")
 
 
 def _post(url, payload):
@@ -23,6 +29,10 @@ def _post(url, payload):
         return r.read().decode("utf-8", errors="ignore")
 
 
+def _strip_emoji(s):
+    return re.sub(r"[^\u4e00-\u9fffA-Za-z0-9\s\-\.\$\(\)（）：:、/|，,]", "", str(s or "")).strip()
+
+
 def main():
     title = sys.argv[1] if len(sys.argv) > 1 else "⚠️ FriesGo 数据巡检告警"
     detail = sys.argv[2] if len(sys.argv) > 2 else "请检查仓库 GitHub Actions 运行日志。"
@@ -33,6 +43,43 @@ def main():
     body = f"{title}\n时间：{now_cn}\n说明：{detail}\n查看日志：{run_url}"
 
     sent = 0
+    # 0. Native Tencent WeChat Official Test Account (reuses existing WX_APP_ID / SECRET / TEMPLATE_ID)
+    wx_appid = os.environ.get("WX_APP_ID", "").strip()
+    wx_secret = os.environ.get("WX_APP_SECRET", "").strip()
+    wx_tpl = os.environ.get("WX_TEMPLATE_ID", "").strip()
+    if wx_appid and wx_secret and wx_tpl:
+        try:
+            tok_url = (
+                "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential"
+                + "&appid=" + urllib.parse.quote(wx_appid)
+                + "&secret=" + urllib.parse.quote(wx_secret)
+            )
+            access_token = json.loads(_get(tok_url)).get("access_token", "")
+            if access_token:
+                raw_openids = os.environ.get("WX_OPENIDS", "").strip()
+                if raw_openids:
+                    openids = [o.strip() for o in raw_openids.split(",") if o.strip()]
+                else:
+                    usr_data = json.loads(_get(f"https://api.weixin.qq.com/cgi-bin/user/get?access_token={urllib.parse.quote(access_token)}"))
+                    openids = (usr_data.get("data") or {}).get("openid") or []
+                send_url = f"https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={urllib.parse.quote(access_token)}"
+                for oid in openids:
+                    payload = {
+                        "touser": oid,
+                        "template_id": wx_tpl,
+                        "url": run_url,
+                        "data": {
+                            "date": {"value": now_cn},
+                            "stats": {"value": _strip_emoji(title)[:32]},
+                            "weather": {"value": _strip_emoji(detail)[:40]},
+                            "leads": {"value": "点击详情直达 GitHub Actions 查看告警日志"},
+                        },
+                    }
+                    if json.loads(_post(send_url, payload)).get("errcode") == 0:
+                        sent += 1
+        except Exception as e:
+            print(f"[WARN] WeChat Test Account alert failed: {e}")
+
     wecom = os.environ.get("WECOM_WEBHOOK", "").strip()
     if wecom:
         try:
@@ -81,7 +128,7 @@ def main():
         except Exception as e:
             print(f"[WARN] WxPusher alert failed: {e}")
 
-    print(f"[ALERT] 已向 {sent} 个已配置的通知通道发送告警（无配置通道时仅保留 GitHub Actions 邮件提醒）。")
+    print(f"[ALERT] 已向 {sent} 个接收端发送告警通知。")
 
 
 if __name__ == "__main__":
