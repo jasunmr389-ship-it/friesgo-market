@@ -1,0 +1,127 @@
+{
+  "_说明": "网站关键政策、关税、反倾销、制裁与月度海关数据的官方出处登记表。id 对应网页 data-policy 属性；无官方 url 或过 reviewBy 复核期限时，页面自动挂红标「⚠ 待复核」，GitHub Actions 健康检查同步告警。修改后运行 python3 scripts/check_policy_review.py --sync-js 同步生成 data/policy_sources.js。",
+  "items": [
+    {
+      "id": "us-tariffs-2026",
+      "country": "United States",
+      "claim": "钢铝 Section 232 关税 50%（扩至 407 个衍生品类）叠加对华 Section 301；IEEPA 对等关税 2026-02-20 被最高法院裁定无效，Section 122 临时关税 2026-07-24 到期",
+      "source": "美国海关 CBP / 联邦公报 Federal Register",
+      "url": "https://www.cbp.gov/trade/programs-administration/entry-summary/232-tariffs-aluminum-and-steel",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-25",
+      "severity": "high"
+    },
+    {
+      "id": "mx-tariff-1463",
+      "country": "Mexico",
+      "claim": "2026-01-01 起墨西哥对非自贸协定国（含中国）1,463 个税号（钢铁、机械、电气等）上调关税 5–50 个百分点",
+      "source": "墨西哥联邦官方公报 DOF",
+      "url": "https://www.dof.gob.mx/",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-25",
+      "severity": "high"
+    },
+    {
+      "id": "sa-ad-sections-2026",
+      "country": "Saudi Arabia",
+      "claim": "沙特 GAFT 于 2026-11-09 对原产中国、土耳其的热轧中小型型钢立案反倾销调查（AD-26-3），尚待初裁税率",
+      "source": "沙特外贸总局 GAFT 官方公告",
+      "url": "https://gaft.gov.sa/",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-25",
+      "severity": "high"
+    },
+    {
+      "id": "id-pi-ls-quota",
+      "country": "Indonesia",
+      "claim": "印尼钢铁、部分机电与工业品实行 PI 进口配额审批与装船前检验（LS），须提前确认买方配额资质",
+      "source": "印尼贸易部 Kemendag INATRADE",
+      "url": "https://inatrade.kemendag.go.id/",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-25",
+      "severity": "high"
+    },
+    {
+      "id": "eu-russia-sanctions-21",
+      "country": "Russia",
+      "claim": "欧盟第 21 轮对俄制裁（2026-07-23 通过）严控军民两用机械、数控设备与电子元器件转口",
+      "source": "欧盟理事会制裁官方页面",
+      "url": "https://www.consilium.europa.eu/en/policies/sanctions-against-russia/",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-25",
+      "severity": "high"
+    },
+    {
+      "id": "us-cuba-eo14404",
+      "country": "Cuba",
+      "claim": "美国古巴制裁与次级金融合规风险（OFAC 古巴制裁条例），严禁美元结算及涉美主体经手",
+      "source": "美国财政部 OFAC 制裁中心",
+      "url": "https://ofac.treasury.gov/sanctions-programs-and-country-information/cuba-sanctions",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-25",
+      "severity": "high"
+    },
+    {
+      "id": "eu-cbam-2026",
+      "country": "European Union",
+      "claim": "欧盟碳边境调节机制（CBAM）2026-01 进入正式期，CBAM 证书自 2027-02 起开售（覆盖钢铁、铝、紧固件等）",
+      "source": "欧盟委员会税务与海关总署 CBAM",
+      "url": "https://taxation-customs.ec.europa.eu/carbon-border-adjustment-mechanism_en",
+      "checked": "2026-11-25",
+      "reviewBy": "2027-01-24",
+      "severity": "normal"
+    },
+    {
+      "id": "eu-machinery-2027",
+      "country": "European Union",
+      "claim": "欧盟新机械法规（Regulation (EU) 2023/1230）自 2027-01-20 起强制适用，替代原机械指令 2006/42/EC",
+      "source": "欧盟官方公报 EUR-Lex",
+      "url": "https://eur-lex.europa.eu/eli/reg/2023/1230/oj",
+      "checked": "2026-11-25",
+      "reviewBy": "2027-01-24",
+      "severity": "normal"
+    },
+    {
+      "id": "vn-used-machinery",
+      "country": "Vietnam",
+      "claim": "越南二手机械进口年限一般 ≤10 年（第 18/2019/QĐ-TTg 号决定），数字技术与半导体研发设备 ≤20 年（第 30/2025/TT-BKHCN 号通知）",
+      "source": "越南政府国家法规数据库 VBPL",
+      "url": "https://vbpl.vn/",
+      "checked": "2026-11-25",
+      "reviewBy": "2027-01-24",
+      "severity": "normal"
+    },
+    {
+      "id": "usmca-review",
+      "country": "North America",
+      "claim": "美墨加协定（USMCA）2026 联合复审推进中，严查原产地规则及中国零部件北美组装转口",
+      "source": "美国贸易代表办公室 USTR",
+      "url": "https://ustr.gov/trade-agreements/free-trade-agreements/united-states-mexico-canada-agreement",
+      "checked": "2026-11-25",
+      "reviewBy": "2027-01-24",
+      "severity": "normal"
+    },
+    {
+      "id": "cn-customs-oct-2026",
+      "country": "China",
+      "claim": "2026 年 1–10 月中国货物贸易出口（10 月单月全部货物出口 2.79 万亿元，人民币 +28.7%）",
+      "source": "中国海关总署统计月报",
+      "url": "http://www.customs.gov.cn/customs/302249/zfxxgk/2799825/302274/302275/index.html",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-20",
+      "severity": "low",
+      "note": "12 月中旬海关总署发布 1–11 月数据后更新"
+    },
+    {
+      "id": "cn-asean-ytd-2026",
+      "country": "ASEAN",
+      "claim": "2026 年 1–10 月中国—东盟贸易总值 7.68 万亿元（+24.2%），一带一路贸易 22.88 万亿元（+18.5%）",
+      "source": "中国海关总署 2026-11-10 新闻发布",
+      "url": "http://www.customs.gov.cn/",
+      "checked": "2026-11-25",
+      "reviewBy": "2026-12-20",
+      "severity": "low",
+      "note": "随海关月度发布同步复核"
+    }
+  ]
+}

@@ -537,6 +537,10 @@ def _parse_wb_date(s):
     return s[:10]
 
 
+def _today_cn():
+    return (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).strftime("%Y-%m-%d")
+
+
 def fetch_worldbank():
     """Fetch LIVE World Bank equipment/infrastructure procurement notices (IFB/GPN/Contract Awards) from v2/procnotices API."""
     items = []
@@ -617,6 +621,10 @@ def fetch_worldbank():
 
                 date_str = _parse_wb_date(n.get("noticedate") or n.get("submission_date"))
                 deadline = _parse_wb_date(n.get("submission_deadline_date"))
+                # 整改：已过截标日的招标不再进入商机列表
+                if deadline and deadline < _today_cn():
+                    continue
+                proc_group = clean_text(n.get("procurement_group") or "")
                 email = clean_text(n.get("contact_email") or "")
                 phone = clean_text(n.get("contact_phone_no") or "")
                 pid = clean_text(n.get("project_id") or "")
@@ -640,7 +648,9 @@ def fetch_worldbank():
                     angle = f"刚授标工程/采购！立刻查「{angle_target}」或中标总包商，切入二级供货：{prod_cn}"
                 else:
                     email_tip = f"（带官方采购邮箱 {email}）" if email else ""
-                    angle = f"世界银行实盘招标中{email_tip}！对接「{angle_target}」或当地投标代理，主推 {prod_cn}"
+                    angle = f"世界银行招标{email_tip}：对接「{angle_target}」或当地投标代理，主推 {prod_cn}"
+                if proc_group == "CW":
+                    angle = f"土建工程总包招标：一般须由具备资质的承包商投标，建议跟踪投标/中标总包商，切入二级供货：{prod_cn}"
 
                 sum_parts = [f"类型：{ntype}"]
                 if pname and pname != title_show:
@@ -649,6 +659,8 @@ def fetch_worldbank():
                     sum_parts.append(f"官方邮箱：{email}")
                 if deadline:
                     sum_parts.append(f"截标日期：{deadline}")
+                if proc_group:
+                    sum_parts.append("采购类别：" + {"CW": "土建工程（需经总包供货）", "GO": "货物", "CS": "咨询服务", "NC": "非咨询服务"}.get(proc_group, proc_group))
 
                 notice_url = f"https://projects.worldbank.org/en/projects-operations/procurement-detail/{nid}"
                 if not nid.startswith("OP") and pid:
@@ -667,6 +679,7 @@ def fetch_worldbank():
                     "lang": lang,
                     "date": date_str,
                     "deadline": deadline,
+                    "procGroup": proc_group,
                     "title": title_show,
                     "titleCn": f"【{c_cn}】{title_show}",
                     "summary": " ｜ ".join(sum_parts),
@@ -690,6 +703,50 @@ def fetch_worldbank():
 
     return items, (len(items) > 0 or not last_err), last_err
 
+
+
+NEWS_MAX_AGE_DAYS = 21
+NEWS_SPAM_PAT = re.compile(
+    r"(openpr|einnews|prlog|researchandmarkets|mordorintelligence|fortunebusinessinsights|"
+    r"grandviewresearch|marketresearchfuture|verifiedmarketresearch|sphericalinsights|imarcgroup|"
+    r"technavio|coherentmarketinsights|transparencymarketresearch|globenewswire.*market\s+size|"
+    r"volza|importgenius|panjiva|52wmb|tendata|exportgenius|seair|trademo|"
+    r"\bmarket\s+size\b|\bcagr\b|\bforecast\s+20[23]\d\b|\bindustry\s+report\b)",
+    re.I,
+)
+
+
+def _is_spam_news(title, src, link):
+    blob = f"{title} {src} {link}"
+    return bool(NEWS_SPAM_PAT.search(blob))
+
+
+def _news_dedup_key(title):
+    s = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", title.lower()).strip()
+    toks = [w for w in s.split() if w not in ("the", "a", "an", "in", "of", "to", "for", "and", "on", "with", "at", "by")]
+    return " ".join(toks[:9]) or title.lower()
+
+
+def _verify_ai_entity(cand, item):
+    """Code-level hallucination guard: AI entity must appear verbatim in original title or summary."""
+    c = clean_text(cand or "").strip(" ,.;:()[]【】\"'")
+    if len(c) < 2 or len(c) > 80:
+        return ""
+    if c.lower() in (
+        "ifc", "adb", "afdb", "idb", "ebrd", "world bank", "imf", "un", "eu",
+        "china", "india", "vietnam", "mexico", "brazil", "indonesia", "saudi arabia",
+        "thailand", "chile", "egypt", "nigeria", "south africa", "uae", "turkey",
+        "unknown", "n/a", "none", "null", "业主", "采购方", "未提及",
+    ):
+        return ""
+    hay = f"{item.get('title', '')} {item.get('summary', '')}".lower()
+    if c.lower() in hay:
+        return c
+    # Also allow stripping trailing corporate suffix if core >=4-char name appears verbatim
+    core = re.sub(r"\b(ltd|limited|inc|corp|corporation|co|plc|llc|group|sa|gmbh|bhd|pte|jsc)\.?$", "", c, flags=re.I).strip(" ,.-")
+    if len(core) >= 4 and core.lower() in hay:
+        return c
+    return ""
 
 
 def fetch_news_rss():
@@ -741,7 +798,10 @@ def fetch_news_rss():
                     continue
                 # Strip trailing " - SourceName" added by Google News RSS
                 title = re.sub(r"\s+-\s+[^-]{2,45}$", "", raw_title).strip() or raw_title
-                if title.lower() in seen:
+                if _is_spam_news(title, src, link):
+                    continue
+                dedup_k = _news_dedup_key(title)
+                if title.lower() in seen or dedup_k in seen:
                     continue
 
                 date_str = ""
@@ -749,14 +809,15 @@ def fetch_news_rss():
                 try:
                     dt = datetime.datetime.strptime(pub[:25].strip(), "%a, %d %b %Y %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
                     date_str = dt.strftime("%Y-%m-%d")
-                    age_days = (now_utc - dt).days
+                    age_days = max(0, (now_utc - dt).days)
                 except Exception:
                     date_str = pub[:16]
-                # Enforce strict freshness: drop stale RSS items older than 45 days
-                if age_days > 45:
+                # Enforce strict freshness (R-07): drop stale RSS items older than 21 days
+                if age_days > NEWS_MAX_AGE_DAYS:
                     continue
 
                 seen.add(title.lower())
+                seen.add(dedup_k)
                 c_en, c_cn, reg, lang = normalize_country(title)
                 if reg == "其他":
                     c_en, c_cn, reg, lang = "Global", "全球新兴市场", "全球", "en"
@@ -777,17 +838,19 @@ def fetch_news_rss():
                     if m_zh:
                         ent = m_zh.group(1).strip()
 
+                cue_label = f"线索 · {label}"
                 items.append({
                     "id": f"news_{len(items)}",
                     "cat": "news",
-                    "catLabel": label,
+                    "catLabel": cue_label,
                     "severity": "High" if amt else "Normal",
-                    "severityLabel": f"💰 {amt}" if amt else label,
+                    "severityLabel": f"💰 {amt}" if amt else cue_label,
                     "country": c_en,
                     "countryCn": c_cn,
                     "region": reg,
                     "lang": lang,
                     "date": date_str,
+                    "ageDays": age_days,
                     "title": title,
                     "titleCn": title,
                     "summary": f"来源：{src}",
@@ -795,7 +858,7 @@ def fetch_news_rss():
                     "entity": ent,
                     "productsCn": prod_cn,
                     "productsEn": prod_en,
-                    "angleCn": f"近期项目动态：可在「客户背调」核查业主或总包官网，重点切入 {prod_cn}",
+                    "angleCn": f"新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 {prod_cn}",
                     "source": src,
                     "url": link,
                 })
@@ -850,13 +913,14 @@ def enrich_with_gemini(items):
         batch = targets[start : start + 16]
         prompt = (
             "你是中国全品类工业品外贸总监（主营钢结构、阀门、水泵、电缆、机械、农机、五金）。\n"
-            "请把下面每条海外商机翻译成精炼易懂的中文标题（带国别，28字以内），给一句实战外贸切入建议（30字以内），并尽可能提取具体业主/采购方英文公司名（若无法确定返回空串）。\n"
-            "严格返回纯 JSON 数组，每个对象只含字段：i（原整数索引）、titleCn（中文标题）、angleCn（外贸切入建议）、entity（业主/采购方名）。不要输出任何多余文字。\n"
+            "请把下面每条海外商机翻译成精炼易懂的中文标题（带国别，28字以内），给一句实战外贸切入建议（30字以内）。\n"
+            "重要硬规则：entity 字段只能一字不差摘录原 title 中真实出现的具体业主或采购公司名称；如果原 title 没有明确公司名，必须返回空字符串 \"\"，严禁猜测、补全或编造公司名。\n"
+            "严格返回纯 JSON 数组，每个对象只含字段：i（原整数索引）、titleCn（中文标题）、angleCn（外贸切入建议）、entity（原文出现的业主/采购方名或空串）。不要输出任何多余文字。\n"
             + json.dumps(batch, ensure_ascii=False)
         )
         body = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
+            "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
         }
         try_list = ([working_ep] + [e for e in endpoints if e != working_ep]) if working_ep else endpoints
         resp_txt = None
@@ -879,12 +943,24 @@ def enrich_with_gemini(items):
                 for obj in arr:
                     i = obj.get("i")
                     if isinstance(i, int) and 0 <= i < len(items):
+                        ai_fields = []
                         if obj.get("titleCn"):
                             items[i]["titleCn"] = clean_text(obj["titleCn"])
+                            ai_fields.append("titleCn")
                         if obj.get("angleCn"):
-                            items[i]["angleCn"] = clean_text(obj["angleCn"])
+                            # Keep explicit CW subcontractor notice if World Bank civil works
+                            if items[i].get("procGroup") != "CW":
+                                items[i]["angleCn"] = clean_text(obj["angleCn"])
+                                ai_fields.append("angleCn")
                         if obj.get("entity") and not items[i].get("entity"):
-                            items[i]["entity"] = clean_text(obj["entity"])
+                            verified_ent = _verify_ai_entity(obj.get("entity"), items[i])
+                            if verified_ent:
+                                items[i]["entity"] = verified_ent
+                                ai_fields.append("entity")
+                            else:
+                                print(f"[CLEAN] Dropped unverified AI entity: {obj.get('entity')!r}")
+                        if ai_fields:
+                            items[i]["aiFields"] = ai_fields  # 整改：标注哪些字段由 AI 生成，网页据此加「AI」标签
                         enriched_total += 1
         except Exception as e_parse:
             print(f"[WARN] Gemini batch parse failed: {e_parse}")
@@ -1115,7 +1191,14 @@ def main():
                 "staleFallback": False,
                 "error": "",
             }
-        prior_cat = [x for x in prev_items if isinstance(x, dict) and x.get("cat") == cat]
+        min_news_date = (now_cn - datetime.timedelta(days=NEWS_MAX_AGE_DAYS)).strftime("%Y-%m-%d")
+        prior_cat = [
+            x for x in prev_items
+            if isinstance(x, dict)
+            and x.get("cat") == cat
+            and not (x.get("deadline") and x["deadline"] < _today_cn())
+            and not (cat == "news" and re.match(r"^\d{4}-\d{2}-\d{2}$", str(x.get("date") or "")) and x["date"] < min_news_date)
+        ]
         if (not ok) and prior_cat:
             print(f"[WARN] Preserving {len(prior_cat)} prior '{cat}' items due to {key} fetch error: {err}")
             return prior_cat, {
@@ -1138,6 +1221,10 @@ def main():
     news_items, st_news = _resolve_source("gnews", "news", news_items, news_ok, news_err)
 
     all_items = weather_items + wb_items + news_items
+    if not (gdacs_ok or wb_ok or news_ok):
+        # 整改：三个来源全部失败时不覆盖旧数据，并让 Actions 任务失败（GitHub 会发邮件提醒）
+        print("[ERROR] All sources failed; keeping previous feed untouched.")
+        raise SystemExit(1)
     ai_used = enrich_with_gemini(all_items)
 
     feed = {
@@ -1159,13 +1246,17 @@ def main():
         "items": all_items,
     }
 
-    with open(JSON_OUT, "w", encoding="utf-8") as f:
+    tmp_json = JSON_OUT + ".tmp"
+    with open(tmp_json, "w", encoding="utf-8") as f:
         json.dump(feed, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_json, JSON_OUT)
 
-    with open(JS_OUT, "w", encoding="utf-8") as f:
+    tmp_js = JS_OUT + ".tmp"
+    with open(tmp_js, "w", encoding="utf-8") as f:
         f.write("window.RADAR_FEED_INLINE = ")
         json.dump(feed, f, ensure_ascii=False)
         f.write(";\n")
+    os.replace(tmp_js, JS_OUT)
 
     print(f"[SUCCESS] Wrote {len(all_items)} items to {JSON_OUT} and {JS_OUT}")
     push_notifications(feed)

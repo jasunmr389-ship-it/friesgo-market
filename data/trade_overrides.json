@@ -1,0 +1,3 @@
+{
+  "_说明": "Comtrade 缺数或滞后国家的人工官方补充表。新增国家条目时必须同时提供 src（官方海关来源 URL，必须以 https:// 或 http:// 开头且不能含空格）与 checked（YYYY-MM-DD 核查日期），否则 update_trade_data.py 将拒绝运行以防无出处数据入库。"
+}

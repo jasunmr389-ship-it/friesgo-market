@@ -1,3 +1,5 @@
-# Ignore raw backup export and macOS metadata
+# Ignore raw backup export, zip packages, temp buffers, and macOS metadata
 Quan Qiu Gong Ye Pin Guo Jia Yi Lan
+*.zip
+*.tmp
 .DS_Store

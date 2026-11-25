@@ -647,6 +647,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <button class="pill" id="btnResetFilters" title="恢复全部国家">↺ 重置筛选</button>
       <button class="pill good-btn" id="btnExportTop">⬇ 导出筛选 CSV</button>
       <span class="result-count" id="count"></span>
+      <span class="meta-pill" id="tradeAsOfBadge" style="margin-left:auto;font-size:11.5px">UN Comtrade · 2025 年 117 国 / 2024* 年 29 国 · 更新于 2026-11-25</span>
     </div>
   </div>
 
@@ -659,7 +660,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
         <th data-sort="exp">出口 HS 84+85 <span class="arr">↕</span></th>
         <th data-sort="growth">工业品两年增速 <span class="arr">↕</span></th>
         <th data-sort="chinaShare">中国占比 <span class="arr">↕</span></th>
-        <th>未来潜力</th>
+        <th title="结合进口体量、工业品增速、中国占比及关税/收汇风险综合人工评估（核查 2026-11），非单纯统计公式">未来潜力 <span class="src-ok" style="font-weight:500">人工评估</span></th>
         <th>适合产品线</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
@@ -826,6 +827,7 @@ Best regards,
         <button class="pill" id="btnMapNextPage" type="button" hidden>加载下一页（+20 家）</button>
         <button class="pill good-btn" id="btnPushToCsv" type="button" hidden>送入导入与洗名单</button>
         <button class="pill" id="btnExportMapCsv" type="button" hidden>导出 CSV</button>
+        <label class="pill" style="cursor:pointer;font-size:12px"><input type="checkbox" id="msHideNonBuyer" style="margin-right:4px"> 隐藏疑似货代/非工业主体</label>
       </div>
       <div id="msStatus" class="flag-note" style="margin-top:8px;font-weight:700;color:var(--brown)">选好国家、城市与关键词，点击「开始地图找客」。</div>
       <div id="msResultWrap" class="mini-scroll" style="margin-top:10px"></div>
@@ -833,8 +835,9 @@ Best regards,
       <details class="method-note" style="margin-top:10px">
         <summary>使用说明与配额注意事项（点击展开）</summary>
         <ul>
-          <li><b>开源地图 OSM：</b>无需 API Key，若遇到公共接口限流或超时，可点击「取消抓取」后缩小半径至 15km 重试。</li>
+          <li><b>开源地图 OSM：</b>无需 API Key，若遇到公共接口限流或超时，可点击「取消抓取」后缩小半径至 15km 重试；新兴市场覆盖率有限，建议配合搜索与展会名录交叉开发。</li>
           <li><b>Google Maps 引擎：</b>团队多人共用请通过 Cloudflare Worker + 强口令转发，并在 Google Cloud 控制台设置每日/每月硬配额上限。</li>
+          <li><b>防毒清洗提示：</b>地图与商业名录常混入国际货代、报关行与非工业零售门店，系统会自动打上「⚠️ 疑似货代/物流」标签，可勾选上方开关或送入「导入与洗名单」一键剔除。</li>
         </ul>
       </details>
     </div>
@@ -843,7 +846,7 @@ Best regards,
   <!-- Batch CSV Lead Cleaner + MX Verifier -->
   <section class="block" id="csv-workbench">
     <h2>导入与洗名单</h2>
-    <p class="sub">导入展会名片、地图结果或 Excel 名单：自动去重、识别免费邮箱、批量核验域名邮局（MX）真伪，并一键写信、发 WhatsApp 或存入客户跟进。</p>
+    <p class="sub">导入展会名片、海关提单导出表、地图结果或 Excel 名单：自动去重、识别疑似货代/物流与泛邮箱、批量核验域名邮局（MX）真伪，再一键写信或存入客户跟进。</p>
     <div class="card">
       <div class="pills" style="margin:0">
         <button class="pill primary" id="btnUploadCsv" type="button">上传 CSV 名单</button>
@@ -866,14 +869,17 @@ Best regards,
 
       <div id="csvBar" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <span id="csvStats" style="font-size:12.5px;font-weight:800;color:var(--brown)">尚未导入名单</span>
+        <button class="pill danger" id="btnPurgeSuspect" type="button" hidden style="min-height:32px;padding:4px 10px;font-size:12px">🧹 一键剔除疑似货代/非工业主体</button>
         <button class="pill good-btn" id="btnVerifyAllMx" type="button" style="margin-left:auto">批量核验企业邮局（MX）</button>
         <button class="pill" id="btnExportCleanCsv" type="button">导出清洗后 CSV</button>
       </div>
       <div class="pills" id="csvFilterPills" style="margin-top:8px">
         <button class="pill" type="button" data-csvf="all" aria-pressed="true">全部</button>
+        <button class="pill" type="button" data-csvf="clean" aria-pressed="false">✨ 排除疑似货代/非工业</button>
         <button class="pill" type="button" data-csvf="corp" aria-pressed="false">🟢 已验证域名可收信</button>
         <button class="pill" type="button" data-csvf="wa" aria-pressed="false">💬 有电话可发 WhatsApp</button>
         <button class="pill" type="button" data-csvf="free" aria-pressed="false">🟡 免费邮箱（需核查）</button>
+        <button class="pill" type="button" data-csvf="suspect" aria-pressed="false">⚠️ 疑似货代/非终端 (<span id="csvSuspectCnt">0</span>)</button>
       </div>
       <div class="mini-scroll" style="margin-top:10px">
         <table>
@@ -1571,22 +1577,25 @@ Best regards,
   </section>
 
   <section class="block" id="ytd2026">
-    <h2>2026 最新月度实况</h2>
-    <p class="sub"><b>坚持真实官方口径、不猜不估：</b>上方为中国海关总署（GACC）<b>2026 年 1–10 月</b>正式公报；下方为联合国 UN Comtrade 各国<b>实际已报送的最新 2026 月份累计（YTD）</b>与去年同期同比增速（每个国家均精准标注其最新截止月份，如 2026.01–09 / 2026.01–08）。</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">2026 最新月度实况</h2>
+      <span class="meta-pill" id="ytdCutoffBadge" style="font-size:11.5px">截至 2026 年 1–8/9 月（海关总署至 1–10 月）</span>
+    </div>
+    <p class="sub" style="margin-top:4px"><b>坚持真实官方口径、不猜不估：</b>上方为中国海关总署（GACC）<b>2026 年 1–10 月</b>正式公报；下方为联合国 UN Comtrade 各国<b>实际已报送的最新 2026 月份累计（YTD）</b>与去年同期同比增速（逐国标注实际截止月份，如 2026.01–09 / 2026.01–08）。</p>
     <div class="grid3" style="margin-bottom:12px">
       <div class="card" style="border-top:4px solid var(--orange)">
         <h3>🇨🇳 中国机电出口（2026.01–10）</h3>
         <p style="font-size:20px;font-weight:900;color:var(--orange);margin:4px 0">16.81 万亿元 <span style="font-size:13px;color:var(--good)">+25.2%</span></p>
-        <p style="font-size:12.5px;color:var(--muted)">占中国货物出口总值 64.7%；10 月单月全部货物出口 2.79 万亿元（人民币计 +28.7%，美元计 +35.2%）。来源：海关总署 2026-11-10 公报。</p>
+        <p style="font-size:12.5px;color:var(--muted)" data-policy="cn-customs-oct-2026">占中国货物出口总值 64.7%；10 月单月全部货物出口 2.79 万亿元（人民币计 +28.7%，美元计 +35.2%）。来源：海关总署 2026-11-10 公报。</p>
       </div>
       <div class="card" style="border-top:4px solid var(--good)">
         <h3>🌏 东盟 &amp; 一带一路（2026.01–10）</h3>
         <p style="font-size:20px;font-weight:900;color:var(--brown);margin:4px 0">中国—东盟贸易 7.68 万亿元 <span style="font-size:13px;color:var(--good)">+24.2%</span></p>
-        <p style="font-size:12.5px;color:var(--muted)">东盟稳居第一大贸易伙伴（进出口合计口径）；共建「一带一路」进出口 22.88 万亿元（+18.5%），中欧 5.29 万亿（+8.5%）、中美 3.59 万亿（+6.3%）。</p>
+        <p style="font-size:12.5px;color:var(--muted)" data-policy="cn-asean-ytd-2026">东盟稳居第一大贸易伙伴（进出口合计口径）；共建「一带一路」进出口 22.88 万亿元（+18.5%），中欧 5.29 万亿（+8.5%）、中美 3.59 万亿（+6.3%）。</p>
       </div>
       <div class="card" style="border-top:4px solid var(--danger)">
         <h3>🚨 2026 工业品政策红灯（截至 11 月）</h3>
-        <p style="font-size:12.5px;margin:4px 0">① <b>沙特</b>：2026-11-09 对中国、土耳其热轧中小型型钢（角钢/槽钢/H 型与 I 型钢等）立案反倾销调查（AD-26-3，尚无税率）；② <b>墨西哥</b>：2026-01-01 起对非自贸国（含中国）1,463 个税号上调关税 5–50 个百分点，钢铁/机械/电气均在列；③ <b>欧盟</b>：CBAM 2026 年 1 月进入正式期，2027 年 2 月起按 2026 年进口量购买证书；④ <b>印尼</b>：严查 PI 配额与 LS 装船前检。</p>
+        <p style="font-size:12.5px;margin:4px 0">① <span data-policy="sa-ad-sections-2026"><b>沙特</b>：2026-11-09 对中国、土耳其热轧中小型型钢立案反倾销调查（AD-26-3，尚无税率）</span>；② <span data-policy="mx-tariff-1463"><b>墨西哥</b>：2026-01-01 起对非自贸国（含中国）1,463 个税号上调关税 5–50 个百分点</span>；③ <span data-policy="eu-cbam-2026"><b>欧盟</b>：CBAM 2026 年 1 月进入正式期，2027 年 2 月起按 2026 年进口量购证</span>；④ <span data-policy="id-pi-ls-quota"><b>印尼</b>：严查 PI 配额与 LS 装船前检</span>。</p>
       </div>
     </div>
     <div class="table-card"><div class="mini-scroll"><table>
@@ -1637,7 +1646,7 @@ Best regards,
       <div class="card"><h3>免费查 HS6 潜力与实际关税</h3>
         <p><b>出口潜力测算：</b><a href="https://exportpotential.intracen.org" target="_blank" rel="noopener">ITC Export Potential Map</a> · <a href="https://www.tradeweave.org/market-entry" target="_blank" rel="noopener">TradeWeave Scorecard</a></p>
         <p><b>逐 HS6 实际关税（报价必查）：</b><a href="https://www.macmap.org/" target="_blank" rel="noopener">ITC Market Access Map</a></p>
-        <p><b>北美海运提单免费查：</b><a href="https://www.importyeti.com/" target="_blank" rel="noopener">ImportYeti</a></p>
+        <p><b>美国海运提单免费查：</b><a href="https://www.importyeti.com/" target="_blank" rel="noopener">ImportYeti</a> <span class="src-ok">（仅覆盖美国海运进口提单；提单常把货代列为收货人，导入前请用「导入与洗名单」过滤货代）</span></p>
       </div>
     </div>
   </section>
@@ -1646,7 +1655,7 @@ Best regards,
     <h2>2026–2027 宏观展望与主要壁垒（预测值）</h2>
     <div class="grid2">
       <div class="card"><h3>全球与区域增速（IMF / WTO 2026-10）</h3><p>IMF WEO：世界贸易量 <b>2026 +4.6%、2027 +4.7%</b>；WTO 货物贸易：<b>2026 +3.9%、2027 +4.1%</b>（2026 亚洲进口 +9.5%、北美 +1.4%、中东 −15.4%）。</p></div>
-      <div class="card"><h3>核心贸易壁垒（2025–26）</h3><p>① 美国对华 Section 301 / 232 关税（IEEPA 关税 2026-02 被最高法院裁定无效，Section 122 临时关税 2026-07 到期）；② 欧盟 <b>CBAM 碳边境机制</b>（2026 正式期）与新《机械法规》（2027-01 执行）；③ 印度 <b>BIS / QCO</b> 强制认证扩围；④ 墨西哥对非自贸国 1,463 个税号加税（2026-01 生效）与沙特型钢反倾销调查；⑤ 中国海关两用物项与机床出口报关升级。</p></div>
+      <div class="card"><h3>核心贸易壁垒（2025–26）</h3><p>① <span data-policy="us-tariffs-2026">美国对华 Section 301 / 232 关税（IEEPA 关税 2026-02 被最高法院裁定无效，Section 122 临时关税 2026-07 到期）</span>；② <span data-policy="eu-machinery-2027">欧盟 CBAM 碳边境机制（2026 正式期）与新《机械法规》（2027-01 执行）</span>；③ 印度 <b>BIS / QCO</b> 强制认证扩围；④ 墨西哥对非自贸国 1,463 个税号加税（2026-01 生效）与沙特型钢反倾销调查；⑤ 中国海关两用物项与机床出口报关升级。</p></div>
     </div>
   </section>
 </div>
@@ -1747,8 +1756,11 @@ Best regards,
 
   <!-- Country Side-by-Side Compare (Opened from Market 資料) -->
   <section class="block" id="compare-panel">
-    <h2>国家并排对比（最多 4 国）</h2>
-    <p class="sub">在「146 国市场总表」中点开任意国家并点击「加入对比」，即可在这里横向核对进口规模、关税、认证与付款风险。</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">国家并排对比（最多 4 国）</h2>
+      <span class="meta-pill" id="cmpAsOfBadge" style="font-size:11.5px">UN Comtrade · 2025 年 117 国 / 2024* 年 29 国 · 更新于 2026-11-25</span>
+    </div>
+    <p class="sub" style="margin-top:4px">在「146 国市场总表」中点开任意国家并点击「加入对比」，即可在这里横向核对进口规模、钢材结构、关税、认证与付款风险。</p>
     <div class="card">
       <div id="compareBody"></div>
       <div class="pills" style="margin-top:10px">
@@ -1827,17 +1839,17 @@ Best regards,
 
   <section class="block" id="compliance">
     <h2>制裁与转口合规标签</h2>
-    <p class="sub">核查日期：2026-11-24。名单随时更新，正式签约发货前务必再查官方制裁名单。</p>
+    <p class="sub">核查日期：2026-11-25。名单随时更新，正式签约发货前务必再查官方制裁名单。</p>
     <div class="grid3">
       <div class="card"><h3>🔴 全面制裁</h3>
         <p><b>伊朗</b>——美国 ITSR 全面禁运，次级制裁及于非美企业。</p>
         <p><b>朝鲜</b>——美国 NKSR、联合国/欧盟/英国全面制裁。</p>
-        <p><b>古巴</b>——美国 CACR 禁运（2026-05 新增次级制裁授权）。</p>
+        <p data-policy="us-cuba-eo14404"><b>古巴</b>——美国 CACR 禁运及次级金融合规风险（严禁美元结算及涉美主体经手）。</p>
         <p><b>乌克兰克里米亚 / 顿涅茨克 / 卢甘斯克</b>——地区性全面禁运。</p>
         <p><b>叙利亚</b>——状态有争议（2025-07 撤销全面计划但仍有定向制裁），交易前务必核查 OFAC。</p>
       </div>
       <div class="card"><h3>🟠 部分 / 行业制裁</h3>
-        <p><b>俄罗斯</b>——广泛定向与行业制裁（能源/金融/国防/两用工业品），欧盟 2026-07 已至第 21 轮；中资银行涉俄收汇审查极严。</p>
+        <p data-policy="eu-russia-sanctions-21"><b>俄罗斯</b>——广泛定向与行业制裁（能源/金融/国防/两用工业品），欧盟 2026-07 已至第 21 轮；中资银行涉俄收汇审查极严。</p>
         <p><b>白俄罗斯</b>——对俄关联及行业延伸制裁。</p>
         <p><b>委内瑞拉</b>——政权及 PDVSA 定向制裁。</p>
         <p><b>缅甸</b>——军政府定向制裁，内战且银行支付体系瘫痪。</p>
@@ -1857,11 +1869,14 @@ Best regards,
   </section>
 
   <section class="block" id="sources">
-    <h2>口径与数据来源</h2>
+    <h2>口径、数据保质期与清洗防护说明</h2>
     <div class="note-box">
       <ul>
-        <li><b>三层真实时间口径（不猜不估）：</b>① <b>2026 最新月度动态</b>：中国海关总署（GACC）<b>2026 年 1–10 月</b>官方统计 + 联合国 UN Comtrade 各国<b>2026 年最新月度已报 YTD 数据</b>（逐国标注实际截止月份，如 2026.01–09 / 2026.01–08）；② <b>全球年度结构大盘</b>：146 国主表（117 国 UN Comtrade 2025 全年 + 29 国未报 2024*），中国双边占比、前三大供应国及细分工业品同步升级至 <b>UN Comtrade 2025 官方年报</b>；③ <b>每日商机雷达</b>：直连世界银行实时招投标流（IFB/GPN/授标，含官方采购邮箱）+ GDACS 灾害 + 45 天内新鲜新闻。</li>
-        <li><b>准入信息说明：</b>已完整还原对齐 76 国中文准入数据，并纳入 2026 年墨西哥对非自贸国加税、沙特热轧型材反倾销、印尼 PI/LS 配额与欧盟 CBAM 正式期（2027 年 2 月起购证）提醒；正式报价前须在 ITC MacMap 核实具体 HS6。</li>
+        <li><b>工业品与钢材统计口径（官方源 UN Comtrade）：</b>① <b>工业品进口</b> = HS84 + HS85 剔除 9 个消费电子税号（8471 电脑、8473 电脑件、8517 电话通信、8518 音响、8519 录音、8521 录像、8525 摄像、8528 显示器/电视、8542 集成电路），两年增速为最新年 ÷ 两年前 − 1；② <b>钢材与钢制品进口</b> = HS72 + HS73 剔除 7201–7205（生铁/铁合金/直接还原铁/废钢/颗粒等冶炼原料），含钢结构 7308、钢管 7304–7306、热卷 7208、型钢 7216、紧固件 7318 分项；每月 16 日自动拉取并经防串行与异常跳变熔断校验，未通过则保留上一版。</li>
+        <li><b>中美双边「中国占比」两套数字差异说明（D-07）：</b>「从中国进口」表与国家详情中的美国中国占比（如 <b>14.1%</b>）按<b>中国海关出口统计（FOB 镜像口径）</b>计算；「前三大供应国」中的美国中国占比（<b>11.6%</b>）按<b>美国海关进口统计（CIF/海关口径）</b>计算。两者均来自官方年报，差异源于第三地转口加工、FOB/CIF 运保费计价及跨洋海运在途时点差。</li>
+        <li><b>「未来潜力」与人工评估说明（D-08）：</b>总表中的「高潜力 / 中等 / 低·谨慎」并非单一算术公式，而是由外贸业务结合市场进口体量、工业品真实增速、中国份额黄金区间（20%–50%）及关税/外汇/制裁风险做出的<b>人工综合评估（核查 2026-11）</b>。</li>
+        <li><b>每日商机与线索防毒规则：</b>直连 GDACS 灾害预警、世界银行采购公告接口（自动剔除已过截标日公告，严格区分 <b>CW 土建总包需经总包供货</b> 与 <b>GO 货物直采</b>）及 21 天内经过反垃圾去重的新闻<b>线索</b>；AI 翻译字段显式打标，AI 提取的业主名经代码原文回查防止编造；数据超 36 小时未刷新自动弹出橙色警示。</li>
+        <li><b>已知局限与用数底线：</b>① 年度官方数据次年年中陆续发布，部分国家（如越南、阿联酋）滞后 1–2 年已标 <code>*</code>；② 关税、反倾销与制裁无免费实时结构化接口，每条均登记官方出处链接与 30/60/90 天复核期，到期自动标红「⚠ 待复核」，<b>正式报价签约前务必点击出处核对官方原文与 ITC MacMap</b>；③ 商业网站免费版（如 ImportYeti 仅美国海运提单）样本不全且常含货代，绝不抓入本库，外部导入名单请先用「导入与洗名单」过滤疑似货代。</li>
       </ul>
     </div>
   </section>
@@ -1881,8 +1896,9 @@ Best regards,
   <!-- Daily Auto-Updated Global Opportunity Intelligence Feed -->
   <section class="block" id="radar-live">
     <h2>今日商机情报</h2>
-    <p class="sub">每日自动汇聚全球台风/洪涝/干旱预警（GDACS）、世界银行实时工业招标公告，以及海外新建厂与中资总包项目动态，一键背调、写信或存入客户跟进。</p>
+    <p class="sub">每日自动汇聚全球台风/洪涝/干旱预警（GDACS）、世界银行实时工业招标公告（自动过滤已截标项），以及 21 天内新建厂与中资总包项目线索。</p>
     <div class="card">
+      <div id="rfStaleBannerWrap"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <span class="meta-pill" id="rfUpdatedBadge">更新时间：加载中…</span>
@@ -1900,7 +1916,7 @@ Best regards,
           <button class="pill" type="button" data-rfcat="all" aria-pressed="true">全部 <span class="cnt" id="rfCntAll">0</span></button>
           <button class="pill" type="button" data-rfcat="weather" aria-pressed="false">灾害与旱季 <span class="cnt" id="rfCntW">0</span></button>
           <button class="pill" type="button" data-rfcat="loan" aria-pressed="false">世行招标 <span class="cnt" id="rfCntL">0</span></button>
-          <button class="pill" type="button" data-rfcat="news" aria-pressed="false">新建厂/总包 <span class="cnt" id="rfCntN">0</span></button>
+          <button class="pill" type="button" data-rfcat="news" aria-pressed="false">新建厂/总包线索 <span class="cnt" id="rfCntN">0</span></button>
         </div>
         <input id="rfSearch" type="search" placeholder="搜国家、品类或项目（如 越南 / 钢结构 / water / solar）…" style="flex:1;min-width:190px;min-height:36px;padding:5px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:13px">
       </div>
@@ -2180,7 +2196,7 @@ Best regards,
 
 <footer>
   <img class="js-logo" alt="FriesGo Global">
-  <div><b>FriesGo Global · 工业品外贸工作台</b><br>宏观大盘：UN Comtrade 2025（117 国 2025 / 未报国 2024*）+ 76 国 2026 月度 YTD + 海关总署 2026.01–10｜合规核查：2026-11-24｜正式签约发货前须复核官方关税与制裁清单。</div>
+  <div><b>FriesGo Global · 工业品外贸工作台</b><br>宏观大盘：UN Comtrade（117 国 2025 / 未报国 2024*）+ 143 国钢材 + 76 国 2026 月度 YTD + 海关总署 2026.01–10｜合规核查：2026-11-25｜<a href="#sources" onclick="if(window.navigateTo){navigateTo('sources');return false;}" style="color:var(--orange);font-weight:700">口径、保质期与清洗说明</a>｜正式签约发货前须复核官方关税与制裁清单。</div>
 </footer>
   </main>
 </div>
@@ -2206,6 +2222,8 @@ Best regards,
 </div>
 <button class="back-top" id="backTopBtn" type="button" title="回到顶部">⬆ 顶部</button>
 <script src="data/radar_feed.js"></script>
+<script src="data/trade_data.js"></script>
+<script src="data/policy_sources.js"></script>
 
 <script>
 /* ===== Single compressed Logo (128x128) ===== */
@@ -2449,6 +2467,214 @@ var IND = {
 };
 /* 钢材与钢制品进口：UN Comtrade（HS72+73 剔除 7201–7205 冶炼原料），单位百万美元；y=数据年份，g=两年增速%，cn/cs=自中国金额/占比；核查 2026-11-25 */
 var STEEL = {"United States":{"y":2025,"t":63446.7,"full":71327.9,"raw":7881.3,"g":-18.7,"s7308":7449.5,"pipe":7406.9,"s7216":1060.6,"s7208":1303.1,"s7318":6425.7,"cn":9657.6,"cs":15.2},"China":{"y":2025,"t":17341.7,"full":39292.3,"raw":21950.6,"g":-21.1,"s7308":436.0,"pipe":1049.4,"s7216":118.3,"s7208":857.1,"s7318":2355.8,"cn":475.9,"cs":2.7},"Hong Kong SAR":{"y":2025,"t":2887.0,"full":2931.1,"raw":44.1,"g":-20.1,"s7308":544.9,"pipe":100.5,"s7216":134.0,"s7208":24.6,"s7318":231.2,"cn":2247.7,"cs":77.9},"Germany":{"y":2025,"t":53461.4,"full":56874.9,"raw":3413.6,"g":-6.4,"s7308":5170.5,"pipe":3265.2,"s7216":999.7,"s7208":2900.4,"s7318":4890.2,"cn":4972.9,"cs":9.3},"Mexico":{"y":2025,"t":26034.2,"full":26785.3,"raw":751.1,"g":-21.5,"s7308":383.3,"pipe":1216.0,"s7216":216.9,"s7208":1695.5,"s7318":2813.1,"cn":2947.4,"cs":11.3},"Singapore":{"y":2025,"t":7079.9,"full":7327.5,"raw":247.6,"g":1.0,"s7308":1053.4,"pipe":840.4,"s7216":240.4,"s7208":277.1,"s7318":510.9,"cn":2721.0,"cs":38.4},"South Korea":{"y":2025,"t":16898.7,"full":19871.1,"raw":2972.4,"g":-14.2,"s7308":2032.1,"pipe":800.3,"s7216":390.0,"s7208":2283.8,"s7318":662.6,"cn":9811.2,"cs":58.1},"Japan":{"y":2025,"t":12015.5,"full":14383.5,"raw":2368.0,"g":-7.8,"s7308":1785.7,"pipe":348.7,"s7216":91.4,"s7208":1135.0,"s7318":925.4,"cn":5226.6,"cs":43.5},"United Kingdom":{"y":2025,"t":18084.4,"full":18474.1,"raw":389.7,"g":7.0,"s7308":2675.8,"pipe":1316.1,"s7216":552.5,"s7208":1046.8,"s7318":1541.4,"cn":3119.1,"cs":17.2},"India":{"y":2025,"t":15638.4,"full":22136.8,"raw":6498.4,"g":0.5,"s7308":494.1,"pipe":1185.7,"s7216":25.7,"s7208":1815.5,"s7318":1130.0,"cn":4195.8,"cs":26.8},"France":{"y":2025,"t":25343.2,"full":26560.7,"raw":1217.5,"g":-8.2,"s7308":2858.5,"pipe":1674.4,"s7216":921.5,"s7208":1383.2,"s7318":2020.8,"cn":1878.1,"cs":7.4},"Malaysia":{"y":2025,"t":9723.8,"full":9924.6,"raw":200.8,"g":6.6,"s7308":589.2,"pipe":476.2,"s7216":482.3,"s7208":1255.6,"s7318":674.0,"cn":4555.9,"cs":46.9},"Netherlands":{"y":2025,"t":15990.8,"full":18698.9,"raw":2708.1,"g":-1.7,"s7308":1901.7,"pipe":1072.1,"s7216":633.2,"s7208":1615.9,"s7318":1134.5,"cn":1287.8,"cs":8.1},"Vietnam":{"y":2023,"t":15745.9,"full":17768.5,"raw":2022.6,"g":null,"s7308":409.3,"pipe":614.6,"s7216":111.3,"s7208":5617.8,"s7318":692.1},"Canada":{"y":2025,"t":18380.6,"full":18936.2,"raw":555.6,"g":-13.5,"s7308":1389.6,"pipe":2031.3,"s7216":666.3,"s7208":579.1,"s7318":1984.1,"cn":3082.2,"cs":16.8},"Thailand":{"y":2025,"t":20233.2,"full":21168.1,"raw":934.9,"g":4.9,"s7308":1123.7,"pipe":788.8,"s7216":130.7,"s7208":1500.5,"s7318":1217.8,"cn":9251.2,"cs":45.7},"United Arab Emirates":{"y":2023,"t":11770.9,"full":12001.5,"raw":230.6,"g":null,"s7308":680.6,"pipe":2528.5,"s7216":628.4,"s7208":2656.3,"s7318":466.6},"Italy":{"y":2025,"t":28749.6,"full":33287.9,"raw":4538.2,"g":1.2,"s7308":1189.9,"pipe":1508.7,"s7216":395.2,"s7208":4066.1,"s7318":1272.1,"cn":3432.4,"cs":11.9},"Poland":{"y":2025,"t":21810.5,"full":22657.5,"raw":847.0,"g":6.3,"s7308":1836.4,"pipe":1308.3,"s7216":317.2,"s7208":2050.9,"s7318":1462.7,"cn":1950.7,"cs":8.9},"Spain":{"y":2025,"t":16645.1,"full":18804.2,"raw":2159.1,"g":3.6,"s7308":1436.7,"pipe":907.1,"s7216":134.4,"s7208":2001.8,"s7318":988.9,"cn":1947.1,"cs":11.7},"Czechia":{"y":2025,"t":13069.0,"full":13442.0,"raw":373.0,"g":1.3,"s7308":709.9,"pipe":814.2,"s7216":332.7,"s7208":837.4,"s7318":1096.2,"cn":674.0,"cs":5.2},"Brazil":{"y":2025,"t":9841.7,"full":10078.8,"raw":237.1,"g":4.5,"s7308":184.0,"pipe":791.1,"s7216":95.5,"s7208":487.6,"s7318":1191.1,"cn":4563.6,"cs":46.4},"Australia":{"y":2025,"t":9150.8,"full":9253.0,"raw":102.3,"g":11.5,"s7308":1947.4,"pipe":1162.6,"s7216":269.7,"s7208":99.0,"s7318":742.4,"cn":3811.8,"cs":41.7},"Saudi Arabia":{"y":2025,"t":13072.8,"full":14712.4,"raw":1639.7,"g":32.6,"s7308":2152.9,"pipe":1875.0,"s7216":231.5,"s7208":2144.7,"s7318":722.8,"cn":6007.0,"cs":46.0},"Indonesia":{"y":2025,"t":12337.0,"full":13845.7,"raw":1508.7,"g":-10.3,"s7308":1003.4,"pipe":1259.8,"s7216":229.0,"s7208":1279.7,"s7318":447.7,"cn":6248.1,"cs":50.6},"Hungary":{"y":2025,"t":5925.2,"full":5981.3,"raw":56.1,"g":-7.8,"s7308":470.3,"pipe":356.5,"s7216":177.7,"s7208":590.0,"s7318":571.8,"cn":377.5,"cs":6.4},"Belgium":{"y":2025,"t":10037.9,"full":12940.1,"raw":2902.2,"g":-9.5,"s7308":1036.9,"pipe":597.5,"s7216":314.7,"s7208":886.8,"s7318":586.2,"cn":530.7,"cs":5.3},"Sweden":{"y":2025,"t":7837.4,"full":8575.9,"raw":738.5,"g":-5.4,"s7308":1067.1,"pipe":463.6,"s7216":118.0,"s7208":259.7,"s7318":603.9,"cn":508.0,"cs":6.5},"Austria":{"y":2025,"t":9815.8,"full":10834.6,"raw":1018.8,"g":-6.6,"s7308":1407.6,"pipe":638.8,"s7216":209.0,"s7208":497.0,"s7318":946.4,"cn":529.1,"cs":5.4},"Philippines":{"y":2025,"t":7993.0,"full":8117.8,"raw":124.7,"g":21.5,"s7308":908.1,"pipe":371.2,"s7216":259.6,"s7208":430.1,"s7318":287.1,"cn":5858.0,"cs":73.3},"Switzerland":{"y":2025,"t":6960.7,"full":7122.6,"raw":161.9,"g":-4.6,"s7308":1237.0,"pipe":373.5,"s7216":180.1,"s7208":116.5,"s7318":558.0,"cn":488.6,"cs":7.0},"Slovakia":{"y":2025,"t":5789.0,"full":5988.0,"raw":199.0,"g":-5.2,"s7308":371.7,"pipe":326.3,"s7216":154.1,"s7208":315.6,"s7318":714.2,"cn":311.6,"cs":5.4},"Romania":{"y":2025,"t":9432.6,"full":9553.4,"raw":120.8,"g":15.1,"s7308":846.1,"pipe":893.8,"s7216":289.2,"s7208":516.9,"s7318":636.2,"cn":641.7,"cs":6.8},"Ireland":{"y":2025,"t":2607.9,"full":2614.6,"raw":6.7,"g":-0.1,"s7308":503.3,"pipe":165.2,"s7216":158.3,"s7208":116.7,"s7318":155.9,"cn":291.0,"cs":11.2},"Denmark":{"y":2025,"t":6441.4,"full":6590.1,"raw":148.7,"g":5.3,"s7308":1406.5,"pipe":406.6,"s7216":155.2,"s7208":432.3,"s7318":395.9,"cn":602.8,"cs":9.4},"Norway":{"y":2025,"t":6006.2,"full":6175.3,"raw":169.1,"g":19.7,"s7308":1781.9,"pipe":1418.1,"s7216":93.1,"s7208":70.8,"s7318":276.5,"cn":391.2,"cs":6.5},"South Africa":{"y":2025,"t":2656.5,"full":2753.4,"raw":96.9,"g":2.2,"s7308":93.0,"pipe":179.3,"s7216":36.6,"s7208":169.8,"s7318":223.6,"cn":1233.5,"cs":46.4},"Israel":{"y":2025,"t":4399.0,"full":4415.3,"raw":16.3,"g":11.9,"s7308":443.5,"pipe":341.1,"s7216":107.4,"s7208":183.9,"s7318":210.1,"cn":780.6,"cs":17.7},"Morocco":{"y":2025,"t":4378.5,"full":5021.3,"raw":642.8,"g":55.8,"s7308":586.4,"pipe":429.1,"s7216":329.3,"s7208":100.4,"s7318":291.6,"cn":873.7,"cs":20.0},"Portugal":{"y":2025,"t":5528.4,"full":6065.5,"raw":537.0,"g":6.0,"s7308":495.1,"pipe":285.5,"s7216":210.7,"s7208":817.8,"s7318":272.7,"cn":303.0,"cs":5.5},"Chile":{"y":2025,"t":3507.7,"full":3529.1,"raw":21.5,"g":16.4,"s7308":219.1,"pipe":239.8,"s7216":59.7,"s7208":411.8,"s7318":231.7,"cn":2147.3,"cs":61.2},"Finland":{"y":2025,"t":4449.8,"full":4620.0,"raw":170.2,"g":-11.8,"s7308":480.8,"pipe":262.7,"s7216":83.9,"s7208":141.3,"s7318":207.1,"cn":246.9,"cs":5.5},"Argentina":{"y":2025,"t":2345.7,"full":2441.1,"raw":95.4,"g":-15.0,"s7308":81.4,"pipe":239.5,"s7216":70.7,"s7208":130.6,"s7318":246.0,"cn":540.8,"cs":23.1},"Kazakhstan":{"y":2025,"t":4680.9,"full":4716.1,"raw":35.2,"g":6.5,"s7308":643.2,"pipe":786.8,"s7216":247.4,"s7208":201.2,"s7318":221.1,"cn":1245.8,"cs":26.6},"Ukraine":{"y":2024,"t":2383.4,"full":2526.9,"raw":143.4,"g":55.5,"s7308":99.4,"pipe":139.6,"s7216":63.4,"s7208":269.0,"s7318":131.4,"cn":468.2,"cs":19.6},"Egypt":{"y":2025,"t":5084.1,"full":6679.5,"raw":1595.4,"g":12.5,"s7308":675.0,"pipe":461.3,"s7216":217.8,"s7208":595.3,"s7318":147.8,"cn":1685.5,"cs":33.2},"Colombia":{"y":2025,"t":2867.4,"full":2907.5,"raw":40.2,"g":2.0,"s7308":131.3,"pipe":347.0,"s7216":99.9,"s7208":398.3,"s7318":133.9,"cn":1371.8,"cs":47.8},"Peru":{"y":2025,"t":3262.5,"full":3599.2,"raw":336.7,"g":23.4,"s7308":236.1,"pipe":245.2,"s7216":77.3,"s7208":331.5,"s7318":194.7,"cn":2069.3,"cs":63.4},"Greece":{"y":2025,"t":2660.4,"full":2976.6,"raw":316.1,"g":5.3,"s7308":290.6,"pipe":151.9,"s7216":124.5,"s7208":402.4,"s7318":75.8,"cn":314.6,"cs":11.8},"Bulgaria":{"y":2025,"t":2732.8,"full":2830.8,"raw":98.0,"g":-1.2,"s7308":290.2,"pipe":175.7,"s7216":101.5,"s7208":364.9,"s7318":137.8,"cn":230.2,"cs":8.4},"New Zealand":{"y":2025,"t":984.9,"full":997.9,"raw":13.1,"g":-11.9,"s7308":46.2,"pipe":106.7,"s7216":45.1,"s7208":3.1,"s7318":124.6,"cn":403.6,"cs":41.0},"Uzbekistan":{"y":2025,"t":3691.6,"full":3814.9,"raw":123.3,"g":18.5,"s7308":291.3,"pipe":451.6,"s7216":134.7,"s7208":822.2,"s7318":92.5,"cn":1150.3,"cs":31.2},"Pakistan":{"y":2025,"t":2868.1,"full":4678.4,"raw":1810.3,"g":47.6,"s7308":115.3,"pipe":165.6,"s7216":13.2,"s7208":1311.1,"s7318":44.2,"cn":2001.4,"cs":69.8},"Qatar":{"y":2024,"t":2051.2,"full":2074.7,"raw":23.5,"g":20.9,"s7308":425.3,"pipe":650.7,"s7216":34.5,"s7208":84.8,"s7318":73.5,"cn":629.0,"cs":30.7},"Algeria":{"y":2024,"t":2867.5,"full":3255.9,"raw":388.4,"g":null,"s7308":251.4,"pipe":437.2,"s7216":216.1,"s7208":525.6,"s7318":125.1,"cn":1343.5,"cs":46.9},"Slovenia":{"y":2025,"t":2476.4,"full":3015.8,"raw":539.4,"g":-2.6,"s7308":230.8,"pipe":143.6,"s7216":69.2,"s7208":193.4,"s7318":118.5,"cn":119.6,"cs":4.8},"Lithuania":{"y":2025,"t":2101.2,"full":2219.2,"raw":118.0,"g":13.3,"s7308":319.9,"pipe":178.3,"s7216":118.0,"s7208":103.3,"s7318":105.5,"cn":120.8,"cs":5.7},"Serbia":{"y":2025,"t":2235.7,"full":2270.5,"raw":34.8,"g":17.0,"s7308":318.0,"pipe":199.0,"s7216":72.8,"s7208":148.9,"s7318":108.0,"cn":477.4,"cs":21.4},"Croatia":{"y":2025,"t":2079.1,"full":2113.4,"raw":34.4,"g":2.9,"s7308":298.6,"pipe":169.3,"s7216":82.0,"s7208":151.3,"s7318":77.6,"cn":58.2,"cs":2.8},"Nigeria":{"y":2025,"t":1593.3,"full":1651.7,"raw":58.4,"g":44.7,"s7308":183.5,"pipe":321.9,"s7216":64.8,"s7208":267.6,"s7318":31.5,"cn":1239.0,"cs":77.8},"Kuwait":{"y":2025,"t":2562.5,"full":2786.0,"raw":223.5,"g":33.9,"s7308":140.4,"pipe":1405.0,"s7216":51.7,"s7208":107.4,"s7318":52.5,"cn":1041.2,"cs":40.6},"Ecuador":{"y":2025,"t":1357.0,"full":1418.5,"raw":61.5,"g":4.7,"s7308":42.1,"pipe":184.7,"s7216":3.7,"s7208":329.6,"s7318":46.4,"cn":870.7,"cs":64.2},"Guatemala":{"y":2025,"t":1804.7,"full":1860.2,"raw":55.5,"g":16.8,"s7308":142.4,"pipe":145.1,"s7216":79.9,"s7208":121.4,"s7318":38.3,"cn":911.5,"cs":50.5},"Cambodia":{"y":2025,"t":2115.9,"full":2123.8,"raw":8.0,"g":135.1,"s7308":452.7,"pipe":199.8,"s7216":91.5,"s7208":111.1,"s7318":108.8,"cn":1689.6,"cs":79.9},"Estonia":{"y":2025,"t":1322.6,"full":1377.9,"raw":55.2,"g":-0.5,"s7308":114.0,"pipe":100.2,"s7216":62.0,"s7208":90.4,"s7318":54.2,"cn":97.4,"cs":7.4},"Latvia":{"y":2025,"t":1138.0,"full":1214.9,"raw":77.0,"g":10.3,"s7308":177.1,"pipe":79.3,"s7216":54.1,"s7208":92.3,"s7318":46.1,"cn":54.8,"cs":4.8},"Iraq":{"y":2024,"t":4115.1,"full":4175.0,"raw":59.9,"g":55.8,"s7308":467.4,"pipe":1368.6,"s7216":62.5,"s7208":154.6,"s7318":6.8,"cn":1267.7,"cs":30.8},"Tunisia":{"y":2024,"t":1171.2,"full":1176.1,"raw":4.9,"g":-18.9,"s7308":40.2,"pipe":78.9,"s7216":43.1,"s7208":169.1,"s7318":68.3,"cn":305.4,"cs":26.1},"Iran":{"y":2023,"t":2313.9,"full":2737.5,"raw":423.6,"g":null,"s7308":11.4,"pipe":343.7,"s7216":58.8,"s7208":280.4,"s7318":73.6},"Costa Rica":{"y":2025,"t":1487.2,"full":1487.3,"raw":0.1,"g":8.4,"s7308":102.0,"pipe":113.9,"s7216":34.5,"s7208":77.9,"s7318":48.7,"cn":680.1,"cs":45.7},"Luxembourg":{"y":2025,"t":921.4,"full":1652.6,"raw":731.2,"g":-15.7,"s7308":120.8,"pipe":31.8,"s7216":37.4,"s7208":30.2,"s7318":39.7,"cn":36.7,"cs":4.0},"Angola":{"y":2025,"t":1285.8,"full":1291.6,"raw":5.9,"g":31.9,"s7308":183.0,"pipe":436.8,"s7216":21.8,"s7208":76.7,"s7318":52.5,"cn":450.9,"cs":35.1},"Azerbaijan":{"y":2025,"t":1104.9,"full":1130.8,"raw":25.9,"g":1.8,"s7308":137.0,"pipe":229.3,"s7216":26.5,"s7208":133.9,"s7318":37.2,"cn":252.7,"cs":22.9},"Kenya":{"y":2025,"t":1255.6,"full":1402.7,"raw":147.1,"g":25.8,"s7308":87.0,"pipe":24.3,"s7216":26.4,"s7208":570.0,"s7318":23.8,"cn":628.8,"cs":50.1},"Iceland":{"y":2025,"t":324.3,"full":327.1,"raw":2.8,"g":4.0,"s7308":103.5,"pipe":25.6,"s7216":5.1,"s7208":3.4,"s7318":20.9,"cn":32.1,"cs":9.9},"Jordan":{"y":2024,"t":848.2,"full":905.9,"raw":57.7,"g":-9.1,"s7308":80.1,"pipe":38.3,"s7216":35.7,"s7208":166.8,"s7318":12.7,"cn":358.2,"cs":42.2},"Tanzania":{"y":2025,"t":1562.7,"full":1569.6,"raw":6.9,"g":25.3,"s7308":185.7,"pipe":250.7,"s7216":26.1,"s7208":398.4,"s7318":29.5,"cn":996.2,"cs":63.7},"Bahrain":{"y":2024,"t":511.2,"full":547.3,"raw":36.1,"g":-14.8,"s7308":49.9,"pipe":95.3,"s7216":15.1,"s7208":25.9,"s7318":18.5,"cn":126.8,"cs":24.8},"Ethiopia":{"y":2023,"t":976.8,"full":999.1,"raw":22.4,"g":null,"s7308":123.4,"pipe":35.7,"s7216":14.7,"s7208":164.1,"s7318":21.3},"Sri Lanka":{"y":2025,"t":892.4,"full":897.5,"raw":5.1,"g":23.8,"s7308":48.3,"pipe":21.2,"s7216":13.5,"s7208":41.2,"s7318":32.5,"cn":578.9,"cs":64.9},"El Salvador":{"y":2025,"t":1022.6,"full":1026.7,"raw":4.1,"g":28.7,"s7308":89.3,"pipe":127.0,"s7216":44.5,"s7208":43.7,"s7318":21.9,"cn":412.8,"cs":40.4},"Armenia":{"y":2025,"t":398.7,"full":405.3,"raw":6.6,"g":8.9,"s7308":46.8,"pipe":46.1,"s7216":13.0,"s7208":21.8,"s7318":11.9,"cn":43.9,"cs":11.0},"North Macedonia":{"y":2025,"t":759.3,"full":843.3,"raw":84.1,"g":3.5,"s7308":81.6,"pipe":26.9,"s7216":19.9,"s7208":159.8,"s7318":24.1,"cn":166.5,"cs":21.9},"Georgia":{"y":2025,"t":778.0,"full":796.6,"raw":18.7,"g":2.5,"s7308":123.2,"pipe":100.4,"s7216":33.0,"s7208":35.8,"s7318":21.7,"cn":141.1,"cs":18.1},"Guyana":{"y":2025,"t":1085.0,"full":1085.2,"raw":0.2,"g":151.1,"s7308":111.2,"pipe":574.6,"s7216":17.6,"s7208":12.3,"s7318":19.7,"cn":190.0,"cs":17.5},"Uruguay":{"y":2025,"t":405.1,"full":407.1,"raw":2.0,"g":8.2,"s7308":72.0,"pipe":44.5,"s7216":14.1,"s7208":9.4,"s7318":17.3,"cn":155.6,"cs":38.4},"Honduras":{"y":2024,"t":800.1,"full":800.1,"raw":0.0,"g":-19.1,"s7308":43.0,"pipe":68.3,"s7216":52.1,"s7208":20.6,"s7318":19.3,"cn":382.9,"cs":47.9},"Panama":{"y":2025,"t":444.5,"full":445.3,"raw":0.9,"g":-45.2,"s7308":67.9,"pipe":31.7,"s7216":23.0,"s7208":21.1,"s7318":15.1,"cn":269.9,"cs":60.7},"Uganda":{"y":2025,"t":1000.2,"full":1073.3,"raw":73.1,"g":56.4,"s7308":109.9,"pipe":214.0,"s7216":19.2,"s7208":225.3,"s7318":11.3,"cn":417.3,"cs":41.7},"Moldova":{"y":2025,"t":432.5,"full":433.4,"raw":0.9,"g":62.1,"s7308":70.0,"pipe":25.2,"s7216":25.0,"s7208":28.8,"s7318":16.8,"cn":55.0,"cs":12.7},"Nicaragua":{"y":2025,"t":718.8,"full":720.1,"raw":1.3,"g":36.7,"s7308":69.0,"pipe":77.5,"s7216":33.7,"s7208":48.2,"s7318":16.3,"cn":256.8,"cs":35.7},"Malta":{"y":2025,"t":179.5,"full":179.5,"raw":0.0,"g":12.4,"s7308":20.5,"pipe":4.5,"s7216":7.0,"s7208":0.8,"s7318":41.4,"cn":12.5,"cs":7.0},"Cyprus":{"y":2025,"t":491.0,"full":491.1,"raw":0.1,"g":5.9,"s7308":56.4,"pipe":27.4,"s7216":24.9,"s7208":5.6,"s7318":10.3,"cn":35.8,"cs":7.3},"Senegal":{"y":2025,"t":632.6,"full":635.7,"raw":3.1,"g":-18.3,"s7308":78.6,"pipe":35.7,"s7216":22.0,"s7208":23.2,"s7318":17.2,"cn":440.9,"cs":69.7},"Papua New Guinea":{"y":2024,"t":375.7,"full":375.7,"raw":0.0,"g":-4.5,"s7308":52.6,"pipe":37.6,"s7216":9.4,"s7208":6.3,"s7318":32.3,"cn":164.8,"cs":43.9},"Myanmar":{"y":2025,"t":1017.2,"full":1021.1,"raw":4.0,"g":8.9,"s7308":37.1,"pipe":192.6,"s7216":102.0,"s7208":88.4,"s7318":11.9,"cn":929.1,"cs":91.3},"Mozambique":{"y":2025,"t":430.8,"full":435.3,"raw":4.5,"g":-0.5,"s7308":65.6,"pipe":16.6,"s7216":11.4,"s7208":61.1,"s7318":17.5,"cn":122.5,"cs":28.4},"Namibia":{"y":2025,"t":382.0,"full":386.0,"raw":4.0,"g":20.6,"s7308":30.1,"pipe":47.4,"s7216":17.3,"s7208":8.5,"s7318":20.4,"cn":109.3,"cs":28.6},"Lebanon":{"y":2024,"t":521.5,"full":521.7,"raw":0.2,"g":-13.3,"s7308":17.6,"pipe":10.1,"s7216":3.8,"s7208":68.3,"s7318":9.8,"cn":176.0,"cs":33.7},"Mauritania":{"y":2025,"t":275.2,"full":279.6,"raw":4.5,"g":29.8,"s7308":77.3,"pipe":8.5,"s7216":9.7,"s7208":4.8,"s7318":12.6,"cn":109.4,"cs":39.8},"Albania":{"y":2024,"t":736.1,"full":736.1,"raw":0.0,"g":6.6,"s7308":71.7,"pipe":33.4,"s7216":28.6,"s7208":34.4,"s7318":12.0,"cn":80.4,"cs":10.9},"Burkina Faso":{"y":2025,"t":431.5,"full":433.2,"raw":1.7,"g":26.7,"s7308":63.7,"pipe":27.8,"s7216":7.0,"s7208":17.5,"s7318":16.6,"cn":274.6,"cs":63.6},"Trinidad and Tobago":{"y":2025,"t":354.9,"full":355.0,"raw":0.1,"g":6.9,"s7308":39.6,"pipe":76.4,"s7216":25.1,"s7208":4.9,"s7318":16.0,"cn":100.6,"cs":28.3},"Mali":{"y":2024,"t":252.4,"full":256.5,"raw":4.1,"g":-18.7,"s7308":26.3,"pipe":14.8,"s7216":12.3,"s7208":13.0,"s7318":9.4,"cn":119.5,"cs":47.4},"Botswana":{"y":2024,"t":253.7,"full":261.2,"raw":7.5,"g":2.2,"s7308":42.7,"pipe":25.5,"s7216":9.9,"s7208":14.2,"s7318":14.3,"cn":15.4,"cs":6.1},"Jamaica":{"y":2025,"t":319.6,"full":319.7,"raw":0.1,"g":8.4,"s7308":40.8,"pipe":15.0,"s7216":5.6,"s7208":3.9,"s7318":10.5,"cn":110.9,"cs":34.7},"Mauritius":{"y":2025,"t":180.9,"full":181.3,"raw":0.4,"g":2.8,"s7308":17.3,"pipe":19.1,"s7216":4.2,"s7208":2.3,"s7318":7.3,"cn":78.0,"cs":43.1},"Bahamas":{"y":2025,"t":243.8,"full":245.2,"raw":1.4,"g":74.7,"s7308":66.3,"pipe":27.2,"s7216":7.9,"s7208":1.2,"s7318":18.1,"cn":12.6,"cs":5.2},"Montenegro":{"y":2025,"t":259.6,"full":260.1,"raw":0.4,"g":39.8,"s7308":67.9,"pipe":16.5,"s7216":7.7,"s7208":1.6,"s7318":6.4,"cn":22.7,"cs":8.7},"Rwanda":{"y":2025,"t":282.7,"full":315.1,"raw":32.4,"g":-15.6,"s7308":34.5,"pipe":33.1,"s7216":9.5,"s7208":34.7,"s7318":5.6,"cn":139.8,"cs":49.5},"Maldives":{"y":2025,"t":180.4,"full":180.7,"raw":0.3,"g":-6.2,"s7308":28.9,"pipe":18.6,"s7216":5.7,"s7208":0,"s7318":12.5,"cn":63.2,"cs":35.0},"Madagascar":{"y":2025,"t":227.3,"full":229.4,"raw":2.1,"g":-1.4,"s7308":34.3,"pipe":18.9,"s7216":12.2,"s7208":4.9,"s7318":6.2,"cn":128.9,"cs":56.7},"Liberia":{"y":2025,"t":148.6,"full":149.9,"raw":1.3,"g":72.9,"s7308":32.3,"pipe":9.1,"s7216":4.1,"s7208":6.1,"s7318":8.5,"cn":52.6,"cs":35.4},"Suriname":{"y":2025,"t":149.2,"full":149.3,"raw":0.1,"g":6.8,"s7308":17.3,"pipe":27.2,"s7216":2.5,"s7208":1.6,"s7318":7.5,"cn":50.1,"cs":33.5},"Fiji":{"y":2025,"t":124.9,"full":125.0,"raw":0.1,"g":16.9,"s7308":23.0,"pipe":8.2,"s7216":8.3,"s7208":0.6,"s7318":7.0,"cn":60.2,"cs":48.2},"Malawi":{"y":2025,"t":180.3,"full":180.9,"raw":0.6,"g":31.0,"s7308":28.8,"pipe":15.9,"s7216":9.5,"s7208":6.9,"s7318":3.2,"cn":80.4,"cs":44.6},"Togo":{"y":2025,"t":128.2,"full":128.9,"raw":0.7,"g":-1.4,"s7308":28.3,"pipe":7.7,"s7216":3.0,"s7208":2.3,"s7318":7.1,"cn":71.8,"cs":56.0},"Barbados":{"y":2025,"t":84.6,"full":84.6,"raw":0.0,"g":44.6,"s7308":18.0,"pipe":6.0,"s7216":0.9,"s7208":1.0,"s7318":5.5,"cn":11.2,"cs":13.2},"Lesotho":{"y":2024,"t":86.7,"full":89.5,"raw":2.8,"g":43.6,"s7308":11.8,"pipe":8.6,"s7216":3.2,"s7208":0.5,"s7318":2.5,"cn":8.7,"cs":10.0},"French Polynesia":{"y":2025,"t":54.0,"full":54.0,"raw":0.0,"g":-5.0,"s7308":9.0,"pipe":2.2,"s7216":2.7,"s7208":0.1,"s7318":5.5,"cn":7.2,"cs":13.3},"Andorra":{"y":2025,"t":49.7,"full":49.7,"raw":0.0,"g":20.0,"s7308":11.0,"pipe":3.8,"s7216":1.4,"s7208":0.2,"s7318":1.1,"cn":0.5,"cs":1.0},"Belize":{"y":2025,"t":84.7,"full":84.7,"raw":0.0,"g":12.7,"s7308":7.8,"pipe":6.9,"s7216":2.9,"s7208":1.6,"s7318":7.4,"cn":18.6,"cs":22.0},"Niger":{"y":2025,"t":92.3,"full":93.0,"raw":0.7,"g":-70.4,"s7308":29.8,"pipe":6.0,"s7216":7.2,"s7208":1.3,"s7318":1.7,"cn":31.6,"cs":34.2},"Seychelles":{"y":2025,"t":77.7,"full":77.7,"raw":0.0,"g":-6.2,"s7308":12.3,"pipe":2.7,"s7216":0.5,"s7208":0.6,"s7318":3.1,"cn":7.8,"cs":10.0},"Yemen":{"y":2024,"t":83.5,"full":84.6,"raw":1.2,"g":null,"s7308":8.7,"pipe":2.9,"s7216":6.4,"s7208":5.0,"s7318":1.0,"cn":35.1,"cs":42.1},"Cabo Verde":{"y":2025,"t":53.0,"full":53.0,"raw":0.0,"g":17.0,"s7308":10.8,"pipe":4.6,"s7216":0.8,"s7208":0.4,"s7318":1.4,"cn":6.4,"cs":12.1},"Bermuda":{"y":2025,"t":26.3,"full":26.3,"raw":0.0,"g":39.3,"s7308":8.3,"pipe":0.4,"s7216":0.1,"s7208":0.0,"s7318":1.7,"cn":0.3,"cs":1.2},"Antigua and Barbuda":{"y":2024,"t":30.2,"full":30.2,"raw":0.0,"g":-33.4,"s7308":5.5,"pipe":1.2,"s7216":0.1,"s7208":0.1,"s7318":2.2,"cn":2.4,"cs":8.0},"Grenada":{"y":2024,"t":30.1,"full":30.1,"raw":0.0,"g":1.9,"s7308":4.2,"pipe":1.2,"s7216":0.4,"s7208":1.3,"s7318":2.2,"cn":4.6,"cs":15.2},"Gambia":{"y":2024,"t":41.3,"full":41.4,"raw":0.1,"g":26.1,"s7308":11.0,"pipe":3.0,"s7216":0.4,"s7208":3.3,"s7318":0.5,"cn":9.6,"cs":23.1},"Samoa":{"y":2025,"t":20.2,"full":20.2,"raw":0.0,"g":8.9,"s7308":4.4,"pipe":1.2,"s7216":0.6,"s7208":0.1,"s7318":0.7,"cn":8.6,"cs":42.7},"Comoros":{"y":2025,"t":21.2,"full":21.2,"raw":0.0,"g":31.7,"s7308":2.0,"pipe":0.6,"s7216":0.5,"s7208":0.1,"s7318":0.1,"cn":6.5,"cs":30.7},"Sao Tome and Principe":{"y":2025,"t":6.9,"full":7.0,"raw":0.1,"g":44.7,"s7308":0.8,"pipe":0.8,"s7216":0.1,"s7208":0.1,"s7318":0.3,"cn":2.7,"cs":39.4},"Montserrat":{"y":2024,"t":2.9,"full":2.9,"raw":0.0,"g":109.3,"s7308":0.7,"pipe":0.1,"s7216":0.0,"s7208":0.0,"s7318":0.2,"cn":0.0,"cs":0.7},"Turkey (Türkiye)":{"y":2025,"t":17517.9,"full":26421.5,"raw":8903.6,"g":-7.0,"s7308":408.4,"pipe":870.6,"s7216":375.6,"s7208":2623.7,"s7318":727.1,"cn":4028.7,"cs":23.0},"Dominican Republic":{"y":2025,"t":1767.7,"full":1768.5,"raw":0.8,"g":4.2,"s7308":144.0,"pipe":56.9,"s7216":68.1,"s7208":53.5,"s7318":68.3,"cn":701.0,"cs":39.7},"Kyrgyz Republic":{"y":2025,"t":912.2,"full":912.6,"raw":0.4,"g":93.8,"s7308":111.1,"pipe":77.5,"s7216":58.2,"s7208":48.1,"s7318":23.4,"cn":281.2,"cs":30.8},"Bosnia and Herzegovina":{"y":2025,"t":1059.0,"full":1069.3,"raw":10.3,"g":4.8,"s7308":111.8,"pipe":92.7,"s7216":53.1,"s7208":100.9,"s7318":37.2,"cn":188.4,"cs":17.8},"Macao":{"y":2025,"t":131.5,"full":131.5,"raw":0.0,"g":-59.2,"s7308":26.8,"pipe":3.9,"s7216":1.6,"s7208":0.2,"s7318":2.5,"cn":117.6,"cs":89.4},"Congo Republic":{"y":2024,"t":482.5,"full":483.1,"raw":0.6,"g":139.6,"s7308":51.0,"pipe":197.5,"s7216":6.8,"s7208":5.3,"s7318":8.8,"cn":249.3,"cs":51.7},"Brunei":{"y":2025,"t":162.9,"full":163.0,"raw":0.2,"g":-24.3,"s7308":14.0,"pipe":29.3,"s7216":2.0,"s7208":7.9,"s7318":5.7,"cn":57.3,"cs":35.2},"Cayman Islands":{"y":2024,"t":65.4,"full":65.4,"raw":0.0,"g":-3.7,"s7308":28.7,"pipe":0.8,"s7216":0.0,"s7208":0.5,"s7318":2.8,"cn":0.9,"cs":1.4},"Central African Republic":{"y":2024,"t":11.8,"full":11.8,"raw":0.0,"g":11.6,"s7308":3.3,"pipe":0.7,"s7216":0.5,"s7208":0.0,"s7318":0.4,"cn":6.2,"cs":52.3}};
+/* ===== 数据时效、外部数据热加载与防毒清洗内核（D-01 / D-03 / P-01 / R-02 / R-03 / R-06 / A-01） ===== */
+(function(w){
+  function todayCn(){
+    return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+  function daysBetween(a, b){
+    return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
+  }
+  function escHtml(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(ch){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch];
+    });
+  }
+
+  /* 1. 优先合并外部月度自动更新的 data/trade_data.js，读取失败或旧年份不倒退，无缝回退内置数据 */
+  if(w.TRADE_DATA_INLINE && w.TRADE_DATA_INLINE.countries && typeof DATA !== "undefined"){
+    var byC = {};
+    DATA.forEach(function(r){ byC[r.country] = r; });
+    var extC = w.TRADE_DATA_INLINE.countries;
+    Object.keys(extC).forEach(function(c){
+      var ent = extC[c] || {};
+      var row = byC[c];
+      if(ent.ind && row){
+        var curYr = (IND[c] && IND[c].yr) || row.yr || 0;
+        if(ent.ind.override || (ent.ind.y && ent.ind.y >= curYr)){
+          var basis = (IND[c] && IND[c].basis) || "CIF";
+          if(ent.ind.v != null){
+            IND[c] = {
+              ind: ent.ind.v,
+              full: ent.ind.full != null ? ent.ind.full : (IND[c] ? IND[c].full : +(row.imp / 1000).toFixed(3)),
+              excl: ent.ind.excl != null ? ent.ind.excl : (IND[c] ? IND[c].excl : 0),
+              share: ent.ind.share != null ? ent.ind.share : (IND[c] ? IND[c].share : 100),
+              basis: basis,
+              yr: ent.ind.y,
+              override: ent.ind.override || null
+            };
+          }
+          row.yr = ent.ind.y;
+          if(ent.ind.imp84 != null && ent.ind.imp85 != null){
+            row.imp84 = ent.ind.imp84;
+            row.imp85 = ent.ind.imp85;
+            row.imp = +(ent.ind.imp84 + ent.ind.imp85).toFixed(1);
+          }
+          if(ent.ind.growth !== undefined) row.growth = ent.ind.growth;
+          if(ent.ind.yoy !== undefined) row.g25 = ent.ind.yoy;
+          if(ent.ind.g84 !== undefined) row.g84 = ent.ind.g84;
+          if(ent.ind.gWin) row.gWin = ent.ind.gWin;
+          row.flag = ent.ind.override ? ("海关补充 " + ent.ind.y) : ("UN Comtrade " + ent.ind.y);
+          if(ent.ind.override) row.override = ent.ind.override;
+        }
+      }
+      if(ent.steel){
+        var curSYr = (STEEL[c] && STEEL[c].y) || 0;
+        if(ent.steel.override || (ent.steel.y && ent.steel.y >= curSYr)){
+          STEEL[c] = Object.assign({}, STEEL[c] || {}, ent.steel);
+        }
+      }
+    });
+  }
+
+  function tradeAsOfText(){
+    var y25 = 0, yOlder = 0;
+    if(typeof DATA !== "undefined"){
+      DATA.forEach(function(r){ if(r.yr === 2025) y25++; else yOlder++; });
+    }
+    var upd = (w.TRADE_DATA_INLINE && w.TRADE_DATA_INLINE.meta && (w.TRADE_DATA_INLINE.meta.checkedDate || String(w.TRADE_DATA_INLINE.meta.generatedAt || "").slice(0, 10))) || "2026-11-25";
+    return "UN Comtrade · 2025 年 " + y25 + " 国 / 2024* 年 " + yOlder + " 国 · 更新于 " + upd;
+  }
+
+  function syncTradeBadges(){
+    var txt = tradeAsOfText();
+    ["tradeAsOfBadge", "cmpAsOfBadge"].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.textContent = txt;
+    });
+  }
+
+  /* 2. 商机时效校验、前端二次截标过滤、倒计时与 AI 标签 */
+  function prepareFeed(feed){
+    if(!feed || !Array.isArray(feed.items)) return feed;
+    var t = todayCn(), hidden = 0;
+    feed.items = feed.items.filter(function(x){
+      if(x.deadline && /^\d{4}-\d{2}-\d{2}$/.test(x.deadline)){
+        if(x.deadline < t){ hidden++; return false; }
+        x.daysLeft = daysBetween(t, x.deadline);
+      }
+      if(x.cat === "news" && x.ageDays == null && x.date && /^\d{4}-\d{2}-\d{2}$/.test(x.date)){
+        x.ageDays = Math.max(0, daysBetween(x.date, t));
+      }
+      return true;
+    });
+    feed._hiddenExpired = (feed._hiddenExpired || 0) + hidden;
+    return feed;
+  }
+
+  function staleInfo(feed){
+    if(!feed || !feed.updatedIso) return { stale: true, hours: null };
+    var h = (Date.now() - Date.parse(feed.updatedIso)) / 3600000;
+    return { stale: h > 36, hours: Math.max(0, Math.round(h)) };
+  }
+
+  function renderStaleBanner(feed, wrapEl){
+    if(!wrapEl) return;
+    var s = staleInfo(feed);
+    var msgs = [];
+    if(s.stale){
+      msgs.push("⚠️ 商机数据已超过 " + (s.hours == null ? "36" : s.hours) + " 小时未自动更新（最后更新：" + ((feed && feed.updatedCn) || "未知") + "）。定时任务可能暂停或异常，请点击右方「云端重跑任务」或通知管理员检查 GitHub Actions。");
+    }
+    if(feed && feed._hiddenExpired > 0){
+      msgs.push("已自动拦截并隐藏 " + feed._hiddenExpired + " 条已过截标日的招标公告。");
+    }
+    if(!msgs.length){ wrapEl.innerHTML = ""; return; }
+    wrapEl.innerHTML = '<div role="status" style="margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:12.5px;line-height:1.5;font-weight:700;'
+      + (s.stale ? 'background:#fff4e5;color:#8a4b00;border:1px solid #f5c07a' : 'background:var(--surface2);color:var(--muted);border:1px solid var(--line)')
+      + '">' + escHtml(msgs.join(" ｜ ")) + '</div>';
+  }
+
+  function aiTag(x){
+    return (x && Array.isArray(x.aiFields) && x.aiFields.length)
+      ? ' <span class="meta-pill" title="中文标题或切入建议含 AI 辅助生成，联系客户前请核实原文公告" style="padding:1px 6px;font-size:11px">🤖 AI生成</span>'
+      : '';
+  }
+
+  function deadlineTag(x){
+    if(!x || x.daysLeft == null) return "";
+    var soon = x.daysLeft <= 7;
+    return ' <span class="meta-pill" style="padding:1px 7px;font-size:11px;'
+      + (soon ? 'background:#fef3f2;color:#b42318;border-color:#fecdca;font-weight:800' : '')
+      + '">' + (x.daysLeft === 0 ? "⏰ 今天截标" : ("⏰ 剩 " + x.daysLeft + " 天截标")) + '</span>';
+  }
+
+  function ageLabel(x){
+    if(!x || x.cat !== "news" || x.ageDays == null) return "";
+    return x.ageDays === 0 ? "今天" : (x.ageDays + "天前");
+  }
+
+  /* 3. 政策出处溯源与超期复核红标（P-01 / P-02） */
+  var policyMap = null;
+  function getPolicyMap(){
+    if(policyMap) return policyMap;
+    policyMap = {};
+    var arr = w.POLICY_SOURCES_INLINE && w.POLICY_SOURCES_INLINE.items;
+    if(Array.isArray(arr)) arr.forEach(function(p){ if(p && p.id) policyMap[p.id] = p; });
+    return policyMap;
+  }
+
+  function policyTagHtml(id){
+    var p = getPolicyMap()[id];
+    if(!p || !p.url) return "";
+    var due = p.reviewBy && p.reviewBy < todayCn();
+    var txt = due ? ("⚠️ 待复核（核查于 " + p.checked + "）") : ("官方出处 · " + p.checked);
+    var st = due
+      ? "font-size:11.5px;margin-left:5px;padding:1px 6px;border-radius:6px;background:#fef3f2;color:#b42318;border:1px solid #fecdca;font-weight:800;text-decoration:none;display:inline-block"
+      : "font-size:11.5px;margin-left:5px;color:var(--orange);font-weight:700;text-decoration:underline";
+    return ' <a class="fg-policy-tag" href="' + escHtml(p.url) + '" target="_blank" rel="noopener" title="' + escHtml((p.source || "官方来源") + "｜复核期限：" + (p.reviewBy || "—")) + '" style="' + st + '">' + escHtml(txt) + '</a>';
+  }
+
+  function markPolicies(root){
+    var mp = getPolicyMap(), cnt = 0;
+    (root || document).querySelectorAll("[data-policy]").forEach(function(el){
+      if(el.querySelector(".fg-policy-tag")) return;
+      var id = el.getAttribute("data-policy");
+      var html = policyTagHtml(id);
+      if(html){
+        el.insertAdjacentHTML("beforeend", html);
+        if(mp[id] && mp[id].reviewBy && mp[id].reviewBy < todayCn()) cnt++;
+      }
+    });
+    return cnt;
+  }
+
+  /* 4. 客户名单 / 地图结果防毒清洗识别器（A-01：识别货代、报关行、物流与非工业零售门店 + 泛邮箱） */
+  var RE_FORWARDER = /\b(logistics|logistica|logística|freight|forwarding|forwarder|customs\s*broker|agencia\s*aduanal|despacho\s*aduanero|shipping\s*agency|shipping\s*line|nvocc|cargo\s*service|cargo\s*express|spedition|nakliyat|expédition|courier|air\s*&\s*sea|sea\s*&\s*air|dhl|fedex|ups\s*store|maersk|cma\s*cgm|hapag|kuehne|schenker|expeditors|sinotrans|cosco\s*shipping|bollore|ceva\s*logistics|dsv\s*air)\b|货代|货运代理|国际物流|报关行|集运|船务|海运代理|空运代理/i;
+  var RE_NON_IND = /\b(hair\s*salon|barber\s*shop|beauty\s*salon|nail\s*spa|restaurant|pizzeria|bakery|coffee\s*shop|cafe\b|boutique|wedding|kindergarten|primary\s*school|church|mosque|dental\s*clinic|pet\s*shop|travel\s*agency|real\s*estate\s*agent)\b|美发|美容院|餐厅|奶茶|咖啡馆|幼儿园|牙科|旅行社/i;
+  var RE_ROLE_EMAIL = /^(info|sales|contact|admin|office|hello|support|service|enquiry|inquiry|mail|marketing|webmaster|general|reception)@/i;
+
+  function detectLeadRisk(r){
+    r = r || {};
+    var hay = [r.company || "", r.category || "", r.website || ""].join(" ");
+    var suspect = "", suspectLabel = "";
+    if(RE_FORWARDER.test(hay)){
+      suspect = "forwarder";
+      suspectLabel = "⚠️ 疑似货代/物流";
+    } else if(RE_NON_IND.test(hay)){
+      suspect = "non_ind";
+      suspectLabel = "⚠️ 非工业主体";
+    }
+    var em = String(r.email || "").trim();
+    var isRole = !!(em && RE_ROLE_EMAIL.test(em));
+    return { suspect: suspect, suspectLabel: suspectLabel, isRoleEmail: isRole };
+  }
+
+  w.FG_FRESH = {
+    todayCn: todayCn,
+    daysBetween: daysBetween,
+    tradeAsOfText: tradeAsOfText,
+    syncTradeBadges: syncTradeBadges,
+    prepareFeed: prepareFeed,
+    staleInfo: staleInfo,
+    renderStaleBanner: renderStaleBanner,
+    aiTag: aiTag,
+    deadlineTag: deadlineTag,
+    ageLabel: ageLabel,
+    policyTagHtml: policyTagHtml,
+    markPolicies: markPolicies,
+    detectLeadRisk: detectLeadRisk
+  };
+})(window);
 var SUP = {
 "United States":{"tot":1178.686,"src":"UN Comtrade 2025","s":[["Mexico",241.962,20.5],["Other Asia, nes",177.346,15.0],["China",136.309,11.6]],"co":"墨西哥 $242.0bn（20.5%） · 中国 $136.3bn（11.6%） · 越南 $118.6bn（10.1%）","s84":"墨西哥 150.61 · 其他亚洲（未另列） 140.37 · 越南 56.67","s85":"墨西哥 91.35 · 中国 84.03 · 越南 61.92"},
 "China":{"tot":878.212,"src":"UN Comtrade 2025","s":[["Other Asia, nes",206.555,23.5],["South Korea",133.5,15.2],["China (self)",111.769,12.7]],"co":"韩国 $133.5bn（15.2%） · 日本 $86.1bn（9.8%） · 越南 $65.9bn（7.5%）","s84":"其他亚洲（未另列） 36.05 · 日本 35.05 · 中国（自报） 22.11","s85":"其他亚洲（未另列） 170.50 · 韩国 115.50 · 中国（自报） 89.66"},
@@ -3309,9 +3535,12 @@ function renderHomeWorkspace(){
       }
       hrGrid.innerHTML = picked.slice(0, 4).map(function(x){
         var cls = "radar-card" + (x.cat==="loan" ? " rc-loan" : ((x.severity==="Red"||x.severity==="Orange") ? " rc-red" : ""));
-        var dtStr = (x.ongoing && x.startDate && x.lastSeenDate) ? ("起于 " + x.startDate + " · 持续至 " + x.lastSeenDate) : (x.date || "");
+        var ageStr = window.FG_FRESH ? window.FG_FRESH.ageLabel(x) : "";
+        var dtStr = (x.ongoing && x.startDate && x.lastSeenDate) ? ("起于 " + x.startDate + " · 持续至 " + x.lastSeenDate) : (ageStr ? (ageStr + " · " + (x.date||"")) : (x.date || ""));
+        var dlHtml = window.FG_FRESH ? window.FG_FRESH.deadlineTag(x) : "";
+        var aiHtml = window.FG_FRESH ? window.FG_FRESH.aiTag(x) : "";
         return '<div class="'+cls+'">'
-          + '<div class="radar-card-head"><span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span><span class="src-ok">'+esc(dtStr)+' · '+esc(x.source||"")+'</span></div>'
+          + '<div class="radar-card-head"><span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+dlHtml+aiHtml+'<span class="src-ok">'+esc(dtStr)+' · '+esc(x.source||"")+'</span></div>'
           + '<h3>'+esc(radarTitle(x, {dropCountry:true}))+'</h3>'
           + '<div class="rc-meta">建议主推：'+esc(x.productsCn||"")+'</div>'
           + '<div class="rc-acts">'
@@ -3713,16 +3942,40 @@ function jumpToCountry(countryEn){
 
 var STATUS_OPTS = ["重点跟进","已发开发信","有询盘","已报价","已寄样待测","谈判逼单中","已成交","暂缓"];
 
+var EU_MEMBERS_SET = {"Germany":1,"France":1,"Italy":1,"Poland":1,"Spain":1,"Netherlands":1,"Czechia":1,"Hungary":1,"Belgium":1,"Sweden":1,"Austria":1,"Slovakia":1,"Romania":1,"Ireland":1,"Denmark":1,"Portugal":1,"Finland":1,"Greece":1,"Bulgaria":1,"Slovenia":1,"Lithuania":1,"Croatia":1,"Estonia":1,"Latvia":1,"Luxembourg":1,"Malta":1,"Cyprus":1};
+
 function steelBox(c){
   var s = STEEL[c]; if(!s) return "";
   var yr = s.y===2025 ? "2025" : (s.y+"*");
+  var upd = (window.TRADE_DATA_INLINE && window.TRADE_DATA_INLINE.meta && (window.TRADE_DATA_INLINE.meta.checkedDate || String(window.TRADE_DATA_INLINE.meta.generatedAt || "").slice(0, 10))) || "2026-11-25";
   var g = s.g==null ? "" : (' · 两年 <span class="'+(s.g>=0?"growth-up":"growth-dn")+'">'+(s.g>=0?"+":"")+s.g.toFixed(1)+'%</span>');
   var cn = s.cs!=null ? (" · 自中国 "+fmt(s.cn)+"（"+s.cs.toFixed(1)+"%）") : "";
   var parts = [["钢结构 7308",s.s7308],["钢管 7304–7306",s.pipe],["热轧板卷 7208",s.s7208],["型钢 7216",s.s7216],["紧固件 7318",s.s7318]]
     .filter(function(x){ return x[1]>0; }).map(function(x){ return x[0]+" "+fmt(x[1]); }).join(" · ");
-  return '<div class="detail-box"><div class="detail-box-title">🔩 钢材与钢制品进口（HS72+73 · '+yr+'）</div>'
+  var srcNote = s.override && s.override.src
+    ? ('人工官方补充（<a href="'+esc(s.override.src)+'" target="_blank" rel="noopener">查看来源</a> · 核查于 '+esc(s.override.checked)+'）')
+    : ('来源 UN Comtrade · 更新于 '+esc(upd)+(s.y!==2025?'（*该国最新已报送年份为 '+s.y+' 年）':''));
+  return '<div class="detail-box"><div class="detail-box-title">🔩 钢材与钢制品进口（HS72+73 · '+yr+' · 更新于 '+esc(upd)+'）</div>'
     + '<p style="margin:0 0 4px"><b class="num">'+fmt(s.t)+'</b>'+g+cn+'</p>'
-    + '<p style="margin:0;font-size:12.5px;color:var(--muted)">'+parts+'。口径：剔除生铁、铁合金、废钢等冶炼原料（7201–7205）；来源 UN Comtrade。</p></div>';
+    + '<p style="margin:0;font-size:12.5px;color:var(--muted)">'+parts+'。口径：剔除生铁、铁合金、废钢等冶炼原料（7201–7205）；'+srcNote+'。</p></div>';
+}
+function countryPolicyHtml(c, field){
+  if(!window.FG_FRESH) return "";
+  var p = window.FG_FRESH.policyTagHtml;
+  if(field === "tariff"){
+    if(c === "United States") return p("us-tariffs-2026");
+    if(c === "Mexico") return p("mx-tariff-1463") + p("usmca-review");
+  } else if(field === "cert"){
+    if(c === "Vietnam") return p("vn-used-machinery");
+    if(EU_MEMBERS_SET[c]) return p("eu-machinery-2027");
+  } else if(field === "bans"){
+    if(c === "Saudi Arabia") return p("sa-ad-sections-2026");
+    if(c === "Indonesia") return p("id-pi-ls-quota");
+    if(c === "Russia") return p("eu-russia-sanctions-21");
+    if(c === "Cuba") return p("us-cuba-eo14404");
+    if(EU_MEMBERS_SET[c]) return p("eu-cbam-2026");
+  }
+  return "";
 }
 function detailExtra(d){
   var c = d.country, h = "", cLeads = leadsForCountry(c);
@@ -3761,19 +4014,19 @@ function detailExtra(d){
   if(t){
     h += '<div class="detail-box"><div class="detail-box-title">🚪 市场准入与收汇</div>'
       + '<div class="detail-grid">'
-      + '<div><h4>关税（HS 84/85 参考）</h4><p>'+esc(t.tariff)+'</p></div>'
+      + '<div><h4>关税（HS 84/85 参考）</h4><p>'+esc(t.tariff)+countryPolicyHtml(c, "tariff")+'</p></div>'
       + '<div><h4>与中国自贸协定</h4><p><b>'+esc(t.fta||"无")+'</b></p></div>'
-      + '<div><h4>强制认证与标准</h4><p>'+esc(t.cert)+'</p></div>'
+      + '<div><h4>强制认证与标准</h4><p>'+esc(t.cert)+countryPolicyHtml(c, "cert")+'</p></div>'
       + '<div><h4>付款风险</h4><p>'+esc(t.pay)+'</p></div>'
       + '<div><h4>货币 / 语言</h4><p>'+esc(t.cur)+' · '+esc(t.lang)+'</p></div>'
       + '<div><h4>主要港口</h4><p>'+esc(t.ports)+'</p></div>'
-      + '<div style="grid-column:1/-1"><h4>禁令 / 许可 / 特别提示</h4><p>'+esc(t.bans)+'</p></div>'
+      + '<div style="grid-column:1/-1"><h4>禁令 / 许可 / 特别提示</h4><p>'+esc(t.bans)+countryPolicyHtml(c, "bans")+'</p></div>'
       + '</div></div>';
   }
 
   var idr = IND[c], ch = CHINA[c], sp = SUP[c], ytd = (typeof YTD2026 !== "undefined" && YTD2026[c]) ? YTD2026[c] : null;
   if(idr || ch || sp || ytd){
-    var indYrLbl = idr && idr.yr ? (idr.yr === 2025 ? "2025 官方" : "2024*") : "2024*";
+    var indYrLbl = idr && idr.yr ? (idr.yr === 2025 ? "2025 官方" : (idr.yr + "*")) : "2024*";
     var chYrLbl = ch && ch.yr ? (ch.yr + " 官方") : "2025 官方";
     h += '<div class="detail-box"><div class="detail-box-title">📊 贸易结构：工业品口径（'+indYrLbl+'）· 中国占比（'+chYrLbl+'）'+(ytd ? (' · 📈 2026最新月度至 '+esc(ytd.to)) : '')+'</div><div class="detail-grid-3">';
     if(ytd){
@@ -3783,17 +4036,18 @@ function detailExtra(d){
         + '<p class="num">HS84+85 合计 '+fmt(ytd.tot)+'（HS84 '+fmt(ytd.i84)+' / HS85 '+fmt(ytd.i85)+'）· 较 2025 同期同比 '+yoyHtml+'</p></div>';
     }
     if(idr){
-      h += '<div><h4>工业品口径（默认 · '+indYrLbl+'）</h4><p class="num">$'+idr.ind.toFixed(1)+'bn（'+esc(idr.basis)+'）</p></div>'
+      var idrOvHtml = idr.override && idr.override.src ? (' · <a href="'+esc(idr.override.src)+'" target="_blank" rel="noopener">官方出处('+esc(idr.override.checked)+')</a>') : '';
+      h += '<div><h4>工业品口径（默认 · '+indYrLbl+'）</h4><p class="num">$'+idr.ind.toFixed(1)+'bn（'+esc(idr.basis)+'）'+idrOvHtml+'</p></div>'
         + '<div><h4>全口径 / 剔除消费电子</h4><p class="num">$'+idr.full.toFixed(1)+'bn / 剔除 $'+idr.excl.toFixed(1)+'bn</p></div>'
         + '<div><h4>工业品占比</h4><p class="num">'+idr.share.toFixed(1)+'%</p></div>';
     }
     if(ch){
-      h += '<div><h4>从中国进口（FOB 镜像 · '+chYrLbl+'）</h4><p class="num">'+fmt(ch.fc)+'（HS84 '+fmt(ch.fc84)+' / HS85 '+fmt(ch.fc85)+'）</p></div>'
-        + '<div><h4>中国占比 / '+(ch.cagrWin||'23→25')+' 增速</h4><p class="num">'+(ch.share==null?'不适用':(ch.shareTxt||(ch.share.toFixed(1)+"%")))+(ch.cagr==null?'':' · '+(ch.cagr>=0?'+':'')+ch.cagr.toFixed(1)+'%')+'</p></div>'
+      h += '<div><h4>从中国进口（按中国海关出口统计 FOB · '+chYrLbl+'）</h4><p class="num">'+fmt(ch.fc)+'（HS84 '+fmt(ch.fc84)+' / HS85 '+fmt(ch.fc85)+'）</p></div>'
+        + '<div><h4>中国占比（按中国出口统计） / '+(ch.cagrWin||'23→25')+' 增速</h4><p class="num">'+(ch.share==null?'不适用':(ch.shareTxt||(ch.share.toFixed(1)+"%")))+(ch.cagr==null?'':' · '+(ch.cagr>=0?'+':'')+ch.cagr.toFixed(1)+'%')+'</p></div>'
         + '<div><h4>非中国替代空间（上限）</h4><p class="num">'+(ch.fc==null?'—':fmt(Math.max(0, ch.tot-ch.fc)))+'</p></div>';
     }
     if(sp){
-      h += '<div style="grid-column:1/-1"><h4>前三大供应国（'+esc(sp.src)+'）</h4><p>'+esc(supText(c))+(sp.co ? ' ｜ <b>纯国家口径：</b>'+esc(sp.co) : '')+'</p></div>';
+      h += '<div style="grid-column:1/-1"><h4>前三大供应国（按目的国进口统计 · '+esc(sp.src)+'）</h4><p>'+esc(supText(c))+(sp.co ? ' ｜ <b>纯国家口径：</b>'+esc(sp.co) : '')+(c==="United States" ? ' <span class="src-ok">（注：此处 11.6% 按美国海关进口统计，上方 14.1% 按中国海关出口统计，差异来自第三地转口与 FOB/CIF 计价）</span>' : '')+'</p></div>';
     }
     h += '</div></div>';
   }
@@ -3822,6 +4076,7 @@ function detailExtra(d){
 }
 
 function render(){
+  if(window.FG_FRESH) window.FG_FRESH.syncTradeBadges();
   var rows = filtered();
   var ih=document.getElementById("impHead");
   if(ih) ih.textContent = state.scope==="ind" ? "进口 · 工业品口径（默认）" : "进口 HS 84+85 · 全口径";
@@ -3830,10 +4085,10 @@ function render(){
   var html = "";
   rows.forEach(function(d){
     var codes = lineCodes(d.lines).map(function(c){return LINE_CN[c]||c;}).join(" · ");
-    var yrTag = d.yr === 2025 ? '2025' : '2024*';
+    var yrTag = d.yr === 2025 ? '2025' : ((d.yr||'2024') + '*');
     var gWinTag = d.gWin ? (' <span class="src-ok">'+esc(d.gWin)+'</span>') : '';
     var g = d.growth==null ? "—" : '<span class="'+(d.growth>=0?"growth-up":"growth-dn")+'">'+(d.growth>=0?"+":"")+d.growth.toFixed(1)+"%</span>" + gWinTag + (d.gb==='84' ? ' <span class="src-ok" title="缺少可比的工业品口径数据，此处为 HS84 全口径">HS84</span>' : '');
-    var star = (d.yr !== 2025) ? ' <span title="'+esc(d.flag)+'">*</span>' : "";
+    var star = (d.yr !== 2025) ? ' <span title="该国最新官方可用年份为 '+esc(d.yr||'2024')+' 年（尚未报送 2025 全年数据）；来源：'+esc(d.flag)+'" style="cursor:help;color:var(--orange)">*</span>' : "";
     var ftaBadge = hasChinaFta(d.country) ? '<span class="fta-tag" title="与中国有已生效自贸协定">FTA</span>' : '';
     var actBadge = ACTION_COUNTRIES[d.country] ? '<span class="action-tag" title="已有获客行动卡">行动卡</span>' : '';
     var cLeads = leadsForCountry(d.country);
@@ -3850,7 +4105,7 @@ function render(){
       + '<td data-label="出口 HS 84+85"><span class="num">'+fmt(d.exp)+'</span></td>'
       + '<td data-label="工业品两年增速">'+g+'</td>'
       + '<td data-label="中国占比">'+(function(){ var ch=CHINA[d.country]; if(!ch||ch.share==null) return '<span class="src-ok">—</span>'; var txt=ch.shareTxt||(ch.share.toFixed(1)+"%"); return (ch.share>=20&&ch.share<=50)? '<span class="share-best">'+txt+'</span>' : '<span class="num">'+txt+'</span>'; })()+'</td>'
-      + '<td data-label="未来潜力"><span class="badge b-'+d.potential+'">'+(POT_CN[d.potential]||d.potential)+'</span></td>'
+      + '<td data-label="未来潜力"><span class="badge b-'+d.potential+'" title="人工综合评估（核查 2026-11）">'+(POT_CN[d.potential]||d.potential)+'</span></td>'
       + '<td data-label="适合产品线"><span class="lines">'+esc(codes||d.lines)+'</span></td></tr>';
     if(openCountry===d.country){
       var g25Txt = (d.g25!=null ? (' · '+(d.gb==='84'?'HS84':'工业品')+' 24→25 同比 '+(d.g25>=0?'+':'')+d.g25.toFixed(1)+'%') : '') + (d.g84!=null ? (' · HS84 全口径两年 '+(d.g84>=0?'+':'')+d.g84.toFixed(1)+'%，含电脑/服务器') : '');
@@ -5688,13 +5943,25 @@ window.getRepSignature = function(){
     var ytdShowAll = false;
     var ytdTb = document.getElementById("ytd2026Tbody");
     var ytdNote = document.getElementById("ytd2026SummaryNote");
-    var m09 = 0, m08 = 0, m07 = 0;
+    var m09 = 0, m08 = 0, m07 = 0, maxTo = "";
     ytdKeys.forEach(function(c){
       var t = YTD2026[c].to || "";
+      if(t > maxTo) maxTo = t;
       if(t >= "2026-09") m09++;
       else if(t === "2026-08") m08++;
       else if(t === "2026-07") m07++;
     });
+    var ytdCutBadge = document.getElementById("ytdCutoffBadge");
+    if(ytdCutBadge && maxTo){
+      var ytdRefDate = "2026-11-25";
+      var ytdAgeDays = window.FG_FRESH ? window.FG_FRESH.daysBetween(ytdRefDate, window.FG_FRESH.todayCn()) : 0;
+      if(ytdAgeDays > 90){
+        ytdCutBadge.textContent = "⚠️ 月度数据待更新（各国最新至 " + maxTo + " · 核查于 " + ytdRefDate + "）";
+        ytdCutBadge.style.cssText = "font-size:11.5px;background:#fff4e5;color:#8a4b00;border-color:#f5c07a;font-weight:800";
+      } else {
+        ytdCutBadge.textContent = "UN Comtrade 月度截至 " + maxTo + "（海关总署至 2026-10 · 核查于 " + ytdRefDate + "）";
+      }
+    }
     function renderYtd(){
       if(!ytdTb) return;
       var shown = ytdShowAll ? ytdKeys : ytdKeys.slice(0, 30);
@@ -7451,7 +7718,10 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
   function renderFeed(){
     var grid = document.getElementById("radarFeedGrid");
     var moreBtn = document.getElementById("btnRfMore");
+    var bannerWrap = document.getElementById("rfStaleBannerWrap");
     if(!grid) return;
+    if(feedData && window.FG_FRESH) window.FG_FRESH.prepareFeed(feedData);
+    if(window.FG_FRESH) window.FG_FRESH.renderStaleBanner(feedData, bannerWrap);
     if(!feedData || !Array.isArray(feedData.items) || !feedData.items.length){
       document.getElementById("rfUpdatedBadge").textContent = "等待云端首次抓取";
       renderSourceHealth(feedData && feedData.sourcesStatus);
@@ -7464,7 +7734,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     var items = feedData.items;
     window._liveRadarItems = items;
     document.getElementById("rfUpdatedBadge").textContent = "更新：" + (feedData.updatedCn || feedData.updatedDate || "刚刚");
-    document.getElementById("rfAiBadge").textContent = feedData.aiEnriched ? "Gemini 中文研判" : "工业品规则分类";
+    document.getElementById("rfAiBadge").textContent = feedData.aiEnriched ? "Gemini 中文研判（AI生成）" : "原文标题 · 未经 AI 翻译";
     renderSourceHealth(feedData.sourcesStatus);
     var cW = 0, cL = 0, cN = 0;
     items.forEach(function(x){ if(x.cat==="weather") cW++; else if(x.cat==="loan") cL++; else cN++; });
@@ -7493,7 +7763,11 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       if(x.cat === "weather" && (x.severity === "Red" || x.severity === "Orange")) cls += " rc-red";
       else if(x.cat === "loan") cls += " rc-loan";
       var sevBadge = '<span class="'+(x.severity==="Red"?"comp-tag comp-red":(x.cat==="loan"?"fta-tag":"action-tag"))+'" style="margin-left:0">'+esc(x.severityLabel || x.catLabel)+'</span>';
+      var dlBadge = window.FG_FRESH ? window.FG_FRESH.deadlineTag(x) : "";
+      var aiBadge = window.FG_FRESH ? window.FG_FRESH.aiTag(x) : "";
+      var ageStr = window.FG_FRESH ? window.FG_FRESH.ageLabel(x) : "";
       var entLine = x.entity ? ('<div><b>采购/执行机构：</b>'+esc(x.entity)+'</div>') : '';
+      var procLine = x.procGroup ? ('<div><b>采购类别：</b>'+esc(({CW:"土建工程（需经总包供货）",GO:"货物直采",CS:"咨询服务",NC:"非咨询服务"})[x.procGroup] || x.procGroup)+'</div>') : '';
       var contactLine = (x.contactEmail || x.deadline)
         ? ('<div style="display:flex;gap:10px;flex-wrap:wrap">'
           + (x.contactEmail ? ('<span><b>官方邮箱：</b><a href="mailto:'+esc(x.contactEmail)+'">'+esc(x.contactEmail)+'</a></span>') : '')
@@ -7504,13 +7778,13 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var isDrought = x.hazardType === "DR" || /drought|干旱/i.test((x.title||"")+" "+(x.titleCn||""));
       var dateMeta = (x.ongoing && x.startDate && x.lastSeenDate)
         ? ("起于 " + x.startDate + " · 持续至 " + x.lastSeenDate)
-        : (x.date || "");
+        : (ageStr ? (ageStr + " · " + (x.date || "")) : (x.date || ""));
       var emBtnLbl = x.cat === "weather" ? (isDrought ? "抗旱灌溉话术" : "抢修话术") : "载入开发信";
       return '<div class="'+cls+'">'
-        + '<div class="radar-card-head">'+sevBadge+'<span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span><span class="src-ok">'+esc(dateMeta)+' · '+esc(x.source||"")+'</span></div>'
+        + '<div class="radar-card-head">'+sevBadge+'<span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+dlBadge+aiBadge+'<span class="src-ok">'+esc(dateMeta)+' · '+esc(x.source||"")+'</span></div>'
         + '<h3>'+esc(radarTitle(x, {dropSev:true, dropCountry:true}))+'</h3>'
         + origLine
-        + '<div class="rc-meta">'+entLine+contactLine+'<div><b>建议主推：</b>'+esc(x.productsCn||"")+'</div></div>'
+        + '<div class="rc-meta">'+entLine+procLine+contactLine+'<div><b>建议主推：</b>'+esc(x.productsCn||"")+'</div></div>'
         + '<div class="rc-angle">'+esc(x.angleCn||"")+'</div>'
         + '<div class="rc-acts">'
         + '<a class="pill" target="_blank" rel="noopener" href="'+esc(x.url||"#")+'">查看原文</a>'
@@ -7528,6 +7802,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     }
     if(typeof renderHomeWorkspace === "function") renderHomeWorkspace();
   }
+  window._setRadarFeedData = function(j){ feedData = j; renderFeed(); };
 
   function fetchLiveFeed(notify){
     if(typeof fetch !== "function"){ renderFeed(); return; }
@@ -7537,7 +7812,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         if(j && Array.isArray(j.items)){
           feedData = j;
           renderFeed();
-          if(notify) showToast("已刷新最新商机情报（共 " + j.items.length + " 条）");
+          if(notify) showToast("已刷新最新商机情报（共 " + feedData.items.length + " 条有效商机）");
         }
       })
       .catch(function(){
@@ -7703,23 +7978,38 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     setMsEngine("gmaps");
   }
 
+  var msHideNonBuyerEl = document.getElementById("msHideNonBuyer");
+  if(msHideNonBuyerEl) msHideNonBuyerEl.addEventListener("change", renderMapResults);
+
   function renderMapResults(){
     var wrap = document.getElementById("msResultWrap");
     document.getElementById("btnPushToCsv").hidden = !mapLeads.length;
     document.getElementById("btnExportMapCsv").hidden = !mapLeads.length;
     if(!mapLeads.length){ wrap.innerHTML = ""; return; }
-    var rowsHtml = mapLeads.slice(0, 80).map(function(r, idx){
+    var hideSus = !!(msHideNonBuyerEl && msHideNonBuyerEl.checked);
+    var suspectTotal = 0;
+    var indexed = mapLeads.map(function(r, idx){
+      var rk = window.FG_FRESH ? window.FG_FRESH.detectLeadRisk(r) : {suspect:"", suspectLabel:""};
+      if(rk.suspect) suspectTotal++;
+      return {r:r, idx:idx, rk:rk};
+    }).filter(function(o){
+      return !(hideSus && o.rk.suspect);
+    });
+    var rowsHtml = indexed.slice(0, 80).map(function(o){
+      var r = o.r, idx = o.idx, rk = o.rk;
       var mapA = r.mapsUrl ? '<a target="_blank" rel="noopener" href="'+esc(r.mapsUrl)+'">🗺️</a> ' : '';
       var webA = r.website ? '<a target="_blank" rel="noopener" href="'+esc(r.website.indexOf("http")===0?r.website:"https://"+r.website)+'">'+esc(r.website.replace(/^https?:\/\/(www\.)?/,"").slice(0,26))+'</a>' : '<span class="src-ok">—</span>';
-      return '<tr><td><b>'+mapA+esc(r.company)+'</b><br><span class="src-ok">'+esc(r.category||"")+'</span></td>'
+      var susHtml = rk.suspect ? (' <span class="mx-warn" style="font-size:11px">'+esc(rk.suspectLabel)+'</span>') : '';
+      return '<tr'+(rk.suspect?' style="opacity:.78"':'')+'><td><b>'+mapA+esc(r.company)+'</b>'+susHtml+'<br><span class="src-ok">'+esc(r.category||"")+'</span></td>'
         + '<td style="font-size:12px">'+esc(r.phone||"—")+'</td>'
         + '<td style="font-size:12px">'+esc(r.email||"—")+'</td>'
         + '<td style="font-size:12px">'+webA+'</td>'
         + '<td style="font-size:11.5px;color:var(--muted)">'+esc((r.address||"").slice(0,52))+'</td>'
         + '<td><button class="pill" type="button" data-map-crm="'+idx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px;white-space:nowrap">存入客户</button></td></tr>';
     }).join("");
-    wrap.innerHTML = '<table><thead><tr><th>企业/商家名</th><th>电话</th><th>邮箱</th><th>官网</th><th>地址</th><th>操作</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
-      + (mapLeads.length > 80 ? '<p class="flag-note">预览前 80 条（共找到 '+mapLeads.length+' 条，可导出 CSV 或送入「导入与洗名单」处理全部）。</p>' : '')
+    wrap.innerHTML = (suspectTotal ? '<p class="flag-note" style="margin:0 0 6px;color:var(--med);font-weight:700">提示：共识别出 '+suspectTotal+' 家疑似货代/物流或非工业主体'+(hideSus?'（已隐藏）':'（已标黄，可勾选上方「隐藏疑似货代/非工业主体」过滤）')+'。</p>' : '')
+      + '<table><thead><tr><th>企业/商家名</th><th>电话</th><th>邮箱</th><th>官网</th><th>地址</th><th>操作</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
+      + (indexed.length > 80 ? '<p class="flag-note">预览前 80 条（当前显示 '+indexed.length+' 条，可导出 CSV 或送入「导入与洗名单」处理全部）。</p>' : '')
       + (msEngine === "gmaps" ? '<p class="flag-note">数据来源：Google Maps Platform（Powered by Google），仅限内部客户开发使用。</p>' : '');
   }
   document.getElementById("msResultWrap").addEventListener("click", function(e){
@@ -8152,7 +8442,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var k = (x.email||"").toLowerCase() || extractDom(x.website) || cleanPhone(x.phone, x.country) || x.company.toLowerCase();
       if(k) seen[k] = 1;
     });
-    var added = 0, dup = 0;
+    var added = 0, dup = 0, susAdded = 0;
     list.forEach(function(raw){
       var cNorm = resolveCountryEn(raw.country || "") || raw.country || "";
       var dom = extractDom(raw.email || raw.website);
@@ -8160,14 +8450,20 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var key = (raw.email||"").toLowerCase() || dom || cleanPhone(raw.phone, cNorm) || (raw.company||"").toLowerCase();
       if(key && seen[key]){ dup++; return; }
       if(key) seen[key] = 1;
+      var rk = window.FG_FRESH ? window.FG_FRESH.detectLeadRisk(raw) : {suspect:"", suspectLabel:"", isRoleEmail:false};
+      if(rk.suspect) susAdded++;
       merged.push({
         company: raw.company || dom || "未知企业",
         country: cNorm,
         email: raw.email || "",
         phone: raw.phone || "",
         website: raw.website || "",
+        category: raw.category || "",
         domain: dom,
         isFree: isFree,
+        suspect: rk.suspect,
+        suspectLabel: rk.suspectLabel,
+        isRoleEmail: rk.isRoleEmail,
         mxStatus: isFree ? "free" : (dom ? "pending" : "none"),
         mxDetail: isFree ? "免费邮箱" : (dom ? "未验证" : "无域名")
       });
@@ -8175,34 +8471,43 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     });
     csvLeads = merged;
     renderCsvTable();
-    showToast("已导入 " + added + " 条客户" + (dup ? "（自动去重 " + dup + " 条）" : ""));
+    showToast("已导入 " + added + " 条客户" + (dup ? "（去重 " + dup + " 条）" : "") + (susAdded ? ("｜发现 " + susAdded + " 条疑似货代/非工业主体") : ""));
   }
 
   function renderCsvTable(){
     var tb = document.getElementById("csvTbody");
     var tot = csvLeads.length;
-    var nOk = 0, nWa = 0, nFree = 0, nBad = 0, nErr = 0, nPend = 0;
+    var nOk = 0, nWa = 0, nFree = 0, nBad = 0, nErr = 0, nPend = 0, nSus = 0, nRole = 0;
     csvLeads.forEach(function(r){
       if(r.mxStatus==="ok") nOk++;
       else if(r.mxStatus==="bad") nBad++;
       else if(r.mxStatus==="error") nErr++;
       else if(r.mxStatus==="pending") nPend++;
       if(r.isFree) nFree++;
+      if(r.suspect) nSus++;
+      if(r.isRoleEmail) nRole++;
       if(cleanPhone(r.phone, r.country).length >= 7) nWa++;
     });
+    var susCntEl = document.getElementById("csvSuspectCnt");
+    if(susCntEl) susCntEl.textContent = String(nSus);
+    var purgeBtn = document.getElementById("btnPurgeSuspect");
+    if(purgeBtn) purgeBtn.hidden = !nSus;
+
     document.getElementById("csvStats").textContent = tot
-      ? ("共 " + tot + " 家去重客户 ｜ 域名可收信 " + nOk + (nPend ? (" ｜ 未验证 " + nPend) : "") + " ｜ 可发 WhatsApp " + nWa + " ｜ 免费邮箱 " + nFree + (nBad ? (" ｜ 明确不可收信 " + nBad) : "") + (nErr ? (" ｜ 暂时失败 " + nErr) : ""))
+      ? ("共 " + tot + " 家去重客户 ｜ 域名可收信 " + nOk + (nPend ? (" ｜ 未验证 " + nPend) : "") + " ｜ 可发 WhatsApp " + nWa + (nSus ? (" ｜ 疑似货代/非终端 " + nSus) : "") + (nRole ? (" ｜ 泛邮箱 " + nRole) : "") + " ｜ 免费邮箱 " + nFree + (nBad ? (" ｜ 明确不可收信 " + nBad) : "") + (nErr ? (" ｜ 暂时失败 " + nErr) : ""))
       : "尚未导入名单";
 
     var shown = csvLeads.map(function(r, i){ return {r:r, i:i}; }).filter(function(o){
       var r = o.r;
-      if(csvFilter === "corp") return !r.isFree && r.mxStatus === "ok";
+      if(csvFilter === "clean") return !r.suspect;
+      if(csvFilter === "suspect") return !!r.suspect;
+      if(csvFilter === "corp") return !r.isFree && !r.suspect && r.mxStatus === "ok";
       if(csvFilter === "wa") return cleanPhone(r.phone, r.country).length >= 7;
       if(csvFilter === "free") return r.isFree;
       return true;
     });
     if(!shown.length){
-      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">' + (csvFilter === "corp" && tot ? "暂无已通过 MX 验证的企业域名，请先点击「批量核验企业邮局（MX）」。" : "当前筛选条件下无客户记录。") + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">' + (csvFilter === "corp" && tot ? "暂无已通过 MX 验证的非货代企业域名，请先点击「批量核验企业邮局（MX）」。" : "当前筛选条件下无客户记录。") + '</td></tr>';
       return;
     }
     tb.innerHTML = shown.map(function(o){
@@ -8214,6 +8519,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       else if(r.mxStatus === "free") badge = '<span class="mx-warn">🟡 免费邮箱</span>';
       else if(r.mxStatus === "pending") badge = '<span class="src-ok">⚪ 未验证 ('+esc(r.domain)+')</span>';
       else badge = '<span class="src-ok">— 无邮箱/域名</span>';
+      if(r.isRoleEmail) badge += ' <span class="src-ok" title="info@/sales@ 等公共泛邮箱，建议配合猜邮箱工具找采购负责人直邮">· 泛邮箱</span>';
 
       var phInfo = analyzePhone(r.phone, r.country);
       var digits = phInfo.digits;
@@ -8225,9 +8531,10 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var webHtml = r.website
         ? ('<a target="_blank" rel="noopener" href="'+esc(r.website.indexOf("http")===0?r.website:"https://"+r.website)+'">'+esc(extractDom(r.website))+'</a>')
         : '<span class="src-ok">—</span>';
+      var susBadge = r.suspect ? ('<div style="margin-top:3px"><span class="mx-warn" style="font-size:11px">'+esc(r.suspectLabel)+'（提单常见代收货人，建议核实或剔除）</span></div>') : '';
 
-      return '<tr>'
-        + '<td><b>'+esc(r.company)+'</b></td>'
+      return '<tr'+(r.suspect?' style="background:color-mix(in srgb,var(--med-bg) 45%,transparent)"':'')+'>'
+        + '<td><b>'+esc(r.company)+'</b>'+susBadge+'</td>'
         + '<td>'+esc(CN[r.country]||r.country||"—")+'</td>'
         + '<td>'+(r.email ? ('<div style="font-size:12px">'+esc(r.email)+'</div>') : '')+badge+'</td>'
         + '<td>'+waHtml+'</td>'
@@ -8236,6 +8543,18 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         + '<button class="pill" type="button" data-csv-crm="'+i+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">存入客户</button> '
         + '<button class="pill" type="button" data-csv-dd="'+i+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">背调</button></td></tr>';
     }).join("");
+  }
+
+  var btnPurgeSuspect = document.getElementById("btnPurgeSuspect");
+  if(btnPurgeSuspect){
+    btnPurgeSuspect.addEventListener("click", function(){
+      var before = csvLeads.length;
+      csvLeads = csvLeads.filter(function(r){ return !r.suspect; });
+      var removed = before - csvLeads.length;
+      if(csvFilter === "suspect") csvFilter = "all";
+      renderCsvTable();
+      showToast("已一键剔除 " + removed + " 条疑似货代/物流及非工业主体");
+    });
   }
 
   document.getElementById("btnPushToCsv").addEventListener("click", function(){
@@ -8265,7 +8584,8 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     var sample = [
       {company:"Saigon Industrial Valve & Pump JSC", country:"Vietnam", email:"procurement@saigonvalve.vn", phone:"0903 899 112", website:"https://saigonvalve.vn"},
       {company:"Monterrey Acero y Estructuras S.A.", country:"Mexico", email:"compras@monterreyacero.mx", phone:"+52 81 8345 6789", website:"https://monterreyacero.mx"},
-      {company:"Al-Dammam Gulf Piping & Valves", country:"Saudi Arabia", email:"rfq@gulfpiping.sa", phone:"+966 13 842 9900", website:"https://gulfpiping.sa"},
+      {company:"Al-Dammam Gulf Piping & Valves", country:"Saudi Arabia", email:"info@gulfpiping.sa", phone:"+966 13 842 9900", website:"https://gulfpiping.sa"},
+      {company:"Global Sea & Air Freight Forwarding LLC", country:"United States", email:"sales@globalseafreight-example.com", phone:"+1 310 555 0199", website:"https://globalseafreight-example.com"},
       {company:"PT Nusantara Mining Supply", country:"Indonesia", email:"nusantara.buyer@gmail.com", phone:"0812-5588-7766", website:""},
       {company:"Fake Shell Test Trading Ltd", country:"Nigeria", email:"ceo@nonexistent-domain-xyz9988.com", phone:"", website:"nonexistent-domain-xyz9988.com"}
     ];
@@ -8324,14 +8644,15 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
 
   document.getElementById("btnExportCleanCsv").addEventListener("click", function(){
     if(!csvLeads.length){ showToast("请先导入名单"); return; }
-    var lines = ["Company,Country,Email,Domain,MX_Status,Phone,WhatsApp_Link,Website"];
-    csvLeads.forEach(function(r){
+    var exportRows = csvFilter === "clean" ? csvLeads.filter(function(r){ return !r.suspect; }) : csvLeads;
+    var lines = ["Company,Country,Lead_Clean_Flag,Email,Role_Email,Domain,MX_Status,Phone,WhatsApp_Link,Website"];
+    exportRows.forEach(function(r){
       var d = cleanPhone(r.phone, r.country);
       var wa = d.length >= 7 ? ("https://wa.me/" + d) : "";
-      lines.push([qCsv(r.company),qCsv(r.country),qCsv(r.email),qCsv(r.domain),qCsv(r.mxStatus),qCsv(r.phone),qCsv(wa),qCsv(r.website)].join(","));
+      lines.push([qCsv(r.company),qCsv(r.country),qCsv(r.suspectLabel||"正常工业/贸易主体"),qCsv(r.email),qCsv(r.isRoleEmail?"泛邮箱":"直邮/普通"),qCsv(r.domain),qCsv(r.mxStatus),qCsv(r.phone),qCsv(wa),qCsv(r.website)].join(","));
     });
     downloadFile("friesgo-cleaned-leads-"+localDateStr()+".csv", "\ufeff"+lines.join("\n"), "text/csv;charset=utf-8");
-    showToast("已导出清洗后名单（" + csvLeads.length + " 条 CSV）");
+    showToast("已导出清洗后名单（" + exportRows.length + " 条 CSV）");
   });
 
   document.getElementById("csvTbody").addEventListener("click", function(e){
@@ -8349,7 +8670,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
           company: rC.company, country: rC.country || "Vietnam", email: rC.email || "",
           phone: rC.phone || "", website: rC.website || "",
           product: ((document.getElementById("csvWaProd")||{}).value||"").trim(),
-          source: "导入与洗名单", note: rC.mxDetail ? ("邮局状态：" + rC.mxDetail) : ""
+          source: "导入与洗名单", note: (rC.suspectLabel ? (rC.suspectLabel + "｜") : "") + (rC.mxDetail ? ("邮局状态：" + rC.mxDetail) : "")
         });
       }
       return;
@@ -8365,6 +8686,10 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
 updateFollowBadge();
 updateSaveBackupStatus(false);
 if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
+if(window.FG_FRESH){
+  window.FG_FRESH.syncTradeBadges();
+  window.FG_FRESH.markPolicies();
+}
 renderTools();
 render();
 renderHomeWorkspace();

@@ -1,0 +1,62 @@
+name: Monthly Trade Data Refresh
+
+on:
+  schedule:
+    # Runs on the 16th of every month at 02:00 UTC (10:00 Beijing Time)
+    - cron: "0 2 16 * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "警告超过上限时仍然发布（仅在人工核对无误后使用）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-commit
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Pull UN Comtrade & run anti-poisoning validation
+        env:
+          COMTRADE_KEY: ${{ secrets.COMTRADE_KEY }}
+        run: python3 scripts/update_trade_data.py ${{ inputs.force && '--force' || '' }}
+
+      - name: Commit updated trade data if changed
+        run: |
+          git config user.name "FriesGo Data Bot"
+          git config user.email "data-bot@users.noreply.github.com"
+          git add data/trade_data.json data/trade_data.js
+          if git diff --cached --quiet; then
+            echo "No changes to trade data."
+            exit 0
+          fi
+          git commit -m "chore(data): monthly UN Comtrade refresh"
+          git pull --rebase
+          git push
+
+      - name: Notify group on validation block or failure
+        if: failure()
+        env:
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}
+          WXPUSHER_APP_TOKEN: ${{ secrets.WXPUSHER_APP_TOKEN }}
+          WXPUSHER_TOPIC_ID: ${{ secrets.WXPUSHER_TOPIC_ID }}
+        run: python3 scripts/notify_alert.py "⚠️ FriesGo 月度贸易数据更新被熔断拦截或失败" "UN Comtrade 拉取校验未通过或接口限流，已保留上一版线上数据不变，请人工核查运行日志。"

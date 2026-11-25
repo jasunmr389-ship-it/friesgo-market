@@ -1,0 +1,49 @@
+name: Data Freshness & Policy Health Check
+
+on:
+  schedule:
+    # Runs daily at 04:30 UTC (12:30 Beijing Time)
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  radar-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check radar feed freshness (<= 36h)
+        run: python3 scripts/check_radar_fresh.py data/radar_feed.json 36
+      - name: Notify group if radar is stale
+        if: failure()
+        env:
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}
+          WXPUSHER_APP_TOKEN: ${{ secrets.WXPUSHER_APP_TOKEN }}
+          WXPUSHER_TOPIC_ID: ${{ secrets.WXPUSHER_TOPIC_ID }}
+        run: python3 scripts/notify_alert.py "⚠️ FriesGo 商机数据已超 36 小时未更新" "每日商机定时任务可能未运行或异常中断，请前往仓库 Actions 页面检查 Daily Global Industrial Radar。"
+
+  policy-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check policy provenance & review deadlines (strict on Mondays)
+        run: |
+          if [ "$(date -u +%u)" = "1" ]; then
+            python3 scripts/check_policy_review.py data/policy_sources.json
+          else
+            python3 scripts/check_policy_review.py data/policy_sources.json --warn-only
+          fi
+      - name: Notify group if policy review is overdue
+        if: failure()
+        env:
+          WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}
+          WXPUSHER_APP_TOKEN: ${{ secrets.WXPUSHER_APP_TOKEN }}
+          WXPUSHER_TOPIC_ID: ${{ secrets.WXPUSHER_TOPIC_ID }}
+        run: python3 scripts/notify_alert.py "⚠️ FriesGo 政策/关税条目待复核提醒" "存在已过复核期限或缺失官方出处的关税/反倾销/制裁条目，请数据负责人核对官方公报并更新 data/policy_sources.json。"

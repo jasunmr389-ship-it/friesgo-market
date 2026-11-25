@@ -1,0 +1,14 @@
+{
+  "_说明": "Comtrade 缺数或明显过旧的国家在此手工补充（如越南、阿联酋、中国台湾）。每项必须填写 src（官方来源链接）与 checked（核查日期 YYYY-MM-DD），否则 update_trade_data.py 会拒绝运行。",
+  "Vietnam": {
+    "_note": "示例结构，数值须替换为越南海关公布的、与工业品口径一致的官方数据",
+    "src": "https://www.customs.gov.vn/",
+    "checked": "2026-11-25",
+    "ind": {
+      "y": 2025,
+      "v": 87.523,
+      "growth": null,
+      "yoy": null
+    }
+  }
+}
