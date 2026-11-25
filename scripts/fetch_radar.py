@@ -652,12 +652,37 @@ def _parse_wb_date(s):
         return ""
     if re.match(r"^\d{4}-\d{2}-\d{2}", s):
         return s[:10]
-    for fmt in ("%d-%b-%Y", "%b %d, %Y", "%Y/%m/%d"):
+    for fmt in ("%d-%b-%Y", "%b %d, %Y", "%d %B %Y", "%B %d, %Y", "%d %b %Y", "%Y/%m/%d"):
         try:
-            return datetime.datetime.strptime(s[:20].strip(), fmt).strftime("%Y-%m-%d")
+            return datetime.datetime.strptime(s[:24].strip(), fmt).strftime("%Y-%m-%d")
         except Exception:
             pass
     return s[:10]
+
+
+def _extract_wb_orig_date(notice_html):
+    """Extract original issue date from World Bank notice_text body to flag re-posted old notices (R-08)."""
+    if not notice_html:
+        return ""
+    plain = re.sub(r"<[^>]+>", " ", str(notice_html)[:1800])
+    plain = re.sub(r"\s+", " ", plain).strip()
+    patterns = [
+        r"\b(?:Date|Dated|Fecha)\s*[:\-]\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2})",
+        r"\b(?:Date|Dated|Fecha)\s*[:\-]\s*([A-Za-z]{3,9}\s+\d{1,2},\s*20\d{2})",
+        r"\b(?:Date|Dated|Fecha)\s*[:\-]\s*(20\d{2}-\d{2}-\d{2})",
+        r"\b(?:Date|Dated|Fecha)\s*[:\-]\s*(\d{1,2}[/-]\d{1,2}[/-]20\d{2})",
+    ]
+    for pat in patterns:
+        m = re.search(pat, plain, re.I)
+        if not m:
+            continue
+        raw_d = m.group(1).strip()
+        for fmt in ("%d %B %Y", "%d %b %Y", "%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y"):
+            try:
+                return datetime.datetime.strptime(raw_d, fmt).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+    return ""
 
 
 def _today_cn():
@@ -690,10 +715,10 @@ def fetch_worldbank():
     )
 
     notice_badges = {
-        "Invitation for Bids": ("📢 世行公开招标中", "High"),
-        "Invitation for Prequalification": ("📢 世行资格预审", "High"),
-        "General Procurement Notice": ("📋 世行采购总公告", "High"),
-        "Contract Award": ("🏆 世行刚中标·追总包", "Normal"),
+        "Invitation for Bids": ("公开招标", "High"),
+        "Invitation for Prequalification": ("资格预审", "High"),
+        "General Procurement Notice": ("采购总公告", "High"),
+        "Contract Award": ("已授标·找总包", "Normal"),
     }
 
     urls = [
@@ -747,6 +772,17 @@ def fetch_worldbank():
                 # 整改：已过截标日的招标不再进入商机列表
                 if deadline and deadline < _today_cn():
                     continue
+                orig_date = _extract_wb_orig_date(n.get("notice_text") or "")
+                reposted = False
+                if orig_date and date_str and re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+                    try:
+                        d_pub = datetime.date.fromisoformat(date_str)
+                        d_orig = datetime.date.fromisoformat(orig_date)
+                        if (d_pub - d_orig).days >= 365:
+                            reposted = True
+                    except Exception:
+                        pass
+
                 proc_group = clean_text(n.get("procurement_group") or "")
                 email = clean_text(n.get("contact_email") or "")
                 phone = clean_text(n.get("contact_phone_no") or "")
@@ -761,19 +797,20 @@ def fetch_worldbank():
 
                 prod_cn, prod_en = match_products(combined)
                 badge_lbl, sev = notice_badges[ntype]
-                if deadline:
-                    sev_lbl = f"{badge_lbl} · 截标 {deadline}"
-                else:
-                    sev_lbl = badge_lbl
+                sev_lbl = badge_lbl
 
-                angle_target = org or (c_cn + "项目采购办")
-                if ntype == "Contract Award":
-                    angle = f"刚授标工程/采购！立刻查「{angle_target}」或中标总包商，切入二级供货：{prod_cn}"
-                else:
-                    email_tip = f"（带官方采购邮箱 {email}）" if email else ""
-                    angle = f"世界银行招标{email_tip}：对接「{angle_target}」或当地投标代理，主推 {prod_cn}"
                 if proc_group == "CW":
-                    angle = f"土建工程总包招标：一般须由具备资质的承包商投标，建议跟踪投标/中标总包商，切入二级供货：{prod_cn}"
+                    angle = f"土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（{prod_cn}）"
+                elif ntype == "Contract Award":
+                    angle = f"已授标公告：核查中标总包商，联系其采购部门争取二级设备/材料供货（{prod_cn}）"
+                elif ntype == "General Procurement Notice":
+                    angle = f"项目采购计划总公告，正式招标尚未开始：先联系业主或当地代理，提前进入供应商短名单（{prod_cn}）"
+                elif ntype == "Invitation for Prequalification":
+                    angle = f"资格预审阶段：先下载预审文件核对业绩与保函门槛，评估直投或联合当地承包商参与（{prod_cn}）"
+                elif proc_group == "GO":
+                    angle = f"货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（{prod_cn}）"
+                else:
+                    angle = f"先下载招标文件核对资格门槛，再决定直接投标还是经当地代理/承包商配套供货（{prod_cn}）"
 
                 sum_parts = [f"类型：{ntype}"]
                 if pname and pname != title_show:
@@ -782,8 +819,10 @@ def fetch_worldbank():
                     sum_parts.append(f"官方邮箱：{email}")
                 if deadline:
                     sum_parts.append(f"截标日期：{deadline}")
+                if orig_date and reposted:
+                    sum_parts.append(f"正文原日期：{orig_date}（重新挂网）")
                 if proc_group:
-                    sum_parts.append("采购类别：" + {"CW": "土建工程（需经总包供货）", "GO": "货物", "CS": "咨询服务", "NC": "非咨询服务"}.get(proc_group, proc_group))
+                    sum_parts.append("采购类别：" + {"CW": "土建工程（需经总包供货）", "GO": "货物直采", "CS": "咨询服务", "NC": "非咨询服务"}.get(proc_group, proc_group))
 
                 notice_url = f"https://projects.worldbank.org/en/projects-operations/procurement-detail/{nid}"
                 if not nid.startswith("OP") and pid:
@@ -802,6 +841,8 @@ def fetch_worldbank():
                     "lang": lang,
                     "date": date_str,
                     "deadline": deadline,
+                    "reposted": reposted,
+                    "origNoticeDate": orig_date if reposted else "",
                     "procGroup": proc_group,
                     "title": title_show,
                     "titleCn": f"【{c_cn}】{title_show}",
@@ -1038,7 +1079,7 @@ def enrich_with_gemini(items):
         batch = targets[start : start + 16]
         prompt = (
             "你是中国全品类工业品外贸总监（主营钢结构、阀门、水泵、电缆、机械、农机、五金）。\n"
-            "请把下面每条海外商机翻译成精炼易懂的中文标题（带国别，28字以内），给一句实战外贸切入建议（30字以内）。\n"
+            "请把下面每条海外商机翻译成精炼易懂的中文标题（带国别，28字以内），给一句克制务实的外贸切入建议（30字以内，禁用感叹号和“实盘/必拿”等夸大用语）。\n"
             "重要硬规则：entity 字段只能一字不差摘录原 title 中真实出现的具体业主或采购公司名称；如果原 title 没有明确公司名，必须返回空字符串 \"\"，严禁猜测、补全或编造公司名。\n"
             "严格返回纯 JSON 数组，每个对象只含字段：i（原整数索引）、titleCn（中文标题）、angleCn（外贸切入建议）、entity（原文出现的业主/采购方名或空串）。不要输出任何多余文字。\n"
             + json.dumps(batch, ensure_ascii=False)
@@ -1070,13 +1111,11 @@ def enrich_with_gemini(items):
                     if isinstance(i, int) and 0 <= i < len(items):
                         ai_fields = []
                         if obj.get("titleCn"):
-                            items[i]["titleCn"] = clean_text(obj["titleCn"])
+                            items[i]["titleCn"] = clean_text(obj["titleCn"]).replace("！", "")
                             ai_fields.append("titleCn")
-                        if obj.get("angleCn"):
-                            # Keep explicit CW subcontractor notice if World Bank civil works
-                            if items[i].get("procGroup") != "CW":
-                                items[i]["angleCn"] = clean_text(obj["angleCn"])
-                                ai_fields.append("angleCn")
+                        if obj.get("angleCn") and items[i].get("cat") != "loan":
+                            items[i]["angleCn"] = clean_text(obj["angleCn"]).replace("！", "，").replace("实盘", "").strip("， ")
+                            ai_fields.append("angleCn")
                         if obj.get("entity") and not items[i].get("entity"):
                             verified_ent = _verify_ai_entity(obj.get("entity"), items[i])
                             if verified_ent:

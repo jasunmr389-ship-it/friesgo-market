@@ -64,7 +64,13 @@ html[data-theme="dark"] .logo,html[data-theme="dark"] footer img{filter:drop-sha
 .ws-btn:hover{background:var(--surface2);border-color:var(--line)}
 .ws-btn[aria-selected="true"]{background:var(--brown);color:#fff;border-color:var(--brown)}
 html[data-theme="dark"] .ws-btn[aria-selected="true"]{background:var(--orange);color:#241305;border-color:var(--orange)}
-.ws-btn .ws-ico{font-size:15px;width:20px;text-align:center;flex:0 0 20px}
+.ws-btn .ws-ico{font-size:15px;width:20px;text-align:center;flex:0 0 20px;display:inline-flex;align-items:center;justify-content:center}
+.ws-btn svg,.mb-btn svg,.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.sd-g,.sd-y,.sd-r,.sd-n{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.sd-g{background:var(--good)}
+.sd-y{background:var(--med)}
+.sd-r{background:var(--danger)}
+.sd-n{background:var(--muted);opacity:.65}
 .tab-badge{margin-left:auto;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--cta);color:var(--cta-ink);font-weight:900;line-height:1.45}
 .ws-btn[aria-selected="true"] .tab-badge{background:rgba(255,255,255,.25);color:#fff}
 html[data-theme="dark"] .ws-btn[aria-selected="true"] .tab-badge{background:rgba(0,0,0,.22);color:#241305}
@@ -75,6 +81,10 @@ html[data-theme="dark"] .ws-btn[aria-selected="true"] .tab-badge{background:rgba
 .sub-tool-btn{width:100%;padding:8px 10px 8px 14px;min-height:36px;display:flex;align-items:center;justify-content:space-between;gap:6px;border-radius:9px;font-size:13px;font-weight:700;color:var(--ink);background:transparent;border:1px solid transparent;cursor:pointer;text-align:left;transition:all .12s}
 .sub-tool-btn:hover{background:var(--surface2)}
 .sub-tool-btn.active{background:var(--orange-soft);color:var(--high);border-color:color-mix(in srgb,var(--orange) 35%,transparent);font-weight:800}
+.sb-ref-label{font-size:11px;font-weight:700;color:var(--muted);padding:10px 8px 2px;margin-top:6px;border-top:1px dashed var(--line);letter-spacing:.3px}
+.sub-tool-btn.is-ref{color:var(--muted);font-weight:600;font-size:12.5px}
+.sub-tool-btn.is-ref.active{color:var(--high);font-weight:700}
+.m-sub-btn.is-ref{opacity:.82}
 
 .main-stage{flex:1;min-width:0;max-width:1160px;margin:0 auto;padding:18px 24px 64px;width:100%}
 .mobile-subbar{display:none}
@@ -476,15 +486,15 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
           <div class="brand-sub">工业品外贸工作台</div>
         </div>
       </div>
-      <button class="icon-btn" id="themeBtn" type="button" title="切换深色/浅色主题">🌙</button>
+      <button class="icon-btn" id="themeBtn" type="button" title="切换深色/浅色主题" aria-label="切换深色/浅色主题"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg></button>
     </div>
 
     <nav class="ws-nav" role="tablist" aria-label="五大工作区">
-      <button class="ws-btn" role="tab" data-ws="home" aria-selected="true"><span class="ws-ico">📋</span><span>今日工作台</span></button>
-      <button class="ws-btn" role="tab" data-ws="find" aria-selected="false"><span class="ws-ico">🔍</span><span>找客户</span></button>
-      <button class="ws-btn" role="tab" data-ws="clients" aria-selected="false"><span class="ws-ico">👥</span><span>客户跟进</span><span class="tab-badge" id="followBadge" hidden>0</span></button>
-      <button class="ws-btn" role="tab" data-ws="quote" aria-selected="false"><span class="ws-ico">🧮</span><span>报价工具</span></button>
-      <button class="ws-btn" role="tab" data-ws="market" aria-selected="false"><span class="ws-ico">🌍</span><span>市场资料</span></button>
+      <button class="ws-btn" role="tab" data-ws="home" aria-selected="true"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span>今日工作台</span></button>
+      <button class="ws-btn" role="tab" data-ws="find" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span>找客户</span></button>
+      <button class="ws-btn" role="tab" data-ws="clients" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>客户跟进</span><span class="tab-badge" id="followBadge" hidden>0</span></button>
+      <button class="ws-btn" role="tab" data-ws="quote" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h2M14 11h2M8 15h2M14 15h2M8 19h8"/></svg></span><span>报价工具</span></button>
+      <button class="ws-btn" role="tab" data-ws="market" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8"/><path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18z"/></svg></span><span>市场资料</span></button>
     </nav>
 
     <div class="sb-sub-wrap" id="sidebarSubWrap" hidden>
@@ -536,14 +546,15 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
           </div>
           <div class="recent-chips" id="homeRecentTools"></div>
           <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
-            <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">常用业务入口</div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--brown);margin-bottom:6px">常用业务入口</div>
             <div class="pills" style="margin-top:0">
               <button class="pill" type="button" data-home-jump="map-scraper">地图找客户</button>
               <button class="pill" type="button" data-home-jump="lead-finder">搜索找客户</button>
+              <button class="pill" type="button" data-home-jump="radar-weather">突发刚需与备货日历</button>
               <button class="pill" type="button" data-home-jump="duediligence">客户背调</button>
               <button class="pill" type="button" data-home-jump="email-gen">写开发信</button>
               <button class="pill" type="button" data-home-jump="local-agents">找当地销售代理</button>
-              <button class="pill" type="button" data-home-jump="market-table">146 国市场总表</button>
+              <button class="pill" type="button" data-home-jump="market-table">国家速查（146 国）</button>
             </div>
           </div>
         </div>
@@ -2214,11 +2225,11 @@ Best regards,
 </div>
 
 <nav class="mobile-bottom-nav" aria-label="手机底部主菜单">
-  <button class="mb-btn" type="button" data-ws="home" aria-selected="true"><span class="mb-ico">📋</span><span>工作台</span></button>
-  <button class="mb-btn" type="button" data-ws="find" aria-selected="false"><span class="mb-ico">🔍</span><span>找客户</span></button>
-  <button class="mb-btn" type="button" data-ws="clients" aria-selected="false"><span class="mb-ico">👥</span><span>跟进</span><span class="mb-badge" id="mobileFollowBadge" hidden>0</span></button>
-  <button class="mb-btn" type="button" data-ws="quote" aria-selected="false"><span class="mb-ico">🧮</span><span>报价</span></button>
-  <button class="mb-btn" type="button" data-ws="market" aria-selected="false"><span class="mb-ico">🌍</span><span>市场</span></button>
+  <button class="mb-btn" type="button" data-ws="home" aria-selected="true"><span class="mb-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span>工作台</span></button>
+  <button class="mb-btn" type="button" data-ws="find" aria-selected="false"><span class="mb-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span>找客户</span></button>
+  <button class="mb-btn" type="button" data-ws="clients" aria-selected="false"><span class="mb-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>跟进</span><span class="mb-badge" id="mobileFollowBadge" hidden>0</span></button>
+  <button class="mb-btn" type="button" data-ws="quote" aria-selected="false"><span class="mb-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h2M14 11h2M8 15h2M14 15h2M8 19h8"/></svg></span><span>报价</span></button>
+  <button class="mb-btn" type="button" data-ws="market" aria-selected="false"><span class="mb-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8"/><path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18z"/></svg></span><span>市场</span></button>
 </nav>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -2248,10 +2259,12 @@ document.querySelectorAll(".js-logo").forEach(function(img){ img.src = LOGO_SRC;
   try { saved = localStorage.getItem("friesgo_theme"); } catch(e){}
   var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   var cur = saved || (prefersDark ? "dark" : "light");
+  var sunSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+  var moonSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>';
   function apply(t){
     document.documentElement.setAttribute("data-theme", t);
     var b = document.getElementById("themeBtn");
-    if(b) b.textContent = t==="dark" ? "☀️" : "🌙";
+    if(b) b.innerHTML = t==="dark" ? sunSvg : moonSvg;
   }
   apply(cur);
   document.getElementById("themeBtn").addEventListener("click", function(){
@@ -3261,20 +3274,20 @@ var WORKSPACE_NAV = {
     label: "市场资料",
     defaultTool: "market-table",
     tools: [
-      {id:"market-table", label:"146 国市场总表", sections:["panel-market","map"]},
+      {id:"market-table", label:"国家速查（146 国）", sections:["panel-market","map"]},
       {id:"compare-panel", label:"国家并排对比", sections:["compare-panel"]},
-      {id:"ytd2026", label:"2026 最新月度实况", sections:["ytd2026","trend2025"]},
       {id:"actions", label:"10 国重点打法", sections:["actions"]},
-      {id:"deep-data", label:"行业与供应国数据", sections:["matrix"], innerTabs:[
+      {id:"compliance-ref", label:"发货合规与制裁", sections:["precheck"], innerTabs:[
+        {id:"precheck", label:"发货前 6 步自查", sections:["precheck"]},
+        {id:"compliance", label:"制裁与转口红黄牌", sections:["compliance"]}
+      ]},
+      {id:"ref-data", label:"数据与方法", ref:true, sections:["ytd2026","trend2025"], innerTabs:[
+        {id:"ytd2026", label:"2026 月度实况", sections:["ytd2026","trend2025"]},
         {id:"matrix", label:"产品热力矩阵", sections:["matrix","products","growth"]},
         {id:"china", label:"39 国中国占比", sections:["china"]},
         {id:"suppliers", label:"34 国前三大供应国", sections:["suppliers"]},
         {id:"scope", label:"口径、评分与趋势", sections:["scope","score","trend"]},
-        {id:"market30", label:"宏观、竞争与展望", sections:["market30","competition","outlook"]}
-      ]},
-      {id:"compliance-ref", label:"发货合规与制裁表", sections:["precheck"], innerTabs:[
-        {id:"precheck", label:"发货前 6 步自查", sections:["precheck"]},
-        {id:"compliance", label:"制裁与转口红黄牌", sections:["compliance"]},
+        {id:"market30", label:"宏观、竞争与展望", sections:["market30","competition","outlook"]},
         {id:"sources", label:"口径与数据来源", sections:["sources"]}
       ]}
     ]
@@ -3300,7 +3313,8 @@ var LEGACY_TAB_MAP = {
   market: "market-table",
   compliance: "duediligence",
   products: "hs-bundles",
-  deep: "deep-data",
+  deep: "ref-data",
+  "deep-data": "ref-data",
   tools: "client-list",
   "local-agents": "radar-agents",
   home: "home-workspace",
@@ -3332,7 +3346,7 @@ function resolveNavTarget(raw){
   if(key === "table") return {toolId:"market-table", innerId:null, anchor:"table"};
   if(TOOL_META[key]) return {toolId:key, innerId:null, anchor:null};
   if(SECTION_TO_TOOL[key]) return {toolId:SECTION_TO_TOOL[key].toolId, innerId:SECTION_TO_TOOL[key].innerId, anchor:key};
-  if(LEGACY_TAB_MAP[key]) return {toolId:LEGACY_TAB_MAP[key], innerId:null, anchor:null};
+  if(LEGACY_TAB_MAP[key]) return resolveNavTarget(LEGACY_TAB_MAP[key]);
   if(WORKSPACE_NAV[key]) return {toolId:WORKSPACE_NAV[key].defaultTool, innerId:null, anchor:null};
   return {toolId:"home-workspace", innerId:null, anchor:null};
 }
@@ -3353,12 +3367,13 @@ function renderNavChrome(){
     if(sbTitle) sbTitle.textContent = wsObj.label;
     if(sbList){
       sbList.innerHTML = wsObj.tools.map(function(t){
-        return '<button type="button" class="sub-tool-btn'+(t.id===currentToolId?' active':'')+'" data-nav-tool="'+t.id+'"><span>'+esc(t.label)+'</span></button>';
+        return (t.ref ? '<div class="sb-ref-label">管理参考</div>' : '')
+          + '<button type="button" class="sub-tool-btn'+(t.ref?' is-ref':'')+(t.id===currentToolId?' active':'')+'" data-nav-tool="'+t.id+'"><span>'+esc(t.label)+'</span></button>';
       }).join("");
     }
     if(mobSub){
       mobSub.innerHTML = wsObj.tools.map(function(t){
-        return '<button type="button" class="m-sub-btn'+(t.id===currentToolId?' active':'')+'" data-nav-tool="'+t.id+'">'+esc(t.label)+'</button>';
+        return '<button type="button" class="m-sub-btn'+(t.ref?' is-ref':'')+(t.id===currentToolId?' active':'')+'" data-nav-tool="'+t.id+'">'+esc(t.label)+'</button>';
       }).join("");
     }
   }
@@ -3460,7 +3475,7 @@ if(hFind) hFind.addEventListener("click", function(){ navigateTo("map-scraper");
 var hQuote = document.getElementById("homeBtnQuote");
 if(hQuote) hQuote.addEventListener("click", function(){ navigateTo("quote-calc"); });
 
-/* 商机标题清洗：卡片已用徽章显示预警级别 / 国家时，标题里不再重复；同时清理源数据里的空项逗号 */
+/* 商机标题清洗、世行招标采购类型拆解与重新挂网识别 */
 function radarCleanText(t){ return String(t||"").replace(/,(\s*,)+/g, ",").replace(/\s{2,}/g, " ").trim(); }
 function radarTitle(x, opts){
   opts = opts || {};
@@ -3469,6 +3484,58 @@ function radarTitle(x, opts){
   if(opts.dropCountry) t = t.replace(/^【[^】]{1,24}】\s*/, "");
   return t || radarCleanText(x.title);
 }
+var RADAR_NOTICE_CN = {
+  "Invitation for Bids": "公开招标",
+  "Invitation for Prequalification": "资格预审",
+  "General Procurement Notice": "采购总公告",
+  "Contract Award": "已授标·找总包"
+};
+function radarKindLabel(x){
+  if(x && x.cat === "loan") return RADAR_NOTICE_CN[x.noticeType] || "世行招标";
+  return (x && (x.severityLabel || x.catLabel)) || "";
+}
+function radarDaysLeft(x){
+  if(!x || !x.deadline) return null;
+  var todayCn = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  var diff = Math.round((Date.parse(x.deadline.slice(0, 10)) - Date.parse(todayCn)) / 86400000);
+  return isNaN(diff) ? null : diff;
+}
+function radarRepostedTag(x){
+  if(!x || !x.reposted) return "";
+  var orig = x.origNoticeDate ? ("（正文原日期 " + esc(x.origNoticeDate) + "）") : "";
+  return '<span class="comp-tag comp-yellow" style="margin-left:0" title="该公告正文原始日期早于挂网日期 1 年以上'+orig+'，属旧项目重新挂网或变更公告，跟进前请先核实项目进展">重新挂网·先核实</span>';
+}
+function radarAngle(x){
+  if(!x) return "";
+  if(x.cat === "loan"){
+    var prod = x.productsCn ? ("（" + x.productsCn + "）") : "";
+    if(x.procGroup === "CW") return "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货" + prod;
+    if(x.noticeType === "Contract Award") return "已授标公告：核查中标总包商，联系其采购部门争取二级设备/材料供货" + prod;
+    if(x.noticeType === "General Procurement Notice") return "项目采购计划公告，正式招标尚未开始：先联系业主或当地代理，提前进入供应商短名单" + prod;
+    if(x.noticeType === "Invitation for Prequalification") return "资格预审阶段：先下载预审文件核对业绩与保函门槛，评估直投或联合当地承包商参与" + prod;
+    if(x.procGroup === "GO") return "货物直采招标，可直接投标：先下载招标文件，核对资格要求、交货期与投标保函" + prod;
+    return "先下载招标文件看资格要求，再决定直接投标，还是经当地代理或承包商配套供货" + prod;
+  }
+  return String(x.angleCn || "").replace(/！+/g, "，").replace(/实盘/g, "").replace(/[，,]\s*$/, "").trim();
+}
+function sortRadarForAction(items){
+  var todayCn = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  var out = (items || []).filter(function(x){
+    if(x && x.cat === "loan" && x.deadline && x.deadline.slice(0,10) < todayCn) return false;
+    return !!x;
+  });
+  out.forEach(function(x){ x._daysLeft = radarDaysLeft(x); });
+  out.sort(function(a, b){
+    if(a.cat === "loan" && b.cat === "loan"){
+      var da = a._daysLeft == null ? 9999 : a._daysLeft;
+      var db = b._daysLeft == null ? 9999 : b._daysLeft;
+      if(da !== db) return da - db;
+    }
+    return 0;
+  });
+  return out;
+}
+
 function renderHomeWorkspace(){
   var kToday = document.getElementById("homeKpiToday");
   if(!kToday) return;
@@ -3484,8 +3551,17 @@ function renderHomeWorkspace(){
   document.getElementById("homeKpiOverdue").textContent = String(nOver);
   document.getElementById("homeKpiIncomplete").textContent = String(nInc);
 
-  var feedItems = (window._liveRadarItems && Array.isArray(window._liveRadarItems)) ? window._liveRadarItems : ((window.RADAR_FEED_INLINE && window.RADAR_FEED_INLINE.items) || []);
+  var rawItems = (window._liveRadarItems && Array.isArray(window._liveRadarItems)) ? window._liveRadarItems : ((window.RADAR_FEED_INLINE && window.RADAR_FEED_INLINE.items) || []);
+  var feedItems = sortRadarForAction(rawItems);
+  var openLoans = feedItems.filter(function(x){ return x.cat === "loan"; });
   document.getElementById("homeKpiRadar").innerHTML = "<em>" + feedItems.length + "</em>";
+  var nearest = openLoans.filter(function(x){ return x._daysLeft != null && x._daysLeft >= 0; })[0];
+  var kSub = document.getElementById("homeKpiRadarSub");
+  if(kSub){
+    kSub.textContent = openLoans.length
+      ? ("在投招标 " + openLoans.length + " 条" + (nearest ? (" · 最近截标 " + nearest.deadline.slice(5,10) + (nearest._daysLeft === 0 ? "（今天）" : "（剩 " + nearest._daysLeft + " 天）")) : ""))
+      : "全球招标 · 建厂融资 · 突发刚需";
+  }
 
   dueItems.sort(function(a,b){
     if(a.info.prio !== b.info.prio) return a.info.prio - b.info.prio;
@@ -3496,7 +3572,7 @@ function renderHomeWorkspace(){
     if(!dueItems.length){
       dueBox.innerHTML = crmLeads.length
         ? '<p style="color:var(--muted);margin:6px 0">今天暂无到期或逾期的跟进任务（当前共维护 '+crmLeads.length+' 位客户）。</p>'
-        : '<div class="home-empty"><div class="home-empty-ico" aria-hidden="true">🗂️</div><b>还没有客户档案</b><span>点「＋ 新增客户」，或先找客户 / 导入名单，系统会按跟进日期自动提醒今天该联系谁。</span><div class="home-empty-acts"><button class="pill" type="button" data-home-jump="map-scraper">地图找客户</button><button class="pill" type="button" data-home-jump="csv-workbench">导入名单</button></div></div>';
+        : '<div class="home-empty"><div class="home-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg></div><b>还没有客户档案</b><span>点「＋ 新增客户」，或先找客户 / 导入名单，系统会按跟进日期自动提醒今天该联系谁。</span><div class="home-empty-acts"><button class="pill" type="button" data-home-jump="map-scraper">地图找客户</button><button class="pill" type="button" data-home-jump="csv-workbench">导入名单</button></div></div>';
     } else {
       var defNext3 = localDateOffsetStr(3);
       dueBox.innerHTML = dueItems.slice(0, 6).map(function(x){
@@ -3526,10 +3602,12 @@ function renderHomeWorkspace(){
 
   var recBox = document.getElementById("homeRecentTools");
   if(recBox){
-    var showRec = recentTools.length ? recentTools : ["map-scraper","radar-live","client-list","quote-calc"];
+    var showRec = recentTools.length ? recentTools : ["map-scraper","radar-live","radar-weather","quote-calc"];
     recBox.innerHTML = showRec.map(function(id){
       var m = TOOL_META[id];
-      return m ? ('<button type="button" class="pill" data-nav-tool="'+id+'" style="min-height:32px;padding:4px 12px;font-size:12.5px">'+esc(m.tool.label)+'</button>') : '';
+      if(m) return '<button type="button" class="pill" data-nav-tool="'+id+'" style="min-height:32px;padding:4px 12px;font-size:12.5px">'+esc(m.tool.label)+'</button>';
+      if(id === "radar-weather") return '<button type="button" class="pill" data-home-jump="radar-weather" style="min-height:32px;padding:4px 12px;font-size:12.5px">突发刚需与备货日历</button>';
+      return '';
     }).join("");
   }
 
@@ -3538,25 +3616,35 @@ function renderHomeWorkspace(){
     if(!feedItems.length){
       hrGrid.innerHTML = '<div style="color:var(--muted);font-size:13px">暂无缓存商机，点击「查看全部」进入商机情报刷新。</div>';
     } else {
-      var loans = feedItems.filter(function(x){ return x.cat === "loan"; });
+      /* 黄金配比：2 条剩 ≥3 天的优质招标 + 1 条商业建厂/融资线索 + 1 条高优突发刚需 */
+      var actionableLoans = openLoans.filter(function(x){ return x._daysLeft == null || x._daysLeft >= 3; });
       var news = feedItems.filter(function(x){ return x.cat === "news"; });
-      var weath = feedItems.filter(function(x){ return x.cat === "weather"; });
-      var picked = [].concat(loans.slice(0, 2), news.slice(0, 1), weath.slice(0, 1));
+      var weathPrio = feedItems.filter(function(x){ return x.cat === "weather" && (x.severity === "Red" || x.severity === "Orange"); });
+      if(!weathPrio.length) weathPrio = feedItems.filter(function(x){ return x.cat === "weather"; });
+      var picked = [].concat(actionableLoans.slice(0, 2), news.slice(0, 1), weathPrio.slice(0, 1));
       if(picked.length < 4){
-        feedItems.forEach(function(x){ if(picked.length < 4 && picked.indexOf(x) < 0) picked.push(x); });
+        feedItems.forEach(function(x){
+          if(picked.length >= 4 || picked.indexOf(x) >= 0) return;
+          if(x.cat === "loan" && x._daysLeft != null && x._daysLeft < 3) return;
+          picked.push(x);
+        });
       }
       hrGrid.innerHTML = picked.slice(0, 4).map(function(x){
         var cls = "radar-card" + (x.cat==="loan" ? " rc-loan" : ((x.severity==="Red"||x.severity==="Orange") ? " rc-red" : ""));
         var ageStr = window.FG_FRESH ? window.FG_FRESH.ageLabel(x) : "";
         var dtStr = (x.ongoing && x.startDate && x.lastSeenDate) ? ("起于 " + x.startDate + " · 持续至 " + x.lastSeenDate) : (ageStr ? (ageStr + " · " + (x.date||"")) : (x.date || ""));
+        var kindHtml = x.cat === "loan" ? ('<span class="fta-tag" style="margin-left:0">'+esc(radarKindLabel(x))+'</span>') : '';
         var dlHtml = window.FG_FRESH ? window.FG_FRESH.deadlineTag(x) : "";
+        var repHtml = radarRepostedTag(x);
         var aiHtml = window.FG_FRESH ? window.FG_FRESH.aiTag(x) : "";
+        var jumpTarget = x.cat === "weather" ? "radar-weather" : "radar-live";
+        var jumpLbl = x.cat === "weather" ? "去突发与备货板处理" : "去商机情报处理";
         return '<div class="'+cls+'">'
-          + '<div class="radar-card-head"><span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+dlHtml+aiHtml+'<span class="src-ok">'+esc(dtStr)+' · '+esc(x.source||"")+'</span></div>'
-          + '<h3>'+esc(radarTitle(x, {dropCountry:true}))+'</h3>'
-          + '<div class="rc-meta">建议主推：'+esc(x.productsCn||"")+'</div>'
+          + '<div class="radar-card-head"><span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+kindHtml+dlHtml+repHtml+aiHtml+'<span class="src-ok">'+esc(dtStr)+' · '+esc(x.source||"")+'</span></div>'
+          + '<h3>'+esc(radarTitle(x, {dropSev:true, dropCountry:true}))+'</h3>'
+          + '<div class="rc-meta">建议主推：'+esc(x.productsCn||"")+(x.contactEmail?(' · 有官方采购邮箱'):'')+'</div>'
           + '<div class="rc-acts">'
-          + '<button type="button" class="pill" data-home-jump="radar-live">去商机情报处理</button>'
+          + '<button type="button" class="pill" data-home-jump="'+jumpTarget+'">'+jumpLbl+'</button>'
           + '</div></div>';
       }).join("");
     }
@@ -4451,15 +4539,15 @@ window.getRepSignature = function(){
 
   function fetchLiveRates(notify){
     var badge = document.getElementById("fxStatusBadge");
-    badge.textContent = "⏳ 正在拉取最新国际实时汇率…";
-    if(typeof fetch !== "function"){ badge.textContent = "📌 离线基准参考汇率"; renderFx(); return; }
+    badge.innerHTML = '<i class="sd-n"></i>正在拉取最新国际实时汇率…';
+    if(typeof fetch !== "function"){ badge.innerHTML = '<i class="sd-n"></i>离线基准参考汇率'; renderFx(); return; }
     fetch("https://open.er-api.com/v6/latest/USD")
       .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
       .then(function(j){
         if(j && j.rates && j.rates.CNY){
           Object.keys(ratesUsd).forEach(function(k){ if(j.rates[k]) ratesUsd[k] = j.rates[k]; });
           var upd = j.time_last_update_utc ? String(j.time_last_update_utc).slice(0,16) : "刚刚";
-          badge.textContent = "🟢 实时汇率已更新（open.er-api · " + upd + "）";
+          badge.innerHTML = '<i class="sd-g"></i>实时汇率已更新（open.er-api · ' + esc(upd) + '）';
           try { localStorage.setItem("friesgo_fx_cache", JSON.stringify({rates:ratesUsd, ts:upd})); } catch(e){}
           renderFx();
           autoSyncQuoteFx();
@@ -4472,7 +4560,7 @@ window.getRepSignature = function(){
           .then(function(j2){
             if(j2 && j2.rates && j2.rates.CNY){
               Object.keys(j2.rates).forEach(function(k){ if(ratesUsd[k]!=null) ratesUsd[k] = j2.rates[k]; });
-              badge.textContent = "🟢 欧洲央行参考汇率（" + (j2.date||"最新") + "，其余用内置基准）";
+              badge.innerHTML = '<i class="sd-g"></i>欧洲央行参考汇率（' + esc(j2.date||"最新") + '，其余用内置基准）';
               renderFx();
               autoSyncQuoteFx();
               if(notify) showToast("已刷新主流币种参考汇率");
@@ -4481,9 +4569,9 @@ window.getRepSignature = function(){
           .catch(function(){
             try {
               var cached = JSON.parse(localStorage.getItem("friesgo_fx_cache") || "null");
-              if(cached && cached.rates){ ratesUsd = Object.assign(ratesUsd, cached.rates); badge.textContent = "🟡 缓存汇率（" + (cached.ts||"上次在线") + "）"; renderFx(); autoSyncQuoteFx(); return; }
+              if(cached && cached.rates){ ratesUsd = Object.assign(ratesUsd, cached.rates); badge.innerHTML = '<i class="sd-y"></i>缓存汇率（' + esc(cached.ts||"上次在线") + '）'; renderFx(); autoSyncQuoteFx(); return; }
             } catch(e){}
-            badge.textContent = "🟡 离线参考汇率（联网后点右侧刷新）";
+            badge.innerHTML = '<i class="sd-y"></i>离线参考汇率（联网后点右侧刷新）';
             renderFx();
           });
       });
@@ -5601,18 +5689,18 @@ window.getRepSignature = function(){
     document.getElementById("btnMxTool").href = "https://mxtoolbox.com/SuperTool.aspx?action=dmarc%3a"+encodeURIComponent(dom);
     var box = document.getElementById("spfResult");
     box.style.color = "var(--ink)";
-    var st = ["⏳ 正在检测 "+dom+" 的 SPF 记录…", "⏳ 正在检测 _dmarc."+dom+" 的 DMARC 策略…"];
+    var st = ["正在检测 "+dom+" 的 SPF 记录…", "正在检测 _dmarc."+dom+" 的 DMARC 策略…"];
     function show(){ box.innerHTML = st.join("\n"); }
     show();
-    if(typeof fetch !== "function"){ st = ["⚪ 当前环境不支持在线查询，请点下方 MXToolbox 手动查看。"]; show(); return; }
+    if(typeof fetch !== "function"){ st = ["<i class='sd-n'></i>当前环境不支持在线查询，请点下方 MXToolbox 手动查看。"]; show(); return; }
     window.queryDoh(dom, "TXT", 5000, function(j){
       return (j.Answer||[]).some(function(a){ return (a.data||"").toLowerCase().indexOf("v=spf1")>=0; });
     })
       .then(function(j){
         var recs = (j.Answer||[]).map(function(a){ return a.data||""; }).filter(function(s){ return s.toLowerCase().indexOf("v=spf1")>=0; });
-        st[0] = recs.length ? ("🟢 SPF 已配置（"+esc(j._provider||"DoH")+"）：" + esc(recs[0])) : "🔴 未检测到 SPF 记录（v=spf1）— 发往 Gmail/Outlook 极易进垃圾箱！请在域名 DNS 添加 TXT 记录。";
+        st[0] = recs.length ? ("<i class='sd-g'></i>SPF 已配置（"+esc(j._provider||"DoH")+"）：" + esc(recs[0])) : "<i class='sd-r'></i>未检测到 SPF 记录（v=spf1）— 发往 Gmail/Outlook 极易进垃圾箱，请在域名 DNS 添加 TXT 记录。";
         show();
-      }).catch(function(){ st[0] = "⚪ SPF 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。"; show(); });
+      }).catch(function(){ st[0] = "<i class='sd-n'></i>SPF 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。"; show(); });
     window.queryDoh("_dmarc."+dom, "TXT", 5000, function(j){
       return (j.Answer||[]).some(function(a){ return (a.data||"").toLowerCase().indexOf("v=dmarc1")>=0; });
     })
@@ -5620,12 +5708,12 @@ window.getRepSignature = function(){
         var recs = (j.Answer||[]).map(function(a){ return a.data||""; }).filter(function(s){ return s.toLowerCase().indexOf("v=dmarc1")>=0; });
         if(recs.length){
           var isStrict = recs[0].indexOf("p=quarantine")>=0 || recs[0].indexOf("p=reject")>=0;
-          st[1] = (isStrict ? "🟢 DMARC 严格模式已开启（"+esc(j._provider||"DoH")+"）：" : "🟡 DMARC 已配置但仍为监控模式（p=none，建议稳定后改为 p=quarantine）：") + esc(recs[0]);
+          st[1] = (isStrict ? "<i class='sd-g'></i>DMARC 严格模式已开启（"+esc(j._provider||"DoH")+"）：" : "<i class='sd-y'></i>DMARC 已配置但仍为监控模式（p=none，建议稳定后改为 p=quarantine）：") + esc(recs[0]);
         } else {
-          st[1] = "🔴 未检测到 DMARC 记录（_dmarc."+esc(dom)+"）— 2026 年主流企业邮箱会大幅降权或直接拒收！";
+          st[1] = "<i class='sd-r'></i>未检测到 DMARC 记录（_dmarc."+esc(dom)+"）— 主流企业邮箱会大幅降权或拒收。";
         }
         show();
-      }).catch(function(){ st[1] = "⚪ DMARC 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。"; show(); });
+      }).catch(function(){ st[1] = "<i class='sd-n'></i>DMARC 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。"; show(); });
   });
 
   /* 3. Multi-SKU Container Load Calculator (Usable Crate CBM, Route Weight Limit & OOG Door Check) */
@@ -6335,15 +6423,15 @@ window.getRepSignature = function(){
           if(regEvt && regEvt.eventDate){
             var d0 = new Date(regEvt.eventDate);
             var yrs = (Date.now() - d0.getTime()) / (365.25*24*3600*1000);
-            var flag = yrs < 1 ? '🔴 <b>新注册域名警告！</b>' : (yrs < 3 ? '🟡 <b>域名较新：</b>' : '🟢 <b>老牌域名：</b>');
-            live[0] = flag + '<code>'+esc(dom)+'</code> 注册于 <b>'+regEvt.eventDate.slice(0,10)+'</b>（约 '+yrs.toFixed(1)+' 年）'+(yrs<1?' — 若对方自称多年老牌大厂须高度警惕！':'');
+            var flag = yrs < 1 ? '<i class="sd-r"></i><b>新注册域名提醒：</b>' : (yrs < 3 ? '<i class="sd-y"></i><b>域名较新：</b>' : '<i class="sd-g"></i><b>老牌域名：</b>');
+            live[0] = flag + '<code>'+esc(dom)+'</code> 注册于 <b>'+regEvt.eventDate.slice(0,10)+'</b>（约 '+yrs.toFixed(1)+' 年）'+(yrs<1?' — 若对方自称多年老牌大厂须重点核实。':'');
           } else {
-            live[0] = '⚪ <b>RDAP 域名信息：</b>查到记录但未公开注册日期，建议点下方 ICANN WHOIS 或 Wayback 时光机复核。';
+            live[0] = '<i class="sd-n"></i><b>RDAP 域名信息：</b>查到记录但未公开注册日期，建议点下方 ICANN WHOIS 或 Wayback 时光机复核。';
           }
           paint(live);
         }).catch(function(){
           if(isStale()) return;
-          live[0] = '⚪ <b>RDAP 域名自动查询未连通</b>（部分国家后缀或网络限制），请直接点下方 ICANN WHOIS 和 Wayback 时光机手动查看。';
+          live[0] = '<i class="sd-n"></i><b>RDAP 域名自动查询未连通</b>（部分国家后缀或网络限制），请直接点下方 ICANN WHOIS 和 Wayback 时光机手动查看。';
           paint(live);
         });
 
@@ -6353,14 +6441,14 @@ window.getRepSignature = function(){
           if(isStale()) return;
           var validMx = window.extractValidMxRecords ? window.extractValidMxRecords(j) : [];
           if(validMx.length){
-            live[1] = '🟢 <b>域名可收信（MX 记录正常 · '+esc(j._provider||"DoH")+'）：</b>已解析到 '+validMx.length+' 条有效邮件服务器记录（如 <code>'+esc(validMx[0].data)+'</code>）。';
+            live[1] = '<i class="sd-g"></i><b>域名可收信（MX 记录正常 · '+esc(j._provider||"DoH")+'）：</b>已解析到 '+validMx.length+' 条有效邮件服务器记录（如 <code>'+esc(validMx[0].data)+'</code>）。';
           } else {
-            live[1] = '🟡 <b>未解析到有效企业邮箱 MX 记录（'+esc(j._provider||"DoH")+'）：</b>该域名可能未开通正规企业邮局或配置了拒收 Null MX。';
+            live[1] = '<i class="sd-y"></i><b>未解析到有效企业邮箱 MX 记录（'+esc(j._provider||"DoH")+'）：</b>该域名可能未开通正规企业邮局或配置了拒收 Null MX。';
           }
           paint(live);
         }).catch(function(){
           if(isStale()) return;
-          live[1] = '⚪ <b>DNS MX 实时查询暂时失败</b>（3 条线路均超时，可稍后重试，不影响下方背调入口使用）。';
+          live[1] = '<i class="sd-n"></i><b>DNS MX 实时查询暂时失败</b>（3 条线路均超时，可稍后重试，不影响下方背调入口使用）。';
           paint(live);
         });
     }
@@ -7427,7 +7515,7 @@ function renderClientDetailPanel(){
   var tabBtns = [
     ["info", "基本资料"],
     ["follow", "跟进时间线" + (tlList.length ? (" (" + tlList.length + ")") : "")],
-    ["dd", "背调记录" + (ddStale && ddStale.stale ? " ⚠️" : "")],
+    ["dd", "背调记录" + (ddStale && ddStale.stale ? "（需复核）" : "")],
     ["email", "邮件 / WhatsApp"],
     ["quote", "报价版本" + (qList.length ? (" (" + qList.length + ")") : "")]
   ].map(function(t){
@@ -7463,7 +7551,7 @@ function renderClientDetailPanel(){
       + '<div><label>线索来源</label><input type="text" data-cd-f="source" value="'+esc(l.source||"")+'"></div>'
       + '</div>'
       + '<div class="detail-box" style="margin-top:10px">'
-      + '<div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">追加一条跟进记录（不覆盖历史）</div>'
+      + '<div style="font-size:12.5px;font-weight:700;color:var(--brown);margin-bottom:6px">追加一条跟进记录（不覆盖历史）</div>'
       + '<div class="form-grid-4" style="gap:8px">'
       + '<div><label>联系渠道</label><select id="cdTlChannel"><option value="邮件">邮件</option><option value="WhatsApp">WhatsApp</option><option value="电话">电话</option><option value="会议/拜访">会议/拜访</option><option value="社媒">社媒</option><option value="展会">展会</option></select></div>'
       + '<div><label>本次联系结果</label><input id="cdTlResult" type="text" placeholder="如：已发正式报价，客户评估交期"></div>'
@@ -7480,7 +7568,7 @@ function renderClientDetailPanel(){
     if(dd){
       if(ddStale && ddStale.stale){
         bodyHtml = '<div class="storage-warn-banner" style="margin:0 0 10px">'
-          + '⚠️ <b>主体已变更，需重新核查：</b>当前档案的「' + esc(ddStale.reasons.join("、")) + '」与历史背调主体「' + esc(dd.company||"—") + '」不一致，原核查结论已失效，请勿直接沿用于当前主体报价或签约！'
+          + '<b>主体已变更，需重新核查：</b>当前档案的「' + esc(ddStale.reasons.join("、")) + '」与历史背调主体「' + esc(dd.company||"—") + '」不一致，原核查结论已失效，请勿直接沿用于当前主体报价或签约。'
           + '</div>'
           + '<div class="detail-box" style="margin-top:0;opacity:.85">'
           + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px"><b>历史背调快照（已失效，仅供追溯）</b> · 核查时间：'+esc(dd.checkedAt||"—")+' ｜ 原主体：'+esc(dd.company||"—")+(dd.domain?(' ('+esc(dd.domain)+')'):'')+'</div>'
@@ -7489,7 +7577,7 @@ function renderClientDetailPanel(){
       } else {
         bodyHtml = '<div class="detail-box" style="margin-top:0">'
           + '<div style="font-size:13px;margin-bottom:6px"><b>最近核查时间：</b>'+esc(dd.checkedAt||"—")+' ｜ <b>核查结果：</b>'+esc(dd.label||"—")+'</div>'
-          + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">核查主体快照：'+esc(dd.company||"—")+(dd.domain?(' ('+esc(dd.domain)+')'):'')+' ｜ 工商注册 '+(dd.regChecked?'✅ 已核查':'❌ 未核查')+' ｜ OFAC/制裁名单 '+(dd.sancChecked?'✅ 已核查':'❌ 未核查')+'</div>'
+          + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">核查主体快照：'+esc(dd.company||"—")+(dd.domain?(' ('+esc(dd.domain)+')'):'')+' ｜ 工商注册 '+(dd.regChecked?'<i class="sd-g"></i>已核查':'<i class="sd-n"></i>未核查')+' ｜ OFAC/制裁名单 '+(dd.sancChecked?'<i class="sd-g"></i>已核查':'<i class="sd-n"></i>未核查')+'</div>'
           + '<div class="email-box" style="margin-top:0">'+esc(dd.summary||"")+'</div>'
           + '</div>';
       }
@@ -8061,7 +8149,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         parts.push(pair[1] + " 抓取异常");
       }
     });
-    el.textContent = (anyWarn ? "⚠️ " : "🟢 ") + (parts.length ? parts.join(" · ") : "数据源正常");
+    el.innerHTML = '<i class="'+(anyWarn ? 'sd-y' : 'sd-g')+'"></i>' + esc(parts.length ? parts.join(" · ") : "数据源正常");
     el.style.color = anyWarn ? "var(--med)" : "var(--good)";
   }
 
@@ -8082,7 +8170,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       if(typeof window.renderWeatherBoard === "function") window.renderWeatherBoard();
       return;
     }
-    var items = feedData.items;
+    var items = sortRadarForAction(feedData.items);
     window._liveRadarItems = items;
     document.getElementById("rfUpdatedBadge").textContent = "更新：" + (feedData.updatedCn || feedData.updatedDate || "刚刚");
     document.getElementById("rfAiBadge").textContent = feedData.aiEnriched ? "Gemini 中文研判（AI生成）" : "原文标题 · 未经 AI 翻译";
@@ -8114,7 +8202,9 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var cls = "radar-card";
       if(x.cat === "weather" && (x.severity === "Red" || x.severity === "Orange")) cls += " rc-red";
       else if(x.cat === "loan") cls += " rc-loan";
-      var sevBadge = '<span class="'+(x.severity==="Red"?"comp-tag comp-red":(x.cat==="loan"?"fta-tag":"action-tag"))+'" style="margin-left:0">'+esc(x.severityLabel || x.catLabel)+'</span>';
+      var sevBadge = '<span class="'+(x.severity==="Red"?"comp-tag comp-red":(x.cat==="loan"?"fta-tag":"action-tag"))+'" style="margin-left:0">'+esc(radarKindLabel(x))+'</span>';
+      var cwBadge = (x.cat === "loan" && x.procGroup === "CW") ? '<span class="meta-pill" style="padding:1px 7px">土建总包</span>' : '';
+      var repBadge = radarRepostedTag(x);
       var dlBadge = window.FG_FRESH ? window.FG_FRESH.deadlineTag(x) : "";
       var aiBadge = window.FG_FRESH ? window.FG_FRESH.aiTag(x) : "";
       var ageStr = window.FG_FRESH ? window.FG_FRESH.ageLabel(x) : "";
@@ -8140,11 +8230,11 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         ? ('<button class="pill primary" type="button" data-rf-map="'+idx+'">🗺️ 地图搜当地批发商/工程商</button>')
         : ('<button class="pill" type="button" data-rf-dd="'+idx+'">背调业主</button>');
       return '<div class="'+cls+'">'
-        + '<div class="radar-card-head">'+sevBadge+'<span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+dlBadge+aiBadge+'<span class="src-ok">'+esc(dateMeta)+' · '+esc(x.source||"")+'</span></div>'
+        + '<div class="radar-card-head">'+sevBadge+cwBadge+'<span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+dlBadge+repBadge+aiBadge+'<span class="src-ok">'+esc(dateMeta)+' · '+esc(x.source||"")+'</span></div>'
         + '<h3>'+esc(radarTitle(x, {dropSev:true, dropCountry:true}))+'</h3>'
         + origLine
         + '<div class="rc-meta">'+winLine+entLine+procLine+contactLine+'<div><b>建议主推：</b>'+esc(x.productsCn||"")+'</div></div>'
-        + '<div class="rc-angle">'+esc(x.angleCn||"")+'</div>'
+        + '<div class="rc-angle">'+esc(radarAngle(x))+'</div>'
         + '<div class="rc-acts">'
         + '<a class="pill" target="_blank" rel="noopener" href="'+esc(x.url||"#")+'">查看原文</a>'
         + actionBtn
@@ -8884,11 +8974,11 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     tb.innerHTML = shown.map(function(o){
       var r = o.r, i = o.i;
       var badge = "";
-      if(r.mxStatus === "ok") badge = '<span class="mx-ok" title="'+esc(r.mxDetail||"")+'">🟢 域名可收信</span>';
-      else if(r.mxStatus === "bad") badge = '<span class="mx-bad" title="'+esc(r.mxDetail||"")+'">🔴 明确不可收信</span>';
-      else if(r.mxStatus === "error") badge = '<span class="mx-warn" title="DNS 线路暂时超时，可再次点击批量核验重试">⚪ 暂时失败·可重试</span>';
-      else if(r.mxStatus === "free") badge = '<span class="mx-warn">🟡 免费邮箱</span>';
-      else if(r.mxStatus === "pending") badge = '<span class="src-ok">⚪ 未验证 ('+esc(r.domain)+')</span>';
+      if(r.mxStatus === "ok") badge = '<span class="mx-ok" title="'+esc(r.mxDetail||"")+'"><i class="sd-g"></i>域名可收信</span>';
+      else if(r.mxStatus === "bad") badge = '<span class="mx-bad" title="'+esc(r.mxDetail||"")+'"><i class="sd-r"></i>明确不可收信</span>';
+      else if(r.mxStatus === "error") badge = '<span class="mx-warn" title="DNS 线路暂时超时，可再次点击批量核验重试"><i class="sd-n"></i>暂时失败·可重试</span>';
+      else if(r.mxStatus === "free") badge = '<span class="mx-warn"><i class="sd-y"></i>免费邮箱</span>';
+      else if(r.mxStatus === "pending") badge = '<span class="src-ok"><i class="sd-n"></i>未验证 ('+esc(r.domain)+')</span>';
       else badge = '<span class="src-ok">— 无邮箱/域名</span>';
       if(r.isRoleEmail) badge += ' <span class="src-ok" title="info@/sales@ 等公共泛邮箱，建议配合猜邮箱工具找采购负责人直邮">· 泛邮箱</span>';
 
