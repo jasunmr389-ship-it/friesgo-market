@@ -3310,15 +3310,30 @@ window.addEventListener("storage", function(e){
   }
 });
 
+var _dueMemoDay = "";
+var _dueMemoDayMs = 0;
+var _dueMemoMap = Object.create(null);
 function followDueInfo(nextDate){
   if(!nextDate) return {prio:3, cls:"", label:""};
   var today = localDateStr();
-  var d0 = new Date(today+"T00:00:00Z").getTime(), d1 = new Date(nextDate+"T00:00:00Z").getTime();
-  if(isNaN(d1)) return {prio:3, cls:"", label:""};
-  var diff = Math.round((d1 - d0) / 86400000);
-  if(diff < 0) return {prio:0, cls:"mx-bad", label:"已逾期 "+Math.abs(diff)+" 天"};
-  if(diff === 0) return {prio:1, cls:"mx-warn", label:"今日必跟"};
-  return {prio:2, cls:"mx-ok", label:nextDate};
+  if(today !== _dueMemoDay){
+    _dueMemoDay = today;
+    _dueMemoDayMs = Date.parse(today + "T00:00:00Z");
+    _dueMemoMap = Object.create(null);
+  }
+  var cached = _dueMemoMap[nextDate];
+  if(cached) return cached;
+  var d1 = Date.parse(nextDate + "T00:00:00Z");
+  var res;
+  if(isNaN(d1)) res = {prio:3, cls:"", label:""};
+  else {
+    var diff = Math.round((d1 - _dueMemoDayMs) / 86400000);
+    if(diff < 0) res = {prio:0, cls:"mx-bad", label:"已逾期 "+Math.abs(diff)+" 天"};
+    else if(diff === 0) res = {prio:1, cls:"mx-warn", label:"今日必跟"};
+    else res = {prio:2, cls:"mx-ok", label:nextDate};
+  }
+  _dueMemoMap[nextDate] = res;
+  return res;
 }
 function updateFollowBadge(){
   var n = crmLeads.length, due = 0;
@@ -5657,8 +5672,14 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     var sel = document.getElementById("qcBindClient");
     if(!sel) return;
     var prev = sel.value;
-    var opts = '<option value="">— 选择客户以关联背调状态 / 归档报价版本 —</option>';
-    (crmLeads || []).forEach(function(l){
+    var all = crmLeads || [];
+    var slice = all.length > 300 ? all.slice(0, 300) : all;
+    if(prev && all.length > 300 && !slice.some(function(l){ return l.id === prev; })){
+      var foundPrev = findLeadById(prev);
+      if(foundPrev) slice = [foundPrev].concat(slice);
+    }
+    var opts = '<option value="">— 选择客户以关联背调状态 / 归档报价版本'+(all.length>300?('（显示最近 300 / 共 '+all.length+' 家，亦可在客户详情点「去报价」带入）'):'')+' —</option>';
+    slice.forEach(function(l){
       var ddTag = "";
       if(l.ddRecord && l.ddRecord.decision === "blocked") ddTag = " [🔴禁止交易]";
       else if(l.ddRecord && l.ddRecord.decision === "review") ddTag = " [🟡存疑待审]";
@@ -5666,7 +5687,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       opts += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')'+ddTag+'</option>';
     });
     sel.innerHTML = opts;
-    if(prev && (crmLeads || []).some(function(l){ return l.id === prev; })) sel.value = prev;
+    if(prev && slice.some(function(l){ return l.id === prev; })) sel.value = prev;
     renderQuoteDdGateUI();
   };
   window.refreshQuoteClientSelect();
@@ -8081,12 +8102,18 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
   window.refreshPrecheckClientSelect = function(){
     if(!pcBindEl) return;
     var prev = pcBindEl.value;
-    var html = '<option value="">— 选择已建档客户自动带入（或下方手动填写订单信息） —</option>';
-    (crmLeads || []).forEach(function(l){
+    var all = crmLeads || [];
+    var slice = all.length > 300 ? all.slice(0, 300) : all;
+    if(prev && all.length > 300 && !slice.some(function(l){ return l.id === prev; })){
+      var foundPrev = findLeadById(prev);
+      if(foundPrev) slice = [foundPrev].concat(slice);
+    }
+    var html = '<option value="">— 选择已建档客户自动带入'+(all.length>300?('（显示最近 300 / 共 '+all.length+' 家，或下方手动填写）'):'（或下方手动填写订单信息）')+' —</option>';
+    slice.forEach(function(l){
       html += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')</option>';
     });
     pcBindEl.innerHTML = html;
-    if(prev && (crmLeads || []).some(function(l){ return l.id === prev; })) pcBindEl.value = prev;
+    if(prev && slice.some(function(l){ return l.id === prev; })) pcBindEl.value = prev;
   };
 
   function resetChecklistBoxes(){
@@ -8294,7 +8321,7 @@ window.addCustomerToCrm = function(p){
   }
 
   var lead = window.FG_CORE.normalizeLeadForStore({
-    id: makeLeadId(),
+    id: (typeof p.id === "string" && p.id) ? p.id : makeLeadId(),
     company: comp,
     country: cEn,
     leadType: lType,
@@ -8619,7 +8646,15 @@ function renderTools(){
     return (b.updated || "").localeCompare(a.updated || "");
   });
 
-  var rowsHtml = list.map(function(l){
+  var lim = window._crmShowLimit || 200;
+  var displayList = list.length > lim ? list.slice(0, lim) : list;
+  var moreTrHtml = list.length > lim
+    ? ('<tr class="crm-more-tr"><td colspan="6" style="text-align:center;padding:12px;background:var(--surface2)">当前极速显示前 <b>'+lim+'</b> / 共 <b>'+list.length+'</b> 条匹配档案（上方搜索框实时检索全量 '+crmLeads.length+' 条） '
+      + '<button type="button" class="pill" data-crm-more="500" style="min-height:28px;padding:3px 10px;font-size:12px;margin-left:6px">再加载 500 条</button> '
+      + '<button type="button" class="pill" data-crm-more="all" style="min-height:28px;padding:3px 10px;font-size:12px">展开全部</button></td></tr>')
+    : '';
+
+  var rowsHtml = displayList.map(function(l){
     var due = followDueInfo(l.nextDate);
     var dueCell = due.label ? ('<span class="'+due.cls+'">'+esc(due.label)+'</span>') : '<span class="src-ok">未设提醒</span>';
     var typeTag = (l.leadType === "渠道代理") ? ' <span class="action-tag" style="margin-left:4px">代理</span>' : '';
@@ -8635,7 +8670,7 @@ function renderTools(){
       + '<button class="pill" type="button" data-crm-em="'+esc(l.id)+'" style="min-height:28px;padding:2px 9px;font-size:12px">写信</button> '
       + '<button class="pill" type="button" data-crm-dd="'+esc(l.id)+'" style="min-height:28px;padding:2px 9px;font-size:12px">背调</button>'
       + '</td></tr>';
-  }).join("");
+  }).join("") + moreTrHtml;
 
   fb2.innerHTML = '<div class="crm-table-wrap"><table>'
     + '<thead><tr><th>公司名称</th><th>国家</th><th>阶段</th><th>下次跟进</th><th>负责人</th><th>操作</th></tr></thead>'
@@ -8688,13 +8723,17 @@ if(crmTypePills){
   crmTypePills.addEventListener("click", function(e){
     var b = e.target.closest("button[data-crmtype]"); if(!b) return;
     activeCrmTypeFilter = b.getAttribute("data-crmtype");
+    window._crmShowLimit = 200;
     crmTypePills.querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", x===b ? "true" : "false"); });
     renderTools();
   });
 }
 ["crmSearch","crmStageFilter"].forEach(function(id){
   var el = document.getElementById(id);
-  if(el){ el.addEventListener("input", renderTools); el.addEventListener("change", renderTools); }
+  if(el){
+    el.addEventListener("input", function(){ window._crmShowLimit = 200; renderTools(); });
+    el.addEventListener("change", function(){ window._crmShowLimit = 200; renderTools(); });
+  }
 });
 
 document.getElementById("compareBody").addEventListener("click", function(e){
@@ -8704,6 +8743,13 @@ document.getElementById("compareBody").addEventListener("click", function(e){
   saveCompareOnly(); renderTools(); showToast("已从对比中移除「"+(CN[c]||c)+"」");
 });
 document.getElementById("followBody").addEventListener("click", function(e){
+  var moreB = e.target.closest("button[data-crm-more]");
+  if(moreB){
+    var mv = moreB.getAttribute("data-crm-more");
+    window._crmShowLimit = mv === "all" ? 1000000 : ((window._crmShowLimit || 200) + (parseInt(mv, 10) || 500));
+    renderTools();
+    return;
+  }
   var emB = e.target.closest("button[data-crm-em]");
   if(emB){
     var l1 = findLeadById(emB.getAttribute("data-crm-em"));
