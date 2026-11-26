@@ -997,7 +997,8 @@
     // Never overwrite non-empty scalar fields with empty strings
     var scalarFields = [
       "company", "country", "contact", "role", "email", "phone",
-      "website", "stage", "source", "nextDate", "note", "product", "estUsd", "owner", "leadType"
+      "website", "stage", "source", "nextDate", "note", "product", "estUsd", "owner", "leadType",
+      "cadenceStep", "cadenceLabel", "lossReason"
     ];
     for (var i = 0; i < scalarFields.length; i++) {
       var f = scalarFields[i];
@@ -1089,6 +1090,242 @@
     return out;
   }
 
+  /* ==================== 7. Phase 2A Outreach, GLEIF & Cadence Pure Helpers ==================== */
+
+  function normalizeEmailToken(raw) {
+    if (raw == null) return "";
+    var s = String(raw).trim();
+    if (!s) return "";
+    s = s
+      .replace(/[đĐðÐ]/g, "d")
+      .replace(/[øØ]/g, "o")
+      .replace(/ß/g, "ss")
+      .replace(/[æÆ]/g, "ae")
+      .replace(/[œŒ]/g, "oe")
+      .replace(/[łŁ]/g, "l")
+      .replace(/[þÞ]/g, "th")
+      .replace(/ı/g, "i");
+    if (typeof s.normalize === "function") {
+      s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function expandUmlautToken(raw) {
+    var s = String(raw || "")
+      .replace(/[äÄ]/g, "ae")
+      .replace(/[öÖ]/g, "oe")
+      .replace(/[üÜ]/g, "ue");
+    return normalizeEmailToken(s);
+  }
+
+  function guessCorporateEmails(firstRaw, lastRaw, domRaw) {
+    var d = extractCleanDomain(domRaw);
+    if (!d) return [];
+    var fParts = String(firstRaw || "").trim().split(/[\s\-]+/).map(normalizeEmailToken).filter(Boolean);
+    var lParts = String(lastRaw || "").trim().split(/[\s\-]+/).map(normalizeEmailToken).filter(Boolean);
+    var f = fParts[0] || "";
+    var l = lParts[0] || "";
+    var fDe = (String(firstRaw || "").trim().split(/[\s\-]+/).map(expandUmlautToken).filter(Boolean))[0] || "";
+    var lDe = (String(lastRaw || "").trim().split(/[\s\-]+/).map(expandUmlautToken).filter(Boolean))[0] || "";
+    var list = [];
+    if (f && l) {
+      if ((fDe && fDe !== f) || (lDe && lDe !== l)) {
+        list.push((fDe || f) + "." + (lDe || l) + "@" + d);
+      }
+      list.push(
+        f + "." + l + "@" + d,
+        f[0] + l + "@" + d,
+        f + "@" + d,
+        f[0] + "." + l + "@" + d,
+        f + l + "@" + d,
+        l + "@" + d
+      );
+      if (lParts.length > 1) {
+        var lLast = lParts[lParts.length - 1];
+        if (lLast && lLast !== l) list.push(f + "." + lLast + "@" + d);
+      }
+    } else if (f) {
+      if (fDe && fDe !== f) list.push(fDe + "@" + d);
+      list.push(f + "@" + d);
+    } else if (l) {
+      if (lDe && lDe !== l) list.push(lDe + "@" + d);
+      list.push(l + "@" + d);
+    }
+    list.push("procurement@" + d, "purchasing@" + d);
+    var seen = Object.create(null);
+    return list.filter(function (em) {
+      if (seen[em]) return false;
+      seen[em] = 1;
+      return true;
+    });
+  }
+
+  var PROD_I18N_PHRASES = [
+    ["industrial valves & water pumps", { es: "válvulas industriales y bombas de agua", pt: "válvulas industriais e bombas d'água", fr: "vannes industrielles et pompes à eau", de: "Industriearmaturen und Wasserpumpen", ru: "промышленной арматуры и водяных насосов", ar: "الصمامات الصناعية ومضخات المياه", vi: "van công nghiệp và máy bơm nước", id: "katup industri dan pompa air", th: "วาล์วอุตสาหกรรมและปั๊มน้ำ" }],
+    ["industrial valves, pumps & steel structures", { es: "válvulas industriales, bombas y estructuras de acero", pt: "válvulas industriais, bombas e estruturas metálicas", fr: "vannes industrielles, pompes et structures métalliques", de: "Industriearmaturen, Pumpen und Stahlkonstruktionen", ru: "промышленной арматуры, насосов и металлоконструкций", ar: "الصمامات الصناعية والمضخات والهياكل الفولاذية", vi: "van công nghiệp, máy bơm và kết cấu thép", id: "katup industri, pompa, dan struktur baja", th: "วาล์วอุตสาหกรรม ปั๊มน้ำ และโครงสร้างเหล็ก" }],
+    ["api 6d forged ball valves", { es: "válvulas de bola forjadas API 6D", pt: "válvulas esfera forjadas API 6D", fr: "vannes à boisseau sphérique forgées API 6D", de: "geschmiedete Kugelhähne nach API 6D", ru: "кованые шаровые краны API 6D", ar: "صمامات كروية مطروقة بمعيار API 6D", vi: "van bi thép rèn API 6D", id: "katup bola tempa API 6D", th: "บอลวาล์วเหล็กฟอร์จ API 6D" }],
+    ["industrial valves", { es: "válvulas industriales", pt: "válvulas industriais", fr: "vannes industrielles", de: "Industriearmaturen", ru: "промышленной арматуры", ar: "الصمامات الصناعية", vi: "van công nghiệp", id: "katup industri", th: "วาล์วอุตสาหกรรม" }],
+    ["water pumps", { es: "bombas de agua industriales", pt: "bombas d'água industriais", fr: "pompes à eau industrielles", de: "Wasserpumpen", ru: "водяных насосов", ar: "مضخات المياه الصناعية", vi: "máy bơm nước công nghiệp", id: "pompa air industri", th: "ปั๊มน้ำอุตสาหกรรม" }],
+    ["steel structures", { es: "estructuras de acero prefabricadas", pt: "estruturas metálicas de aço", fr: "structures métalliques en acier", de: "Stahlkonstruktionen", ru: "металлоконструкций", ar: "الهياكل الفولاذية المسبقة الصنع", vi: "kết cấu thép nhà xưởng", id: "struktur baja konstruksi", th: "โครงสร้างเหล็กรูปพรรณ" }],
+    ["power cables", { es: "cables eléctricos de potencia", pt: "cabos elétricos de potência", fr: "câbles électriques de puissance", de: "Energiekabel und Leitungen", ru: "силовых кабелей", ar: "كابلات الطاقة الكهربائية", vi: "cáp điện công nghiệp", id: "kabel listrik daya", th: "สายไฟกำลังอุตสาหกรรม" }],
+    ["fasteners", { es: "tornillería y fijaciones industriales", pt: "fixadores e parafusos industriais", fr: "boulonnerie et fixations industrielles", de: "Verbindungselemente und Schrauben", ru: "промышленного крепежа и метизов", ar: "المثبتات والبراغي الصناعية", vi: "bu lông ốc vít công nghiệp", id: "baut dan pengikat industri", th: "สลักเกลียวและน็อตอุตสาหกรรม" }],
+    ["agricultural machinery", { es: "maquinaria y equipos agrícolas", pt: "máquinas e implementos agrícolas", fr: "machines et équipements agricoles", de: "Landmaschinen", ru: "сельскохозяйственной техники", ar: "الآلات والمعدات الزراعية", vi: "máy móc nông nghiệp", id: "mesin pertanian", th: "เครื่องจักรกลการเกษตร" }],
+    ["industrial equipment", { es: "equipos y suministros industriales", pt: "equipamentos industriais", fr: "équipements industriels", de: "Industrieausrüstung", ru: "промышленного оборудования", ar: "المعدات والتوريدات الصناعية", vi: "thiết bị công nghiệp", id: "peralatan industri", th: "อุปกรณ์และเครื่องจักรอุตสาหกรรม" }]
+  ];
+
+  function localizeProductForLang(rawProd, lang) {
+    var base = String(rawProd || "").trim() || "industrial equipment";
+    if (!lang || lang === "en") return base;
+    var norm = base.toLowerCase().replace(/\s+/g, " ").replace(/\band\b/g, "&");
+    for (var i = 0; i < PROD_I18N_PHRASES.length; i++) {
+      var key = PROD_I18N_PHRASES[i][0];
+      var map = PROD_I18N_PHRASES[i][1];
+      if (norm === key && map[lang]) return map[lang];
+    }
+    if (/^[\x20-\x7E]+$/.test(base)) {
+      for (var j = 0; j < PROD_I18N_PHRASES.length; j++) {
+        var k2 = PROD_I18N_PHRASES[j][0];
+        var m2 = PROD_I18N_PHRASES[j][1];
+        if (k2.length >= 11 && norm.indexOf(k2) >= 0 && m2[lang]) {
+          return m2[lang];
+        }
+      }
+    }
+    return base;
+  }
+
+  var COUNTRY_TO_ISO2 = {
+    "Vietnam": "VN", "Indonesia": "ID", "Thailand": "TH", "Malaysia": "MY", "Philippines": "PH",
+    "Singapore": "SG", "Cambodia": "KH", "Myanmar": "MM", "Laos": "LA", "India": "IN",
+    "Pakistan": "PK", "Bangladesh": "BD", "Sri Lanka": "LK", "Saudi Arabia": "SA",
+    "United Arab Emirates": "AE", "UAE": "AE", "Qatar": "QA", "Kuwait": "KW", "Oman": "OM",
+    "Bahrain": "BH", "Iraq": "IQ", "Jordan": "JO", "Egypt": "EG", "Morocco": "MA",
+    "Algeria": "DZ", "Tunisia": "TN", "Turkey": "TR", "Turkey (Türkiye)": "TR",
+    "Kazakhstan": "KZ", "Uzbekistan": "UZ", "Kyrgyz Republic": "KG", "Kyrgyzstan": "KG",
+    "Mexico": "MX", "Brazil": "BR", "Chile": "CL", "Peru": "PE", "Colombia": "CO",
+    "Argentina": "AR", "Ecuador": "EC", "Panama": "PA", "Dominican Republic": "DO",
+    "Nigeria": "NG", "South Africa": "ZA", "Kenya": "KE", "Ethiopia": "ET", "Tanzania": "TZ",
+    "Ghana": "GH", "Angola": "AO", "Mozambique": "MZ", "Zambia": "ZM", "Senegal": "SN",
+    "Cote d'Ivoire": "CI", "Democratic Republic of the Congo": "CD", "Uganda": "UG",
+    "Germany": "DE", "Italy": "IT", "Spain": "ES", "France": "FR", "United Kingdom": "GB",
+    "Netherlands": "NL", "Belgium": "BE", "Poland": "PL", "Romania": "RO", "Hungary": "HU",
+    "Czechia": "CZ", "Serbia": "RS", "Switzerland": "CH", "Austria": "AT", "Sweden": "SE",
+    "Norway": "NO", "Denmark": "DK", "Finland": "FI", "Portugal": "PT", "Greece": "GR",
+    "United States": "US", "Canada": "CA", "Australia": "AU", "New Zealand": "NZ",
+    "Japan": "JP", "South Korea": "KR"
+  };
+
+  function resolveCountryIso2(country) {
+    var c = String(country || "").trim();
+    if (/^[A-Z]{2}$/.test(c)) return c;
+    return COUNTRY_TO_ISO2[c] || "";
+  }
+
+  function scoreGleifRecords(records, companyQuery, countryOrIso2) {
+    if (!Array.isArray(records) || !records.length) return [];
+    var targetIso = resolveCountryIso2(countryOrIso2);
+    var stopWords = { ag: 1, sa: 1, ltd: 1, limited: 1, llc: 1, inc: 1, corp: 1, corporation: 1, gmbh: 1, co: 1, plc: 1, jsc: 1, pt: 1, cv: 1, bhd: 1, pte: 1, srl: 1, spa: 1, bv: 1, nv: 1, the: 1, and: 1, of: 1 };
+    var qNorm = normalizeEmailToken(companyQuery);
+    var qTokens = String(companyQuery || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\u00C0-\u024F\u4e00-\u9fff]+/g, " ")
+      .split(/\s+/)
+      .filter(function (w) { return w.length >= 2 && !stopWords[w]; });
+
+    var scored = [];
+    for (var i = 0; i < records.length; i++) {
+      var it = records[i];
+      var attr = (it && it.attributes) || {};
+      var ent = attr.entity || {};
+      var reg = attr.registration || {};
+      var nm = (ent.legalName && ent.legalName.name) ? String(ent.legalName.name).trim() : "";
+      if (!nm) continue;
+      var addrCtry = (ent.legalAddress && ent.legalAddress.country) ? String(ent.legalAddress.country).toUpperCase() : "";
+      var jur = addrCtry || (ent.jurisdiction ? String(ent.jurisdiction).slice(0, 2).toUpperCase() : "");
+      var entSt = String(ent.status || "").toUpperCase();
+      var regSt = String(reg.status || "").toUpperCase();
+      var isActive = entSt === "ACTIVE" && regSt !== "RETIRED" && regSt !== "ANNULLED" && regSt !== "CANCELLED";
+
+      var nmLower = nm.toLowerCase();
+      var nmNorm = normalizeEmailToken(nm);
+      var exactMatch = (nmNorm && qNorm && nmNorm === qNorm);
+      var prefixMatch = !exactMatch && qNorm.length >= 4 && nmNorm.indexOf(qNorm) === 0;
+      var tokenHits = 0;
+      for (var t = 0; t < qTokens.length; t++) {
+        if (nmLower.indexOf(qTokens[t]) >= 0) tokenHits++;
+      }
+      if (!exactMatch && !prefixMatch && qTokens.length > 0 && tokenHits === 0) {
+        continue;
+      }
+      var sameCountry = !!(targetIso && jur === targetIso);
+      if (targetIso && !sameCountry && !isActive) {
+        continue;
+      }
+      var isFundNoise = /(pensionskasse|pensionsfonds|auszahlungsfonds|pension\s+fund|stiftung|\bverein\b|belegschaft|trustee|sub-fund|\betf\b)/i.test(nm) && !/(pension|stiftung|fund|verein)/i.test(String(companyQuery || ""));
+      if (isFundNoise && !exactMatch) {
+        continue;
+      }
+
+      var score = 0;
+      if (sameCountry) score += 50;
+      if (isActive) score += 30;
+      if (exactMatch) score += 40;
+      else if (prefixMatch) score += 25;
+      score += tokenHits * 10;
+
+      scored.push({
+        id: it.id || "",
+        name: nm,
+        countryIso2: jur,
+        entityStatus: entSt || "UNKNOWN",
+        regStatus: regSt || "",
+        isActive: isActive,
+        sameCountry: sameCountry,
+        score: score
+      });
+    }
+    scored.sort(function (a, b) { return b.score - a.score; });
+    if (targetIso && scored.some(function (x) { return x.sameCountry; })) {
+      scored = scored.filter(function (x) { return x.sameCountry; });
+    }
+    return scored.slice(0, 3);
+  }
+
+  function computeDefaultNextFollowDate(baseDateStr, offsetDays) {
+    var days = (typeof offsetDays === "number" && Number.isFinite(offsetDays)) ? Math.max(1, Math.round(offsetDays)) : 3;
+    var baseMs = baseDateStr && /^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)
+      ? Date.parse(baseDateStr + "T00:00:00Z")
+      : Date.now();
+    var targetMs = baseMs + days * 86400000;
+    var dt = new Date(targetMs);
+    if (dt.getUTCDay() === 0) {
+      dt = new Date(targetMs + 86400000);
+    }
+    return dt.toISOString().slice(0, 10);
+  }
+
+  var CADENCE_FLOW = {
+    first: { stepNum: 1, nextStep: "followup", offsetDays: 3, sentLabel: "已发第1封(Day1破冰)", nextLabel: "待发第2封(Day4技术/单证)" },
+    wa: { stepNum: 1, nextStep: "followup", offsetDays: 3, sentLabel: "已发WhatsApp首轮破冰", nextLabel: "待发第2封(Day4技术/单证)" },
+    followup: { stepNum: 2, nextStep: "case", offsetDays: 4, sentLabel: "已发第2封(Day4技术跟进)", nextLabel: "待发第3封(Day8同行案例)" },
+    case: { stepNum: 3, nextStep: "logistics", offsetDays: 4, sentLabel: "已发第3封(Day8同行案例)", nextLabel: "待发第4封(Day12拼柜方案)" },
+    logistics: { stepNum: 4, nextStep: "breakup", offsetDays: 6, sentLabel: "已发第4封(Day12拼柜方案)", nextLabel: "待发第5封(Day18礼貌唤醒)" },
+    breakup: { stepNum: 5, nextStep: "done", offsetDays: 14, sentLabel: "已发第5封(Day18礼貌唤醒)", nextLabel: "5步开发已完成(两周后复盘)" }
+  };
+
+  function nextCadenceSchedule(sentStepKey, baseDateStr) {
+    var cfg = CADENCE_FLOW[sentStepKey] || CADENCE_FLOW.first;
+    return {
+      sentStep: sentStepKey in CADENCE_FLOW ? sentStepKey : "first",
+      sentLabel: cfg.sentLabel,
+      nextStep: cfg.nextStep,
+      nextLabel: cfg.nextLabel,
+      offsetDays: cfg.offsetDays,
+      nextDate: computeDefaultNextFollowDate(baseDateStr, cfg.offsetDays)
+    };
+  }
+
   return {
     escHtml: escHtml,
     extractCleanDomain: extractCleanDomain,
@@ -1105,6 +1342,13 @@
     analyzePhoneCore: analyzePhoneCore,
     buildLeadDedupeKey: buildLeadDedupeKey,
     normalizeLeadForStore: normalizeLeadForStore,
-    mergeLeadRecord: mergeLeadRecord
+    mergeLeadRecord: mergeLeadRecord,
+    normalizeEmailToken: normalizeEmailToken,
+    guessCorporateEmails: guessCorporateEmails,
+    localizeProductForLang: localizeProductForLang,
+    resolveCountryIso2: resolveCountryIso2,
+    scoreGleifRecords: scoreGleifRecords,
+    computeDefaultNextFollowDate: computeDefaultNextFollowDate,
+    nextCadenceSchedule: nextCadenceSchedule
   };
 });

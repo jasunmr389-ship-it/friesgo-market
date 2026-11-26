@@ -451,3 +451,95 @@ test("Round 2 P1-5 / P1-6 / P1-7 / P0-1: 5x9t FFD Packing, Device-Tagged Ref, Po
   assert.equal(protectedMerge._rev, 5, "Monotonic _rev incremented");
 });
 
+test("10. Phase 2A: Accented email guesser, localized product names, GLEIF precision & cadence", () => {
+  // P2A-2: Diacritic & special Latin transliteration
+  assert.equal(FG_CORE.normalizeEmailToken("José"), "jose");
+  assert.equal(FG_CORE.normalizeEmailToken("García"), "garcia");
+  assert.equal(FG_CORE.normalizeEmailToken("Đặng"), "dang");
+  assert.equal(FG_CORE.normalizeEmailToken("Nguyễn"), "nguyen");
+  assert.equal(FG_CORE.normalizeEmailToken("Müller-ß"), "mullerss");
+  assert.equal(FG_CORE.normalizeEmailToken("Łukasz"), "lukasz");
+
+  const deEmails = FG_CORE.guessCorporateEmails("Jürgen", "Müller", "valve-tech.de");
+  assert.equal(deEmails[0], "juergen.mueller@valve-tech.de");
+  assert.ok(deEmails.includes("jurgen.muller@valve-tech.de"));
+
+  const mxEmails = FG_CORE.guessCorporateEmails("José", "García", "https://www.acero-monterrey.com.mx/about");
+  assert.equal(mxEmails[0], "jose.garcia@acero-monterrey.com.mx");
+  assert.ok(mxEmails.includes("jgarcia@acero-monterrey.com.mx"));
+
+  const vnEmails = FG_CORE.guessCorporateEmails("Đặng", "Nguyễn", "saigonvalve.vn");
+  assert.equal(vnEmails[0], "dang.nguyen@saigonvalve.vn");
+
+  // P2A-3: Localized product names across target languages
+  assert.equal(
+    FG_CORE.localizeProductForLang("industrial valves & water pumps", "es"),
+    "válvulas industriales y bombas de agua"
+  );
+  assert.equal(
+    FG_CORE.localizeProductForLang("steel structures", "ar"),
+    "الهياكل الفولاذية المسبقة الصنع"
+  );
+  assert.equal(
+    FG_CORE.localizeProductForLang("power cables", "vi"),
+    "cáp điện công nghiệp"
+  );
+  assert.equal(
+    FG_CORE.localizeProductForLang("Custom Duplex SS2205 Manifold", "es"),
+    "Custom Duplex SS2205 Manifold",
+    "Custom specific product names not in generic phrase table remain untouched"
+  );
+
+  // P2A-4: GLEIF entity scoring rejects foreign retired pension funds & street-name noise
+  assert.equal(FG_CORE.resolveCountryIso2("Germany"), "DE");
+  assert.equal(FG_CORE.resolveCountryIso2("Saudi Arabia"), "SA");
+  const mockGleif = [
+    {
+      id: "LEI_CH_RETIRED_PENSION",
+      attributes: {
+        entity: { legalName: { name: "Pensionskasse der Siemens-Gesellschaften in der Schweiz" }, legalAddress: { country: "CH" }, status: "INACTIVE" },
+        registration: { status: "RETIRED" }
+      }
+    },
+    {
+      id: "LEI_DE_PENSION_NOISE",
+      attributes: {
+        entity: { legalName: { name: "Siemens Pensionsfonds AG" }, legalAddress: { country: "DE" }, status: "ACTIVE" },
+        registration: { status: "ISSUED" }
+      }
+    },
+    {
+      id: "LEI_DE_STREET_NOISE",
+      attributes: {
+        entity: { legalName: { name: "INTEC AG" }, legalAddress: { country: "DE" }, status: "ACTIVE" },
+        registration: { status: "ISSUED" }
+      }
+    },
+    {
+      id: "5299005CHJZ14D4FDJ62",
+      attributes: {
+        entity: { legalName: { name: "Siemens Energy AG" }, legalAddress: { country: "DE" }, status: "ACTIVE" },
+        registration: { status: "ISSUED" }
+      }
+    }
+  ];
+  const rankedDe = FG_CORE.scoreGleifRecords(mockGleif, "Siemens AG", "Germany");
+  assert.equal(rankedDe.length, 1);
+  assert.equal(rankedDe[0].id, "5299005CHJZ14D4FDJ62");
+  assert.equal(rankedDe[0].countryIso2, "DE");
+
+  // P2A-5: Default +3d follow-up (shifting Sunday -> Monday) & 21-day cadence schedule
+  // 2026-11-26 is Thursday -> +3 days is Sunday 2026-11-29 -> auto-shifts to Monday 2026-11-30!
+  assert.equal(FG_CORE.computeDefaultNextFollowDate("2026-11-26", 3), "2026-11-30");
+  // 2026-11-25 is Wednesday -> +3 days is Saturday 2026-11-28
+  assert.equal(FG_CORE.computeDefaultNextFollowDate("2026-11-25", 3), "2026-11-28");
+
+  const c1 = FG_CORE.nextCadenceSchedule("first", "2026-11-26");
+  assert.equal(c1.nextStep, "followup");
+  assert.equal(c1.nextDate, "2026-11-30");
+  const c2 = FG_CORE.nextCadenceSchedule("followup", "2026-11-30");
+  assert.equal(c2.nextStep, "case");
+  assert.equal(c2.nextDate, "2026-12-04");
+});
+
+

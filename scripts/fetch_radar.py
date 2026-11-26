@@ -512,16 +512,20 @@ def fetch_gdacs():
                 continue
             if ev_type == "EQ" and age_days > 21:
                 continue
-            if alert == "Green" and age_days > 35:
+            # Phase 2A: Drop all Green-level minor alerts & any uninhabited / zero-population events
+            if alert == "Green":
                 continue
 
             c_en, c_cn, reg, lang = normalize_country(country_raw or title)
-            # Filter out unpopulated ocean/micro-island noise
-            if alert == "Green":
-                if c_en in skip_green_micro or reg == "其他":
-                    continue
-                if re.search(r"\b0\s+people\b|\baffected\s+population\s+is\s+0\b|\boff\s+the\s+coast\b|\bsea\b", desc + " " + pop_raw, re.I):
-                    continue
+            if c_en in skip_green_micro or reg == "其他":
+                continue
+            if re.search(
+                r"\b0\s+people\b|\baffected\s+population\s+is\s+0\b|\bno\s+people\b|\bno\s+population\b|"
+                r"\buninhabited\b|\bin\s+sea\b|\boff\s+the\s+coast\b|\bmid[\s-]*ocean\b",
+                desc + " " + pop_raw + " " + title,
+                re.I,
+            ):
+                continue
 
             if ev_type == "TC":
                 rec_cn = "抗风钢结构厂房、彩钢瓦、高强紧固件、排水泵、应急柴油发电机"
@@ -729,41 +733,213 @@ def _today_cn():
     return (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).strftime("%Y-%m-%d")
 
 
+def _parse_wb_award_winner(notice_html):
+    """Extract winning contractor name, address, country, award date & signed contract price from WB Contract Award HTML."""
+    if not notice_html:
+        return {}
+    s = str(notice_html)
+    award_date = ""
+    m_dt = re.search(r"Date\s+Notification\s+of\s+Award\s+Issued.*?(20\d{2})[/-](\d{2})[/-](\d{2})", s, re.I | re.S)
+    if m_dt:
+        award_date = f"{m_dt.group(1)}-{m_dt.group(2)}-{m_dt.group(3)}"
+
+    winner_name, winner_addr, winner_country, signed_price = "", "", "", ""
+    m_sec = re.search(
+        r"Awarded\s+(?:Bidder|Firm)\(s\)\s*:?\s*</b>\s*</u>(.*?)(?:Evaluated\s+Bidder|Beneficial\s+Ownership|$)",
+        s,
+        re.I | re.S,
+    )
+    block = m_sec.group(1) if m_sec else s
+    m_b = re.search(
+        r"<b>\s*,?\s*([^<]{3,120}?)\s*</b>\s*(?:<br\s*/?>\s*([^<]{0,140}))?(?:<br\s*/?>\s*Country:\s*([^<]{2,60}))?",
+        block,
+        re.I | re.S,
+    )
+    if m_b:
+        raw_nm = clean_text(m_b.group(1)).lstrip(", ").strip()
+        raw_nm = re.sub(r"\s*\(\d{4,10}\)\s*$", "", raw_nm).strip()
+        if raw_nm and raw_nm.lower() not in ("name", "project", "contract award", "bidder"):
+            winner_name = raw_nm
+        if m_b.group(2):
+            winner_addr = clean_text(m_b.group(2))
+        if m_b.group(3):
+            winner_country = clean_text(m_b.group(3))
+
+    m_price = re.search(r"Signed\s+Contract\s+price\s*<br\s*/?>\s*([A-Z]{3}\s*[\d,.]+)", block, re.I)
+    if not m_price:
+        m_price = re.search(r"Evaluated\s+Bid\s+Price\s*<br\s*/?>\s*([A-Z]{3}\s*[\d,.]+)", block, re.I)
+    if m_price:
+        signed_price = clean_text(m_price.group(1))
+
+    return {
+        "awardDate": award_date,
+        "contractor": winner_name,
+        "address": winner_addr,
+        "contractorCountry": winner_country,
+        "signedPrice": signed_price,
+    }
+
+
+WB_INCLUDE_KW = re.compile(
+    r"pump|valve|pipe|pipeline|water\s*supply|wastewater|sewage|drainage|irrigat|borehole|reservoir|"
+    r"solar|photovoltaic|power\s+plant|substation|transformer|switchgear|cable|power\s+grid|transmission\s+line|generator|electrific|"
+    r"steel|bridge|port|warehouse|factory|machinery|tractor|agricult\w*\s+machin|cold\s*storage|hydropower|"
+    r"mining|water\s*treatment|desalinat|pumping\s+station|canal|dam\b|weir|culvert|flood\s+protection|"
+    r"fourniture.*(?:pompe|tuyau|vanne|câble|solaire|transformateur|générateur|acier)|"
+    r"pompe|adduction\s+d['’]eau|assainissement|irrigation|sous-station|transformateur|"
+    r"acero|planta\s+de\s+agua|bombeo|subestación",
+    re.I,
+)
+
+WB_EXCLUDE_KW = re.compile(
+    r"consultan|advisory|audit|training|workshop|software|computer|laptop|tablet|printer|server|it\s+equipment|"
+    r"information\s+system|management\s+system|syst[èe]me\s+d['’]information|informatique|logiciel|num[ée]rique|"
+    r"digital\s+transformation|digitali[sz]ation|data\s*cent(?:er|re)|cyber|cloud|erp\b|website|portal|"
+    r"telecom|broadband|fiber\s+optic|furniture|mobilier|stationery|office\s+suppl|office\s+equipment|fournitures?\s+de\s+bureau|bureautique|photocopier|toner|"
+    r"sedan|suv|pick[\s-]*up\s+vehicle|passenger\s+vehicle|ambulance|motorcycle|"
+    r"medical|hospital|pharmaceut|vaccine|clinical|laboratory|laboratoire|microscope|reagent|diagnostic|"
+    r"household\s+appliance|air\s+conditioner|climatiseur|refrigerator|television|audio[\s-]*visual|"
+    r"school\s+book|textbook|literacy|higher\s+education|curriculum|scholarship|nutrition|"
+    r"film|animation|public\s+relations|communication|supports?\s+de\s+communication|recruitment|study\s+tour|"
+    r"muck|silt|debris|janitor|cleaning|catering|hotel|conference|security\s+guard|legal\s+service|accounting|printing|"
+    r"insurance|microfinance|cash\s+transfer|voucher|seedlings?|fertilizer|livestock\s+feed|veterinary|"
+    r"feasibility\s+study|environmental\s+and\s+social|gender\s+action|resettlement\s+action|"
+    r"periodic(?:al)?\s+(?:renewal|maintenance)|pothole|resurfacing",
+    re.I,
+)
+
+
 def fetch_worldbank():
-    """Fetch LIVE World Bank equipment/infrastructure procurement notices (IFB/GPN/Contract Awards) from v2/procnotices API."""
-    items = []
+    """Fetch LIVE World Bank Contract Awards (recent winning contractors <=95d) + active industrial IFB/Prequalification notices."""
+    award_items = []
+    tender_items = []
     seen = set()
     agency_counts = {}
     last_err = ""
+    today_iso = _today_cn()
+    today_dt = datetime.date.fromisoformat(today_iso)
 
-    include_kw = re.compile(
-        r"pump|valve|pipe|pipeline|water\s*supply|wastewater|sewage|drainage|irrigat|borehole|reservoir|"
-        r"solar|photovoltaic|power|substation|transformer|switchgear|cable|grid|transmission|generator|electrific|"
-        r"steel|bridge|port|warehouse|factory|machinery|tractor|agricult|cold\s*storage|hydropower|"
-        r"industrial|mining|plant|equipment|civil\s*works|distribution\s*network|water\s*treatment|"
-        r"fourniture|solaire|pompe|eau|réseau|équipement|électri|acero|agua|bomba|energía",
-        re.I,
-    )
-    exclude_kw = re.compile(
-        r"consultan|advisory|audit|training|workshop|software|computer|laptop|printer|server|it\s+equipment|"
-        r"furniture|stationery|sedan|suv|passenger\s+vehicle|ambulance|medical|hospital|pharmaceut|vaccine|"
-        r"clinical|laboratory\s+reagent|school\s+book|literacy|higher\s+education|nutrition|film|animation|"
-        r"muck|silt|debris|janitor|cleaning|catering|security\s+guard|legal\s+service|accounting|printing|"
-        r"public\s+relations|communication|supports?\s+de\s+communication|recruitment|study\s+tour|curriculum|"
-        r"periodic(?:al)?\s+(?:renewal|maintenance)|pothole|resurfacing|pav[ée]",
-        re.I,
-    )
+    # 1. HIGH-INTENT BUYERS: Recent Contract Awards (CW / GO within last 95 days) with named winning contractor
+    award_url = "https://search.worldbank.org/api/v2/procnotices?format=json&rows=200&notice_type=Contract%20Award&srt=noticedate&order=desc"
+    try:
+        raw_aw = http_get(award_url, timeout=25)
+        data_aw = json.loads(raw_aw)
+        aw_list = data_aw.get("procnotices") or []
+        if isinstance(aw_list, dict):
+            aw_list = list(aw_list.values())
+        for n in aw_list:
+            if not isinstance(n, dict):
+                continue
+            nid = clean_text(n.get("id"))
+            if not nid or nid in seen:
+                continue
+            proc_group = clean_text(n.get("procurement_group") or "")
+            if proc_group not in ("CW", "GO"):
+                continue
+            desc = clean_text(n.get("bid_description"))
+            pname = clean_text(n.get("project_name"))
+            combined = f"{desc} {pname}".strip()
+            match_text = desc if len(desc) >= 20 else combined
+            if WB_EXCLUDE_KW.search(combined) or not WB_INCLUDE_KW.search(match_text):
+                continue
 
+            aw_info = _parse_wb_award_winner(n.get("notice_text") or "")
+            contractor = aw_info.get("contractor") or ""
+            if not contractor or WB_EXCLUDE_KW.search(contractor):
+                continue
+
+            pub_date = _parse_wb_date(n.get("noticedate") or n.get("submission_date"))
+            eff_award_date = aw_info.get("awardDate") or _extract_wb_orig_date(n.get("notice_text") or "") or pub_date
+            if eff_award_date and re.match(r"^\d{4}-\d{2}-\d{2}$", eff_award_date):
+                try:
+                    age_aw = (today_dt - datetime.date.fromisoformat(eff_award_date)).days
+                    if age_aw > 95 or age_aw < -5:
+                        continue
+                except Exception:
+                    pass
+
+            c_raw = clean_text(n.get("project_ctry_name") or aw_info.get("contractorCountry") or "")
+            c_en, c_cn, reg, lang = normalize_country(c_raw or pname)
+            if not c_en or c_en.lower() in ("world", "africa", "western and central africa", "eastern and southern africa"):
+                c_en = c_raw or "Global"
+                c_cn = c_cn or c_en
+
+            seen.add(nid)
+            prod_cn, prod_en = match_products(combined)
+            bid_ref = clean_text(n.get("bid_reference_no") or "")
+            signed_price = aw_info.get("signedPrice") or ""
+            addr = aw_info.get("address") or ""
+            email = clean_text(n.get("contact_email") or "")
+            pid = clean_text(n.get("project_id") or "")
+            notice_url = f"https://projects.worldbank.org/en/projects-operations/procurement-detail/{nid}"
+            if not nid.startswith("OP") and pid:
+                notice_url = f"https://projects.worldbank.org/en/projects-operations/project-detail/{pid}"
+
+            title_show = desc if len(desc) >= 16 else (pname or desc)
+            if len(title_show) > 125:
+                title_show = title_show[:122] + "..."
+
+            sum_parts = [f"中标企业：{contractor}"]
+            if signed_price:
+                sum_parts.append(f"合同额：{signed_price}")
+            if eff_award_date:
+                sum_parts.append(f"授标日：{eff_award_date}")
+            if addr:
+                sum_parts.append(f"地址：{addr[:65]}")
+            if bid_ref:
+                sum_parts.append(f"标号：{bid_ref}")
+
+            award_items.append({
+                "id": f"wb_aw_{nid}",
+                "cat": "award",
+                "catLabel": "🏆 中标总包商",
+                "noticeType": "Contract Award",
+                "severity": "High",
+                "severityLabel": "🏆 刚中标承包商",
+                "country": c_en,
+                "countryCn": c_cn,
+                "region": reg,
+                "lang": lang,
+                "date": eff_award_date or pub_date,
+                "awardDate": eff_award_date,
+                "deadline": "",
+                "reposted": False,
+                "origNoticeDate": "",
+                "procGroup": proc_group,
+                "bidRefNo": bid_ref,
+                "contractor": contractor,
+                "awardedContractor": contractor,
+                "contractorCountry": aw_info.get("contractorCountry") or "",
+                "contractorAddress": addr,
+                "title": title_show,
+                "titleCn": f"【{c_cn}·中标】{contractor} 中标：{title_show}",
+                "summary": " ｜ ".join(sum_parts),
+                "contractPrice": signed_price,
+                "amount": signed_price,
+                "entity": clean_text(n.get("contact_organization") or "") or contractor,
+                "contactEmail": email,
+                "contactPhone": "",
+                "productsCn": prod_cn,
+                "productsEn": prod_en,
+                "angleCn": f"现成采购买家：「{contractor}」刚拿下该工程合同，未来 2–8 周将集中采购配套 {prod_cn}，建议立即查官网/LinkedIn 联系其采购与机电工程师",
+                "source": "世界银行授标公告 API",
+                "url": notice_url,
+            })
+            if len(award_items) >= 10:
+                break
+    except Exception as e_aw:
+        print(f"[WARN] World Bank Contract Award fetch failed: {e_aw}")
+        last_err = str(e_aw)[:180]
+
+    # 2. ACTIVE TENDERS: Invitation for Bids & Prequalification (strictly CW/GO, non-expired, IT/consulting excluded)
     notice_badges = {
         "Invitation for Bids": ("公开招标", "High"),
         "Invitation for Prequalification": ("资格预审", "High"),
-        "General Procurement Notice": ("采购总公告", "High"),
-        "Contract Award": ("已授标·找总包", "Normal"),
+        "General Procurement Notice": ("采购总公告", "Normal"),
     }
-
     urls = [
-        "https://search.worldbank.org/api/v2/procnotices?format=json&rows=160&notice_type=Invitation%20for%20Bids&srt=noticedate&order=desc",
-        "https://search.worldbank.org/api/v2/procnotices?format=json&rows=160&srt=noticedate&order=desc",
+        "https://search.worldbank.org/api/v2/procnotices?format=json&rows=180&notice_type=Invitation%20for%20Bids&srt=noticedate&order=desc",
+        "https://search.worldbank.org/api/v2/procnotices?format=json&rows=120&srt=noticedate&order=desc",
     ]
     for url in urls:
         try:
@@ -781,16 +957,16 @@ def fetch_worldbank():
                 ntype = clean_text(n.get("notice_type"))
                 if ntype not in notice_badges:
                     continue
+                proc_group = clean_text(n.get("procurement_group") or "")
+                if proc_group in ("CS", "NC"):
+                    continue
                 desc = clean_text(n.get("bid_description"))
                 pname = clean_text(n.get("project_name"))
                 combined = f"{desc} {pname}".strip()
                 if not combined:
                     continue
-                # Match industrial keywords primarily in bid_description (or pname if desc is short)
-                match_text = desc if len(desc) >= 24 else combined
-                if exclude_kw.search(combined):
-                    continue
-                if not include_kw.search(match_text):
+                match_text = desc if len(desc) >= 20 else combined
+                if WB_EXCLUDE_KW.search(combined) or not WB_INCLUDE_KW.search(match_text):
                     continue
 
                 c_raw = clean_text(n.get("project_ctry_name") or n.get("contact_ctry_name") or "")
@@ -800,7 +976,6 @@ def fetch_worldbank():
                     c_cn = c_cn or c_en
 
                 org = clean_text(n.get("contact_organization") or "")
-                # Cap max 2 notices per (country, agency) so one road dept doesn't flood the board
                 ag_key = (c_en.lower(), (org or pname[:30]).lower())
                 if agency_counts.get(ag_key, 0) >= 2:
                     continue
@@ -809,8 +984,7 @@ def fetch_worldbank():
 
                 date_str = _parse_wb_date(n.get("noticedate") or n.get("submission_date"))
                 deadline = _parse_wb_date(n.get("submission_deadline_date"))
-                # 整改：已过截标日的招标不再进入商机列表
-                if deadline and deadline < _today_cn():
+                if deadline and deadline < today_iso:
                     continue
                 orig_date = _extract_wb_orig_date(n.get("notice_text") or "")
                 reposted = False
@@ -823,10 +997,10 @@ def fetch_worldbank():
                     except Exception:
                         pass
 
-                proc_group = clean_text(n.get("procurement_group") or "")
                 email = clean_text(n.get("contact_email") or "")
                 phone = clean_text(n.get("contact_phone_no") or "")
                 pid = clean_text(n.get("project_id") or "")
+                bid_ref = clean_text(n.get("bid_reference_no") or "")
 
                 if len(org) > 85:
                     org = org[:82] + "..."
@@ -840,19 +1014,19 @@ def fetch_worldbank():
                 sev_lbl = badge_lbl
 
                 if proc_group == "CW":
-                    angle = f"土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（{prod_cn}）"
-                elif ntype == "Contract Award":
-                    angle = f"已授标公告：核查中标总包商，联系其采购部门争取二级设备/材料供货（{prod_cn}）"
+                    angle = f"土建工程总包招标（工厂通常不直投）：重点检索当地参与投标的基建承包商，提前推荐配套 {prod_cn}"
                 elif ntype == "General Procurement Notice":
-                    angle = f"项目采购计划总公告，正式招标尚未开始：先联系业主或当地代理，提前进入供应商短名单（{prod_cn}）"
+                    angle = f"项目采购计划总公告：先联系业主或当地代理，提前进入供应商短名单（{prod_cn}）"
                 elif ntype == "Invitation for Prequalification":
-                    angle = f"资格预审阶段：先下载预审文件核对业绩与保函门槛，评估直投或联合当地承包商参与（{prod_cn}）"
+                    angle = f"资格预审阶段：核对业绩与保函门槛，评估直投或联合当地承包商参与（{prod_cn}）"
                 elif proc_group == "GO":
-                    angle = f"货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（{prod_cn}）"
+                    angle = f"货物直采招标，可直接评估投标：下载标书核对技术规格、交货期与保函要求（{prod_cn}）"
                 else:
-                    angle = f"先下载招标文件核对资格门槛，再决定直接投标还是经当地代理/承包商配套供货（{prod_cn}）"
+                    angle = f"先下载招标文件核对资格门槛，决定直投或经当地承包商配套供货（{prod_cn}）"
 
                 sum_parts = [f"类型：{ntype}"]
+                if bid_ref:
+                    sum_parts.append(f"招标号：{bid_ref}")
                 if pname and pname != title_show:
                     sum_parts.append(f"所属项目：{pname[:70]}")
                 if email:
@@ -862,13 +1036,13 @@ def fetch_worldbank():
                 if orig_date and reposted:
                     sum_parts.append(f"正文原日期：{orig_date}（重新挂网）")
                 if proc_group:
-                    sum_parts.append("采购类别：" + {"CW": "土建工程（需经总包供货）", "GO": "货物直采", "CS": "咨询服务", "NC": "非咨询服务"}.get(proc_group, proc_group))
+                    sum_parts.append("采购类别：" + {"CW": "土建工程（经总包配套）", "GO": "货物直采"}.get(proc_group, proc_group))
 
                 notice_url = f"https://projects.worldbank.org/en/projects-operations/procurement-detail/{nid}"
                 if not nid.startswith("OP") and pid:
                     notice_url = f"https://projects.worldbank.org/en/projects-operations/project-detail/{pid}"
 
-                items.append({
+                tender_items.append({
                     "id": f"wb_{nid}",
                     "cat": "loan",
                     "catLabel": badge_lbl,
@@ -884,6 +1058,7 @@ def fetch_worldbank():
                     "reposted": reposted,
                     "origNoticeDate": orig_date if reposted else "",
                     "procGroup": proc_group,
+                    "bidRefNo": bid_ref,
                     "title": title_show,
                     "titleCn": f"【{c_cn}】{title_show}",
                     "summary": " ｜ ".join(sum_parts),
@@ -897,15 +1072,16 @@ def fetch_worldbank():
                     "source": "世界银行实时招标 API",
                     "url": notice_url,
                 })
-                if len(items) >= 22:
+                if len(tender_items) >= 14:
                     break
         except Exception as e:
             print(f"[WARN] World Bank procnotices fetch failed: {e}")
             last_err = str(e)[:180]
-        if len(items) >= 22:
+        if len(tender_items) >= 14:
             break
 
-    return items, (len(items) > 0 or not last_err), last_err
+    combined_wb = award_items + tender_items
+    return combined_wb, (len(combined_wb) > 0 or not last_err), last_err
 
 
 
@@ -915,7 +1091,8 @@ NEWS_SPAM_PAT = re.compile(
     r"grandviewresearch|marketresearchfuture|verifiedmarketresearch|sphericalinsights|imarcgroup|"
     r"technavio|coherentmarketinsights|transparencymarketresearch|globenewswire.*market\s+size|"
     r"volza|importgenius|panjiva|52wmb|tendata|exportgenius|seair|trademo|"
-    r"\bmarket\s+size\b|\bcagr\b|\bforecast\s+20[23]\d\b|\bindustry\s+report\b)",
+    r"\bmarket\s+size\b|\bcagr\b|\bforecast\s+20[23]\d\b|\bindustry\s+report\b|"
+    r"carbon\s+credit|carbon\s+offset|碳交易|碳汇|广东|江苏|浙江|山东|河南|四川|湖北|湖南)",
     re.I,
 )
 
@@ -1101,7 +1278,7 @@ def enrich_with_gemini(items, prev_items=None):
                 if "titleCn" in (matched.get("aiFields") or []) and matched.get("titleCn"):
                     it["titleCn"] = clean_text(matched["titleCn"]).replace("！", "")
                     copied_fields.append("titleCn")
-                if it.get("cat") != "loan" and "angleCn" in (matched.get("aiFields") or []) and matched.get("angleCn"):
+                if it.get("cat") not in ("loan", "award") and "angleCn" in (matched.get("aiFields") or []) and matched.get("angleCn"):
                     it["angleCn"] = clean_text(matched["angleCn"]).replace("！", "，").replace("实盘", "").strip("， ")
                     copied_fields.append("angleCn")
                 if not it.get("entity") and "entity" in (matched.get("aiFields") or []) and matched.get("entity"):
@@ -1119,7 +1296,7 @@ def enrich_with_gemini(items, prev_items=None):
 
     # 2. Only send items that STILL need translation to Gemini
     targets = []
-    for cat_prio in ("loan", "weather", "news"):
+    for cat_prio in ("award", "loan", "news", "weather"):
         for idx, it in enumerate(items):
             if it["cat"] != cat_prio or it.get("aiFields"):
                 continue
@@ -1436,10 +1613,11 @@ def main():
                 "error": "",
             }
         min_news_date = (now_cn - datetime.timedelta(days=NEWS_MAX_AGE_DAYS)).strftime("%Y-%m-%d")
+        allowed_cats = ("loan", "award") if cat == "loan" else (cat,)
         prior_cat = [
             x for x in prev_items
             if isinstance(x, dict)
-            and x.get("cat") == cat
+            and x.get("cat") in allowed_cats
             and not (x.get("deadline") and x["deadline"] < _today_cn())
             and not (cat == "news" and re.match(r"^\d{4}-\d{2}-\d{2}$", str(x.get("date") or "")) and x["date"] < min_news_date)
         ]
@@ -1464,13 +1642,15 @@ def main():
     wb_items, st_wb = _resolve_source("worldbank", "loan", wb_items, wb_ok, wb_err)
     news_items, st_news = _resolve_source("gnews", "news", news_items, news_ok, news_err)
 
-    all_items = weather_items + wb_items + news_items
+    # Order high-intent Contract Awards & Industrial Tenders FIRST, followed by EPC/Factory news, and de-noised Weather alerts LAST
+    all_items = wb_items + news_items + weather_items
     if not (gdacs_ok or wb_ok or news_ok):
-        # 整改：三个来源全部失败时不覆盖旧数据，并让 Actions 任务失败（GitHub 会发邮件提醒）
         print("[ERROR] All sources failed; keeping previous feed untouched.")
         raise SystemExit(1)
     ai_used = enrich_with_gemini(all_items, prev_items)
 
+    award_cnt = sum(1 for x in wb_items if x.get("cat") == "award")
+    loan_cnt = sum(1 for x in wb_items if x.get("cat") == "loan")
     feed = {
         "updatedIso": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "updatedCn": now_cn_str,
@@ -1483,9 +1663,10 @@ def main():
         },
         "stats": {
             "total": len(all_items),
-            "weather": len(weather_items),
-            "loan": len(wb_items),
+            "award": award_cnt,
+            "loan": loan_cnt,
             "news": len(news_items),
+            "weather": len(weather_items),
         },
         "items": all_items,
     }
