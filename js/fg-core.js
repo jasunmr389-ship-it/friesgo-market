@@ -979,6 +979,17 @@
       }
       return qi;
     });
+    if (!Array.isArray(x.contacts)) x.contacts = [];
+    x.contacts = x.contacts.map(function (c, idx) {
+      var ci = Object.assign({}, c || {});
+      if (!ci.ctId) {
+        var cBase = String(ci.email || "") + "|" + String(ci.name || "") + "|" + String(ci.role || "") + "|" + idx;
+        var h = 5381;
+        for (var k = 0; k < cBase.length; k++) h = ((h << 5) + h) ^ cBase.charCodeAt(k);
+        ci.ctId = "ct_leg_" + (h >>> 0).toString(36);
+      }
+      return ci;
+    });
     return x;
   }
 
@@ -998,7 +1009,7 @@
     var scalarFields = [
       "company", "country", "contact", "role", "email", "phone",
       "website", "stage", "source", "nextDate", "note", "product", "estUsd", "owner", "leadType",
-      "cadenceStep", "cadenceLabel", "lossReason"
+      "cadenceStep", "cadenceLabel", "lossReason", "inquiryTier"
     ];
     for (var i = 0; i < scalarFields.length; i++) {
       var f = scalarFields[i];
@@ -1046,6 +1057,22 @@
     out.quotes = Array.from(qtMap.values()).sort(function (x, y) {
       return String(y.savedAt || "").localeCompare(String(x.savedAt || ""));
     });
+
+    // Merge multi-person contacts by stable `ctId` or email
+    var ctMap = new Map();
+    [a.contacts, b.contacts].forEach(function (arr) {
+      (arr || []).forEach(function (c) {
+        if (!c || (!c.name && !c.email && !c.phone)) return;
+        var key = c.email ? ("em:" + String(c.email).trim().toLowerCase()) : c.ctId;
+        var prev = ctMap.get(key);
+        if (!prev) {
+          ctMap.set(key, Object.assign({}, c));
+        } else {
+          ctMap.set(key, Object.assign({}, prev, c));
+        }
+      });
+    });
+    out.contacts = Array.from(ctMap.values());
 
     // Merge Due Diligence record keeping newer checkedAt
     if (a.ddRecord && b.ddRecord) {
@@ -1311,7 +1338,9 @@
     followup: { stepNum: 2, nextStep: "case", offsetDays: 4, sentLabel: "已发第2封(Day4技术跟进)", nextLabel: "待发第3封(Day8同行案例)" },
     case: { stepNum: 3, nextStep: "logistics", offsetDays: 4, sentLabel: "已发第3封(Day8同行案例)", nextLabel: "待发第4封(Day12拼柜方案)" },
     logistics: { stepNum: 4, nextStep: "breakup", offsetDays: 6, sentLabel: "已发第4封(Day12拼柜方案)", nextLabel: "待发第5封(Day18礼貌唤醒)" },
-    breakup: { stepNum: 5, nextStep: "done", offsetDays: 14, sentLabel: "已发第5封(Day18礼貌唤醒)", nextLabel: "5步开发已完成(两周后复盘)" }
+    breakup: { stepNum: 5, nextStep: "done", offsetDays: 14, sentLabel: "已发第5封(Day18礼貌唤醒)", nextLabel: "5步开发已完成(两周后复盘)" },
+    linkedin_conn: { stepNum: 1, nextStep: "linkedin_dm", offsetDays: 3, sentLabel: "已发LinkedIn加好友申请", nextLabel: "待发LinkedIn通过后首条私信" },
+    linkedin_dm: { stepNum: 2, nextStep: "followup", offsetDays: 4, sentLabel: "已发LinkedIn破冰私信", nextLabel: "待发邮件技术规格与单证跟进" }
   };
 
   function nextCadenceSchedule(sentStepKey, baseDateStr) {
@@ -1323,6 +1352,340 @@
       nextLabel: cfg.nextLabel,
       offsetDays: cfg.offsetDays,
       nextDate: computeDefaultNextFollowDate(baseDateStr, cfg.offsetDays)
+    };
+  }
+
+  /* ==================== 8. Phase 2B Multi-Category Profiles, Signals, LinkedIn, ICP & Funnel ==================== */
+
+  var PRODUCT_PROFILES = {
+    all: {
+      key: "all",
+      labelCn: "全品类工业打包（默认）",
+      lfPreset: "industrial valve",
+      lfCustom: "",
+      mapKw: "industrial valve pump hardware distributor",
+      csvWaProd: "industrial valves, pumps & steel structures",
+      emailProd: "industrial valves & water pumps",
+      quoteProd: "Industrial Valves & Water Pumps"
+    },
+    valve_pump: {
+      key: "valve_pump",
+      labelCn: "阀门 · 水泵 · 管道法兰",
+      lfPreset: "industrial valve",
+      lfCustom: "industrial valve OR centrifugal water pump OR pipe flange",
+      mapKw: "industrial valve water pump piping distributor",
+      csvWaProd: "industrial valves, water pumps & pipe flanges",
+      emailProd: "industrial valves & water pumps",
+      quoteProd: "Industrial Gate/Ball Valves & Centrifugal Pumps"
+    },
+    steel_fastener: {
+      key: "steel_fastener",
+      labelCn: "钢结构 · 紧固件 · 五金",
+      lfPreset: "steel structure OR prefabricated steel warehouse",
+      lfCustom: "prefabricated steel structure OR high strength fastener",
+      mapKw: "steel structure metal fabrication fastener distributor",
+      csvWaProd: "steel structures & fasteners",
+      emailProd: "steel structures",
+      quoteProd: "Prefabricated Steel Structure & High-Strength Fasteners"
+    },
+    cable_power: {
+      key: "cable_power",
+      labelCn: "电力电缆 · 变压器 · 配电",
+      lfPreset: "power cable OR electrical cable",
+      lfCustom: "power cable OR distribution transformer OR switchgear",
+      mapKw: "electrical power cable transformer switchgear distributor",
+      csvWaProd: "power cables, transformers & switchgear",
+      emailProd: "power cables",
+      quoteProd: "MV/LV Power Cables & Distribution Switchgear"
+    },
+    machinery: {
+      key: "machinery",
+      labelCn: "空压机 · 电机 · 通用机械",
+      lfPreset: "air compressor",
+      lfCustom: "screw air compressor OR industrial electric motor",
+      mapKw: "air compressor industrial machinery motor distributor",
+      csvWaProd: "air compressors, industrial motors & machinery parts",
+      emailProd: "industrial equipment",
+      quoteProd: "Rotary Screw Air Compressors & Industrial Motors"
+    },
+    mining: {
+      key: "mining",
+      labelCn: "矿山选矿 · 渣浆泵 · 耐磨件",
+      lfPreset: "water pump OR centrifugal pump",
+      lfCustom: "mining slurry pump OR wear resistant valve",
+      mapKw: "mining equipment slurry pump industrial supplier",
+      csvWaProd: "mining slurry pumps, high-pressure valves & wear parts",
+      emailProd: "industrial valves & water pumps",
+      quoteProd: "Heavy-Duty Slurry Pumps & High-Pressure Mining Valves"
+    },
+    agri: {
+      key: "agri",
+      labelCn: "农业机械 · 光伏/柴油灌溉",
+      lfPreset: "agricultural machinery OR tractor",
+      lfCustom: "agricultural machinery OR solar irrigation water pump",
+      mapKw: "agricultural machinery irrigation pump dealer",
+      csvWaProd: "agricultural machinery & irrigation water pumps",
+      emailProd: "agricultural machinery",
+      quoteProd: "Solar/Diesel Irrigation Pumps & Agricultural Machinery"
+    }
+  };
+
+  function getProductProfile(key) {
+    return PRODUCT_PROFILES[key] || PRODUCT_PROFILES.all;
+  }
+
+  function buildSignalIcebreaker(signalKey, vars, lang) {
+    if (!signalKey || signalKey === "general") return "";
+    var v = vars || {};
+    var comp = v.comp || "your company";
+    var country = v.country || "your market";
+    var prod = v.prod || "industrial equipment";
+    var note = v.signalNote ? (" (" + String(v.signalNote).trim() + ")") : "";
+    var lg = lang || "en";
+    var map = {
+      award: {
+        en: "Noticed " + comp + "'s recent engineering/project contract activity" + note + "—reaching out in case your procurement team is comparing secondary suppliers for " + prod + ".",
+        es: "Vimos la reciente adjudicación/actividad de proyectos de " + comp + note + " y le escribo por si su equipo de compras está evaluando proveedores de " + prod + ".",
+        pt: "Acompanhamos os recentes projetos/contratos da " + comp + note + " e entro em contato caso sua equipe de compras esteja cotando fornecedores de " + prod + ".",
+        fr: "Suite aux récents projets/marchés remportés par " + comp + note + ", je vous contacte au cas où votre service achats consulterait des fournisseurs pour " + prod + ".",
+        ar: "لاحظنا نشاط مشاريع وعقود شركة " + comp + " الأخيرة" + note + "، ونتواصل معكم في حال كان فريق المشتريات يقارن موردي " + prod + ".",
+        vi: "Được biết " + comp + " đang triển khai gói thầu/dự án mới" + note + ", em xin phép liên hệ phòng vật tư nếu bên mình đang so sánh nhà cung cấp " + prod + ".",
+        id: "Kami melihat aktivitas proyek/kontrak terbaru " + comp + note + ", sehingga menghubungi tim pengadaan Anda terkait opsi pemasok " + prod + "."
+      },
+      expansion: {
+        en: "Saw " + comp + " expanding facility/project capacity in " + country + note + "—sharing a quick supply option for " + prod + " before your vendor list is finalized.",
+        es: "Vimos que " + comp + " está ampliando operaciones/proyectos en " + country + note + " y quería compartirle una opción directa de fábrica para " + prod + ".",
+        pt: "Vimos que a " + comp + " está expandindo projetos/operações em " + country + note + " e gostaria de apresentar nossa linha de fornecimento para " + prod + ".",
+        fr: "Ayant vu le développement des activités de " + comp + " (" + country + ")" + note + ", je vous propose une option d'approvisionnement direct pour " + prod + ".",
+        ar: "اطلعنا على توسع أعمال ومشاريع " + comp + " في " + country + note + "، ونود تقديم خيار توريد مباشر لمنتجات " + prod + ".",
+        vi: "Thấy " + comp + " đang mở rộng nhà xưởng/dự án tại " + country + note + ", em xin gửi phương án cung ứng trực tiếp mặt hàng " + prod + ".",
+        id: "Melihat ekspansi fasilitas/proyek " + comp + " di " + country + note + ", kami ingin berbagi opsi pasokan pabrik langsung untuk " + prod + "."
+      },
+      import: {
+        en: "Noticed " + comp + " regularly imports industrial equipment in this category" + note + "—happy to provide a benchmark FOB/CIF quote on " + prod + " to compare against your current vendors.",
+        es: "Notamos que " + comp + " importa regularmente este rubro industrial" + note + " y podemos ofrecerle una cotización comparativa FOB/CIF en " + prod + ".",
+        pt: "Notamos que a " + comp + " já importa regularmente esta linha industrial" + note + " e podemos enviar uma cotação comparativa FOB/CIF para " + prod + ".",
+        fr: "Voyant que " + comp + " importe régulièrement cette gamme industrielle" + note + ", nous pouvons vous soumettre un devis comparatif FOB/CIF sur " + prod + ".",
+        ar: "لاحظنا أن شركة " + comp + " تستورد هذه الفئة الصناعية بانتظام" + note + "، ويسعدنا تقديم عرض سعر مرجعي FOB/CIF لمنتجات " + prod + " للمقارنة.",
+        vi: "Được biết " + comp + " thường xuyên nhập khẩu nhóm hàng này" + note + ", bên em sẵn sàng gửi báo giá đối chiếu FOB/CIF cho " + prod + ".",
+        id: "Kami melihat " + comp + " rutin mengimpor kategori produk industri ini" + note + ", dan siap memberikan penawaran pembanding FOB/CIF untuk " + prod + "."
+      },
+      expo: {
+        en: "Ahead of the upcoming industrial trade show" + note + ", reaching out to connect with " + comp + " regarding factory-direct sourcing & container consolidation for " + prod + ".",
+        es: "Previo a la próxima feria industrial" + note + ", contacto a " + comp + " para compartir opciones de suministro directo y consolidación de " + prod + ".",
+        pt: "Antes da próxima feira industrial" + note + ", entro em contato com a " + comp + " sobre fornecimento direto e consolidação de carga para " + prod + ".",
+        fr: "À l'approche du prochain salon industriel" + note + ", je contacte " + comp + " concernant la fourniture directe de " + prod + ".",
+        ar: "قبيل المعرض الصناعي القادم" + note + "، نتواصل مع " + comp + " لمشاركة خيارات التوريد المباشر لمنتجات " + prod + ".",
+        vi: "Trước thềm triển lãm công nghiệp sắp tới" + note + ", em xin kết nối trước với " + comp + " về nguồn hàng xuất xưởng " + prod + ".",
+        id: "Menjelang pameran industri mendatang" + note + ", kami menghubungi " + comp + " terkait opsi pasokan langsung pabrik untuk " + prod + "."
+      }
+    };
+    var bucket = map[signalKey];
+    if (!bucket) return "";
+    return bucket[lg] || bucket.en || "";
+  }
+
+  function buildLinkedInOutreach(mode, vars, lang) {
+    var v = vars || {};
+    var lg = lang || "en";
+    var contact = v.contact && v.contact !== "Procurement Team" ? v.contact : "";
+    var comp = v.comp || "your company";
+    var prod = v.prod || "industrial equipment";
+    var country = v.country || "your market";
+    var sender = (v.sender || "FriesGo Global").split(/[·,|]/)[0].trim();
+
+    if (mode === "linkedin_conn") {
+      var hiEn = contact ? ("Hi " + contact + ", ") : "Hi, ";
+      var templatesConn = {
+        en: hiEn + "saw your procurement/engineering work at " + comp + " in " + country + ". We supply export-ready " + prod + " from China with third-party QC & mixed-container options. Open to connecting here? — " + sender,
+        es: (contact ? ("Hola " + contact + ", ") : "Hola, ") + "vi su perfil en " + comp + " (" + country + "). Suministramos " + prod + " desde China con inspección SGS y opción de consolidado. ¿Conectamos por aquí? — " + sender,
+        pt: (contact ? ("Olá " + contact + ", ") : "Olá, ") + "vi sua atuação na " + comp + " (" + country + "). Fornecemos " + prod + " da China com inspeção pré-embarque. Podemos nos conectar? — " + sender,
+        fr: (contact ? ("Bonjour " + contact + ", ") : "Bonjour, ") + "vu votre rôle chez " + comp + ". Nous fournissons " + prod + " depuis la Chine avec contrôle qualité SGS. Au plaisir d'échanger — " + sender,
+        ar: "مرحباً" + (contact ? (" " + contact) : "") + "، اطلعت على عملكم في " + comp + ". نورد " + prod + " من الصين مع فحص جودة قبل الشحن. يسعدني التواصل معكم — " + sender,
+        vi: (contact ? ("Chào " + contact + ", ") : "Xin chào, ") + "thấy Anh/Chị phụ trách tại " + comp + ". Bên mình cung ứng " + prod + " xuất xưởng kèm C/O ưu đãi. Rất vui được kết nối — " + sender,
+        id: (contact ? ("Halo " + contact + ", ") : "Halo, ") + "melihat peran Anda di " + comp + ". Kami memasok " + prod + " dari Tiongkok dengan dukungan C/O & QC. Senang bisa terhubung — " + sender
+      };
+      var txt = templatesConn[lg] || templatesConn.en;
+      var maxLen = 280;
+      if (txt.length > maxLen) {
+        txt = txt.slice(0, maxLen - 1).replace(/\s+\S*$/, "") + "…";
+      }
+      return { text: txt, charCount: txt.length, maxChars: maxLen, withinLimit: txt.length <= maxLen };
+    }
+
+    // Post-connection 1st lightweight DM (no spam links)
+    var hiDm = contact ? ("Thanks for connecting, " + contact + "!") : "Thanks for connecting!";
+    var templatesDm = {
+      en: hiDm + "\n\nNo pitch deck spam—just a quick question: does " + comp + " review external factory quotes for " + prod + " this quarter, or do you work through a fixed annual vendor list?\n\nHappy to send a 1-page spec & FOB/CIF benchmark only if useful.\n\nBest,\n" + sender,
+      es: "¡Gracias por aceptar la invitación" + (contact ? (", " + contact) : "") + "!\n\nConsulta breve sin spam: ¿en " + comp + " evalúan cotizaciones comparativas para " + prod + " este trimestre, o manejan lista cerrada anual?\n\nSolo si le sirve, le comparto resumen técnico de 1 página y precios FOB/CIF.\n\nSaludos,\n" + sender,
+      pt: "Obrigado por aceitar o convite" + (contact ? (", " + contact) : "") + "!\n\nPergunta rápida sem spam: a " + comp + " avalia cotações comparativas de fábrica para " + prod + " neste trimestre?\n\nSe fizer sentido, envio apenas um resumo técnico de 1 página com referência FOB/CIF.\n\nAbraço,\n" + sender,
+      fr: "Merci d'avoir accepté l'invitation" + (contact ? (", " + contact) : "") + " !\n\nQuestion rapide : est-ce que " + comp + " consulte de nouveaux fournisseurs pour " + prod + " ce trimestre ?\n\nJe peux vous partager une fiche 1 page avec prix indicatifs FOB/CIF si pertinent.\n\nCordialement,\n" + sender,
+      ar: "شكراً لقبول الدعوة" + (contact ? (" أ. " + contact) : "") + "!\n\nسؤال سريع دون إطالة: هل تقارن شركة " + comp + " عروض أسعار خارجية لمنتجات " + prod + " خلال هذا الربع؟ يسعدني إرسال ملخص فني من صفحة واحدة مع أسعار FOB/CIF إذا كان مناسباً.\n\nتحياتي،\n" + sender,
+      vi: "Cảm ơn " + (contact || "Anh/Chị") + " đã kết nối!\n\nEm hỏi nhanh 1 ý thôi ạ: quý này " + comp + " có đang tham khảo thêm báo giá " + prod + " để đối chiếu nhà cung cấp hiện tại không ạ? Nếu cần em gửi bảng thông số gọn 1 trang kèm giá FOB/CIF.\n\nTrân trọng,\n" + sender,
+      id: "Terima kasih sudah terhubung" + (contact ? (", " + contact) : "") + "!\n\nPertanyaan singkat saja: apakah kuartal ini " + comp + " terbuka membandingkan penawaran pabrik untuk " + prod + "? Jika relevan, saya kirimkan ringkasan spek 1 halaman & estimasi FOB/CIF.\n\nSalam,\n" + sender
+    };
+    var dmTxt = templatesDm[lg] || templatesDm.en;
+    return { text: dmTxt, charCount: dmTxt.length, maxChars: 1200, withinLimit: true };
+  }
+
+  var ICP_ROLE_CLAUSES = {
+    procurement: {
+      labelCn: "采购负责人（Procurement / Purchasing / Compras / Achats）",
+      query: '("Procurement Manager" OR "Purchasing Manager" OR "Head of Procurement" OR "Supply Chain Manager" OR "Jefe de Compras" OR "Gerente de Compras" OR "Directeur des Achats" OR "Einkaufsleiter" OR "Trưởng phòng thu mua")'
+    },
+    epc_eng: {
+      labelCn: "项目总包 / 工程总监（EPC / Project / Engineering）",
+      query: '("Project Manager" OR "EPC Manager" OR "Engineering Manager" OR "MEP Manager" OR "Director de Proyectos" OR "Gerente de Engenharia" OR "Chef de Projet")'
+    },
+    plant_maint: {
+      labelCn: "工厂厂长 / 设备维护经理（Plant / Maintenance / Operations）",
+      query: '("Plant Manager" OR "Maintenance Manager" OR "Operations Manager" OR "Chief Engineer" OR "Gerente de Planta" OR "Jefe de Mantenimiento")'
+    },
+    exec_dist: {
+      labelCn: "进口商老板 / 总经理（Owner / Managing Director / Import）",
+      query: '("Managing Director" OR "Import Manager" OR "General Manager" OR "Commercial Director" OR "Director General" OR "Diretor Comercial")'
+    }
+  };
+
+  function buildBuyerRoleDorks(countryClean, prodKeyword, roleKey) {
+    var c = String(countryClean || "Vietnam").replace(/\s*\([^)]*\)/g, "").trim();
+    var p = String(prodKeyword || "industrial valve").split(/\s+OR\s+/i)[0].replace(/["()]/g, "").trim() || "industrial";
+    var roleCfg = ICP_ROLE_CLAUSES[roleKey] || ICP_ROLE_CLAUSES.procurement;
+    var qLiPeople = 'site:linkedin.com/in/ ' + roleCfg.query + ' "' + p + '" "' + c + '"';
+    var qDecisionWeb = '"' + p + '" (' + roleCfg.query + ') "' + c + '" -jobs -salary';
+    return {
+      roleLabelCn: roleCfg.labelCn,
+      linkedinPeopleUrl: "https://www.google.com/search?q=" + encodeURIComponent(qLiPeople),
+      webDecisionUrl: "https://www.google.com/search?q=" + encodeURIComponent(qDecisionWeb),
+      rawQuery: qLiPeople
+    };
+  }
+
+  var CLARIFY_ITEMS = {
+    spec: {
+      cn: "关键规格参数（口径尺寸/压力等级/材质/标准或图纸）",
+      en: "1. Technical Specification / Drawing: exact size/rating, material grade, and applicable standard (e.g. API / DIN / ANSI / JIS or CAD drawing)?",
+      es: "1. Especificación técnica / plano: ¿medida exacta, presión/capacidad, material y norma aplicable (API / DIN / ANSI)?"
+    },
+    qty: {
+      cn: "采购数量与分批交货计划（试单 vs 整柜量）",
+      en: "2. Order Quantity: target quantity per SKU (trial batch vs. full container load) so we can calculate accurate unit & packing costs?",
+      es: "2. Cantidad requerida: ¿volumen estimado por ítem (pedido de prueba vs. contenedor completo) para optimizar el costo unitario?"
+    },
+    incoterm: {
+      cn: "报价条款与目的港（FOB 或 CIF 具体港口名）",
+      en: "3. Trade Term & Destination Port: do you prefer FOB China port or CIF [Destination Port Name]?",
+      es: "3. Incoterm y puerto destino: ¿prefieren cotización FOB puerto de China o CIF [Nombre del puerto de destino]?"
+    },
+    cert: {
+      cn: "目的国强制认证与电气制式（电压赫兹 / SABER / CE / SONCAP 等）",
+      en: "4. Local Compliance & Power Supply: any mandatory destination certificates (e.g. CE / SABER / SONCAP / Form E) or specific voltage/Hz requirements?",
+      es: "4. Certificaciones y energía: ¿requieren algún certificado específico en destino (NOM / INMETRO / CE / C.O.) o voltaje/frecuencia especial?"
+    },
+    enduse: {
+      cn: "实际工况介质与项目期望到货时间",
+      en: "5. Working Media & Target Delivery: working medium/environment and your required delivery schedule?",
+      es: "5. Aplicación y plazo de entrega: ¿fluido/condición de trabajo y fecha objetivo de recepción?"
+    }
+  };
+
+  function buildInquiryClarification(opts) {
+    var o = opts || {};
+    var missing = Array.isArray(o.missingItems) ? o.missingItems.filter(function (k) { return !!CLARIFY_ITEMS[k]; }) : [];
+    var comp = String(o.company || "your company").trim();
+    var contact = String(o.contact || "Procurement Team").trim();
+    var prod = String(o.prod || "industrial equipment").trim();
+    var lang = o.lang === "es" ? "es" : "en";
+
+    var tier = "A";
+    var tierLabel = "🟢 A级实盘（要素齐全 → 立即进报价器出正式/参考报价单）";
+    if (missing.length >= 3) {
+      tier = "C";
+      tierLabel = "🟡 C级宽泛询盘（缺 " + missing.length + " 项核心要素 → 先发参考区间 + 下方澄清清单筛真伪）";
+    } else if (missing.length >= 1) {
+      tier = "B";
+      tierLabel = "🔵 B级待澄清询盘（缺 " + missing.length + " 项规格/条款 → 15分钟内回复下方专业确认函）";
+    }
+
+    var questions = (missing.length ? missing : ["spec", "qty", "incoterm"]).map(function (k) {
+      return CLARIFY_ITEMS[k][lang] || CLARIFY_ITEMS[k].en;
+    }).join("\n");
+
+    var text = lang === "es"
+      ? ("Estimado/a " + contact + ",\n\nGracias por la consulta de " + comp + " sobre " + prod + ".\n\nPara enviarle una cotización exacta y evitar errores de especificación, ¿podría confirmarnos brevemente los siguientes puntos?\n\n" + questions + "\n\nApenas nos confirme estos datos (o nos comparta su hoja de cálculo/plano), le prepararemos la oferta formal FOB/CIF en el día.\n\nSaludos cordiales,")
+      : ("Dear " + contact + ",\n\nThank you for " + comp + "'s inquiry regarding " + prod + ".\n\nTo prepare an accurate, engineering-verified FOB/CIF quotation rather than a rough guess, could you briefly confirm:\n\n" + questions + "\n\nOnce confirmed (or if you have a BOQ sheet / drawing to share), our team will turn around a detailed quotation promptly.\n\nBest regards,");
+
+    return {
+      tier: tier,
+      tierLabel: tierLabel,
+      missingCount: missing.length,
+      text: text
+    };
+  }
+
+  function computeWeeklyFunnel(leads, nowDateStr) {
+    var list = Array.isArray(leads) ? leads : [];
+    var todayIso = (nowDateStr && /^\d{4}-\d{2}-\d{2}$/.test(nowDateStr))
+      ? nowDateStr
+      : new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+    var todayMs = Date.parse(todayIso + "T23:59:59Z");
+    var sevenDaysAgoMs = todayMs - 7 * 86400000;
+
+    var totalActive = 0;
+    var touched7d = 0;
+    var ddApproved = 0;
+    var quotedCount = 0;
+    var highIntentOrWon = 0;
+    var lostCount = 0;
+    var lossMap = Object.create(null);
+
+    for (var i = 0; i < list.length; i++) {
+      var l = list[i];
+      if (!l || l.deletedAt) continue;
+      totalActive++;
+      var st = String(l.stage || "");
+      if (/流失|归档|Lost/i.test(st)) {
+        lostCount++;
+        var rsn = String(l.lossReason || "未注明原因").trim();
+        lossMap[rsn] = (lossMap[rsn] || 0) + 1;
+      }
+      if (/样品|谈判|成交|赢单|复购|高意向|合同|Won/i.test(st)) {
+        highIntentOrWon++;
+      }
+      if (l.ddRecord && l.ddRecord.decision === "approved") {
+        ddApproved++;
+      }
+      if (Array.isArray(l.quotes) && l.quotes.length > 0) {
+        quotedCount++;
+      }
+      var hasRecentTouch = false;
+      var uMs = parseTsMs(l.updatedAt || l.updated);
+      if (uMs >= sevenDaysAgoMs && Array.isArray(l.timeline) && l.timeline.length > 0) {
+        for (var t = 0; t < l.timeline.length; t++) {
+          var tl = l.timeline[t];
+          var tlMs = parseTsMs((tl && (tl.ts || tl.at)) || "");
+          if (!tlMs || tlMs >= sevenDaysAgoMs) {
+            hasRecentTouch = true;
+            break;
+          }
+        }
+      }
+      if (hasRecentTouch) touched7d++;
+    }
+
+    var topLossReasons = Object.keys(lossMap)
+      .map(function (k) { return { reason: k, count: lossMap[k] }; })
+      .sort(function (a, b) { return b.count - a.count; })
+      .slice(0, 4);
+
+    return {
+      totalActive: totalActive,
+      touched7d: touched7d,
+      ddApproved: ddApproved,
+      quotedCount: quotedCount,
+      highIntentOrWon: highIntentOrWon,
+      lostCount: lostCount,
+      topLossReasons: topLossReasons
     };
   }
 
@@ -1349,6 +1712,14 @@
     resolveCountryIso2: resolveCountryIso2,
     scoreGleifRecords: scoreGleifRecords,
     computeDefaultNextFollowDate: computeDefaultNextFollowDate,
-    nextCadenceSchedule: nextCadenceSchedule
+    nextCadenceSchedule: nextCadenceSchedule,
+    PRODUCT_PROFILES: PRODUCT_PROFILES,
+    getProductProfile: getProductProfile,
+    buildSignalIcebreaker: buildSignalIcebreaker,
+    buildLinkedInOutreach: buildLinkedInOutreach,
+    buildBuyerRoleDorks: buildBuyerRoleDorks,
+    buildInquiryClarification: buildInquiryClarification,
+    computeWeeklyFunnel: computeWeeklyFunnel
   };
 });
+

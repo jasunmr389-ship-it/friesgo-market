@@ -542,4 +542,120 @@ test("10. Phase 2A: Accented email guesser, localized product names, GLEIF preci
   assert.equal(c2.nextDate, "2026-12-04");
 });
 
+test("11. Phase 2B: Product profiles, signal icebreakers, LinkedIn <=280-char cap, ICP dorks, A/B/C inquiry triage & weekly funnel", () => {
+  // P2B-1: Product profiles
+  const profSteel = FG_CORE.getProductProfile("steel_fastener");
+  assert.equal(profSteel.key, "steel_fastener");
+  assert.ok(profSteel.lfCustom.includes("prefabricated steel structure"));
+  assert.equal(FG_CORE.getProductProfile("nonexistent_key").key, "all");
+
+  // P2B-2: Signal icebreakers + LinkedIn <=280 char hard cap even with very long names
+  const sigImpEs = FG_CORE.buildSignalIcebreaker("import", {
+    comp: "Aceros del Norte SA",
+    country: "Mexico",
+    prod: "estructuras de acero",
+    signalNote: "HS 7308 · 14票提单"
+  }, "es");
+  assert.ok(sigImpEs.includes("importa regularmente"));
+  assert.ok(sigImpEs.includes("HS 7308"));
+
+  const liLong = FG_CORE.buildLinkedInOutreach("linkedin_conn", {
+    contact: "Maximiliano Alejandro Fernández-Villalobos",
+    comp: "Corporación Internacional de Ingeniería, Construcción Pesada y Suministros Petroleros de Latinoamérica S.A. de C.V.",
+    country: "Mexico",
+    prod: "heavy-duty forged high-pressure trunnion mounted API 6D pipeline ball valves and centrifugal slurry pumps",
+    sender: "FriesGo Global Industrial Supply Team"
+  }, "en");
+  assert.equal(liLong.withinLimit, true);
+  assert.ok(liLong.charCount <= 280, `Expected LinkedIn connection note <= 280 chars, got ${liLong.charCount}`);
+
+  const liDm = FG_CORE.buildLinkedInOutreach("linkedin_dm", {
+    contact: "Carlos",
+    comp: "Monterrey Steel",
+    prod: "estructuras de acero"
+  }, "es");
+  assert.ok(liDm.text.includes("Gracias por aceptar"));
+
+  // LinkedIn cadence progression
+  const cLi1 = FG_CORE.nextCadenceSchedule("linkedin_conn", "2026-11-26");
+  assert.equal(cLi1.nextStep, "linkedin_dm");
+  assert.equal(cLi1.nextDate, "2026-11-30"); // Sunday shifted to Monday
+
+  // P2B-3a: ICP Buyer Role Dorks
+  const dorksEpc = FG_CORE.buildBuyerRoleDorks("Saudi Arabia", "power cable OR switchgear", "epc_eng");
+  assert.ok(dorksEpc.rawQuery.includes("site:linkedin.com/in/"));
+  assert.ok(dorksEpc.rawQuery.includes("EPC Manager"));
+  assert.ok(dorksEpc.linkedinPeopleUrl.startsWith("https://www.google.com/search?q="));
+
+  // P2B-3b: A / B / C Inquiry Triage & Clarification Generator
+  const inqA = FG_CORE.buildInquiryClarification({ company: "Gulf EPC", missingItems: [] });
+  assert.equal(inqA.tier, "A");
+  const inqB = FG_CORE.buildInquiryClarification({ company: "Gulf EPC", missingItems: ["spec", "incoterm"] });
+  assert.equal(inqB.tier, "B");
+  assert.equal(inqB.missingCount, 2);
+  const inqC = FG_CORE.buildInquiryClarification({ company: "Mex Buyer", missingItems: ["spec", "qty", "incoterm", "cert"], lang: "es" });
+  assert.equal(inqC.tier, "C");
+  assert.ok(inqC.text.includes("Especificación técnica"));
+
+  // P2B-3c: Multi-person decision chain lossless merge + lossReason preservation
+  const tab1 = {
+    id: "ld_chain_1",
+    company: "Andes Mining Corp",
+    country: "Chile",
+    lossReason: "交期无法满足",
+    inquiryTier: "B",
+    updatedAt: 1795600100000,
+    contacts: [{ ctId: "ct_1", name: "Diego", role: "采购负责人", email: "diego@andesmining.cl" }]
+  };
+  const tab2 = {
+    id: "ld_chain_1",
+    company: "Andes Mining Corp",
+    country: "Chile",
+    lossReason: "",
+    inquiryTier: "",
+    updatedAt: 1795600200000,
+    contacts: [{ ctId: "ct_2", name: "Valeria", role: "工程/技术总工", email: "valeria@andesmining.cl" }]
+  };
+  const mergedChain = FG_CORE.mergeLeadRecord(tab1, tab2);
+  assert.equal(mergedChain.contacts.length, 2, "Distinct contacts from concurrent tabs must union losslessly");
+  assert.equal(mergedChain.lossReason, "交期无法满足", "Non-empty lossReason must not be wiped by blank scalar");
+  assert.equal(mergedChain.inquiryTier, "B", "Non-empty inquiryTier must not be wiped by blank scalar");
+
+  // P2B-4: Local Weekly Funnel & Loss Attribution
+  const funnel = FG_CORE.computeWeeklyFunnel([
+    {
+      id: "f1",
+      company: "Active Quoted Approved",
+      stage: "样品/谈判推进",
+      updatedAt: "2026-11-25T10:00:00Z",
+      ddRecord: { decision: "approved" },
+      quotes: [{ quoteId: "q1", refNo: "FG-1" }],
+      timeline: [{ tlId: "t1", ts: "2026-11-25 10:00", result: "Sent V1" }]
+    },
+    {
+      id: "f2",
+      company: "Lost Price",
+      stage: "暂停/流失归档",
+      lossReason: "价格高于目标价",
+      updatedAt: "2026-11-10T10:00:00Z",
+      timeline: []
+    },
+    {
+      id: "f3",
+      company: "Soft Deleted Ignored",
+      stage: "重点跟进",
+      deletedAt: 1795600000000
+    }
+  ], "2026-11-26");
+  assert.equal(funnel.totalActive, 2);
+  assert.equal(funnel.touched7d, 1);
+  assert.equal(funnel.ddApproved, 1);
+  assert.equal(funnel.quotedCount, 1);
+  assert.equal(funnel.highIntentOrWon, 1);
+  assert.equal(funnel.lostCount, 1);
+  assert.equal(funnel.topLossReasons[0].reason, "价格高于目标价");
+  assert.equal(funnel.topLossReasons[0].count, 1);
+});
+
+
 

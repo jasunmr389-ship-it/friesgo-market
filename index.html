@@ -507,6 +507,19 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
 
   <main class="main-stage" id="mainStage">
     <div class="storage-warn-banner" id="storageWarnBanner" hidden></div>
+    <div id="globalProdProfileBar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:7px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);max-width:100%">
+      <label for="globalProdProfile" style="font-size:12.5px;font-weight:800;color:var(--brown);white-space:nowrap">🎯 当前主推品类档位：</label>
+      <select id="globalProdProfile" style="min-height:32px;padding:3px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:12.5px;font-weight:700;max-width:100%">
+        <option value="all">全品类工业打包（默认）</option>
+        <option value="valve_pump">阀门 · 水泵 · 管道法兰</option>
+        <option value="steel_fastener">钢结构 · 紧固件 · 五金</option>
+        <option value="cable_power">电力电缆 · 变压器 · 配电</option>
+        <option value="machinery">空压机 · 电机 · 通用机械</option>
+        <option value="mining">矿山选矿 · 渣浆泵 · 耐磨件</option>
+        <option value="agri">农业机械 · 光伏/柴油灌溉</option>
+      </select>
+      <span class="src-ok" id="globalProdProfileHint" style="white-space:normal">切换后自动同步搜客词、地图找客、洗名单破冰、开发信与报价默认品名</span>
+    </div>
     <div class="inner-tool-bar" id="innerToolBar" hidden></div>
 
     <!-- ==================== WORKSPACE 1: 今日工作台 ==================== -->
@@ -558,6 +571,17 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="card" id="homeWeeklyFunnelCard" style="margin-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div>
+            <h3 style="margin:0">📊 本地获客转化漏斗（近 7 天实战复盘）</h3>
+            <div class="src-ok" style="white-space:normal">完全基于本地 IndexedDB 真实档案与跟进记录自动汇总，无虚假点击率或外部追踪</div>
+          </div>
+          <button class="pill" type="button" data-home-jump="client-list" style="min-height:28px;padding:2px 10px;font-size:12px">去维护客户阶段 →</button>
+        </div>
+        <div id="homeFunnelBody"></div>
       </div>
 
       <div class="card" style="margin-top:14px">
@@ -739,6 +763,16 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
         </div>
       </div>
       <div class="lead-links" id="lfButtons"></div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label for="lfRoleSel" style="font-size:12px;font-weight:800;color:var(--brown)">👔 按采购决策人职位直搜（含西/葡/法/德/越本地职称）：</label>
+        <select id="lfRoleSel" style="min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:12px">
+          <option value="procurement">采购负责人（Procurement / Compras / Achats）</option>
+          <option value="epc_eng">工程总包 / 项目总监（EPC / Project / Engineering）</option>
+          <option value="plant_maint">工厂厂长 / 设备维护（Plant / Maintenance）</option>
+          <option value="exec_dist">进口商老板 / 总经理（Owner / Import / MD）</option>
+        </select>
+        <span id="lfRoleBtns" style="display:inline-flex;gap:6px;flex-wrap:wrap"></span>
+      </div>
       <p class="flag-note" id="lfHint"></p>
       <details class="method-note">
         <summary>💡 30 秒实战技巧：怎么用 Google Maps 和 ImportYeti 挖大买家？</summary>
@@ -1239,7 +1273,7 @@ Best regards,
           </select>
         </div>
         <div>
-          <label for="emType">21 天跟进节奏模板</label>
+          <label for="emType">21 天跟进节奏与多渠道模板</label>
           <select id="emType">
             <option value="first" data-base="Day 1 · 第 1 封：破冰开发信">Day 1 · 第 1 封：破冰开发信</option>
             <option value="followup" data-base="Day 4 · 第 2 封：技术规格与单证跟进">Day 4 · 第 2 封：技术规格与单证跟进</option>
@@ -1247,12 +1281,25 @@ Best regards,
             <option value="logistics" data-base="Day 12 · 第 4 封：多品类拼柜方案">Day 12 · 第 4 封：多品类拼柜方案</option>
             <option value="breakup" data-base="Day 18 · 第 5 封：礼貌唤醒信">Day 18 · 第 5 封：礼貌唤醒信</option>
             <option value="wa" data-base="WhatsApp / Zalo / LINE 简短破冰话术">WhatsApp / Zalo / LINE 简短破冰话术</option>
+            <option value="linkedin_conn" data-base="LinkedIn 加好友申请（≤280字符防截断）">LinkedIn 加好友申请（≤280字符防截断）</option>
+            <option value="linkedin_dm" data-base="LinkedIn 通过后第 1 条轻破冰私信">LinkedIn 通过后第 1 条轻破冰私信</option>
           </select>
         </div>
         <div><label for="emCompany">客户公司名称</label><input id="emCompany" type="text" value="ABC Industrial Co."></div>
         <div><label for="emContact">联系人姓名（选填）</label><input id="emContact" type="text" placeholder="如：David / Minh / Ahmed"></div>
         <div><label for="emToEmail">收件人邮箱（从 CSV/雷达自动带入，可改）</label><input id="emToEmail" type="email" placeholder="如：procurement@buyer.com"></div>
         <div><label for="emProduct">主推产品名称（英文）</label><input id="emProduct" type="text" value="industrial valves & water pumps"></div>
+        <div>
+          <label for="emSignal">首段「为什么联系你」触发信号（防群发感）</label>
+          <select id="emSignal">
+            <option value="general">常规精准开发（默认简洁直入）</option>
+            <option value="award">🏆 刚中标工程 / EPC 总包分包</option>
+            <option value="expansion">🏗️ 新建厂 / 扩产 / 招聘采购信号</option>
+            <option value="import">🚢 海关提单持续在采同类工业品</option>
+            <option value="expo">🎪 工业展参展商 / 观展前截流</option>
+          </select>
+        </div>
+        <div><label for="emSignalNote">信号补充细节（选填，如展会名/项目名/HS号）</label><input id="emSignalNote" type="text" value="" placeholder="如：FABTECH Mexico / HS 8481"></div>
         <div><label for="emEdge">确认的认证 / 交期卖点（选填，不填不承诺）</label><input id="emEdge" type="text" value="" placeholder="确认后再填，如：ISO 9001 certified, 20-day lead time"></div>
         <div><label for="emSender">你的英文名 / 职位（本机自动记忆并同步全站）</label><input id="emSender" type="text" value="" placeholder="如：Amy · Export Manager, FriesGo Global"></div>
         <div><label for="emPhone">你的 WhatsApp / 电话（本机自动记忆并同步全站）</label><input id="emPhone" type="text" placeholder="如：+86 138 xxxx xxxx"></div>
@@ -1273,7 +1320,7 @@ Best regards,
       <div style="margin-top:8px">
         <div style="font-size:12.5px;font-weight:800;color:var(--brown)">邮件主题（Subject）：<span id="emFallbackNote" style="margin-left:8px;font-size:11.5px;font-weight:700;color:var(--high)"></span></div>
         <div class="email-box" id="emSubOut" style="margin-top:4px;font-weight:700"></div>
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-top:10px">正文内容（Body）：</div>
+        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px"><span>正文内容（Body）：</span><span id="emCharBadge" class="meta-pill" hidden style="padding:1px 8px;font-size:11.5px"></span></div>
         <div class="email-box" id="emBodyOut" style="margin-top:4px"></div>
         <div class="pills" style="margin-top:10px">
           <button class="pill primary" id="btnCopySub" type="button">📋 复制主题</button>
@@ -3901,8 +3948,82 @@ function renderHomeWorkspace(){
       }).join("");
     }
   }
+
+  var fnBox = document.getElementById("homeFunnelBody");
+  if(fnBox && window.FG_CORE && typeof window.FG_CORE.computeWeeklyFunnel === "function"){
+    var fn = window.FG_CORE.computeWeeklyFunnel(crmLeads, localDateStr());
+    var stages = [
+      { k: "在库活跃客户", v: fn.totalActive, sub: "已去重有效档案" },
+      { k: "近 7 天有效触达", v: fn.touched7d, sub: "有跟进时间线记录" },
+      { k: "背调通过可正式报价", v: fn.ddApproved, sub: "主体+制裁必查通过" },
+      { k: "已出报价单客户", v: fn.quotedCount, sub: "已归档 V1/V2 报价" },
+      { k: "样品 / 谈判 / 成交", v: fn.highIntentOrWon, sub: "高意向推进或赢单" }
+    ];
+    var lossLine = fn.lostCount > 0
+      ? ('<div class="flag-note" style="margin:8px 0 0">📉 已归档流失 '+fn.lostCount+' 家 ｜ 主要原因：'
+        + fn.topLossReasons.map(function(x){ return '<b>'+esc(x.reason)+'</b> ('+x.count+')'; }).join(' · ') + '</div>')
+      : '';
+    fnBox.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px">'
+      + stages.map(function(s, idx){
+          return '<div style="padding:10px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)">'
+            + '<div style="font-size:11.5px;font-weight:700;color:var(--muted)">'+(idx+1)+'. '+esc(s.k)+'</div>'
+            + '<div style="font-size:20px;font-weight:900;color:var(--brown);margin:2px 0">'+s.v+'</div>'
+            + '<div class="src-ok" style="white-space:normal">'+esc(s.sub)+'</div>'
+            + '</div>';
+        }).join("")
+      + '</div>' + lossLine;
+  }
 }
 window.renderHomeWorkspace = renderHomeWorkspace;
+
+(function initGlobalProdProfile(){
+  var sel = document.getElementById("globalProdProfile");
+  var hint = document.getElementById("globalProdProfileHint");
+  if(!sel || !window.FG_CORE || typeof window.FG_CORE.getProductProfile !== "function") return;
+  function applyProfile(key, isManual){
+    var p = window.FG_CORE.getProductProfile(key);
+    sel.value = p.key;
+    try { localStorage.setItem("friesgo_prod_profile_v1", p.key); } catch(_){}
+    if(hint){
+      hint.textContent = p.key === "all"
+        ? "切换后自动同步搜客词、地图找客、洗名单破冰、开发信与报价默认品名"
+        : ("已同步主推词：「" + p.emailProd + "」");
+    }
+    if(!isManual && p.key === "all") return;
+    var lfPre = document.getElementById("lfPreset");
+    var lfCus = document.getElementById("lfCustom");
+    if(lfPre && p.lfPreset){ lfPre.value = p.lfPreset; }
+    if(lfCus){
+      lfCus.value = p.lfCustom || "";
+      lfCus.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    var msKw = document.getElementById("msKeyword");
+    if(msKw && p.mapKw) msKw.value = p.mapKw;
+    var csvWa = document.getElementById("csvWaProd");
+    if(csvWa && p.csvWaProd){
+      csvWa.value = p.csvWaProd;
+      csvWa.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    var emPr = document.getElementById("emProduct");
+    if(emPr && p.emailProd){
+      emPr.value = p.emailProd;
+      emPr.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    var qcPr = document.getElementById("qcProdName");
+    if(qcPr && p.quoteProd){
+      qcPr.value = p.quoteProd;
+      qcPr.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    if(isManual) showToast("已切换主推品类档位：「" + p.labelCn + "」");
+  }
+  window.applyGlobalProductProfile = applyProfile;
+  sel.addEventListener("change", function(){ applyProfile(sel.value, true); });
+  var savedKey = "all";
+  try { savedKey = localStorage.getItem("friesgo_prod_profile_v1") || "all"; } catch(_){}
+  if(savedKey && savedKey !== "all"){
+    setTimeout(function(){ applyProfile(savedKey, false); }, 0);
+  }
+})();
 
 var homeDueWrap = document.getElementById("homeDueList");
 if(homeDueWrap){
@@ -5183,6 +5304,13 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     document.getElementById("lfButtons").innerHTML = links.map(function(l, i){
       return '<a class="pill '+(i<2?'primary':'')+'" target="_blank" rel="noopener" href="'+l.url+'">'+l.label+'</a>';
     }).join("");
+    var roleSel = document.getElementById("lfRoleSel");
+    var roleBtns = document.getElementById("lfRoleBtns");
+    if(roleSel && roleBtns && window.FG_CORE && typeof window.FG_CORE.buildBuyerRoleDorks === "function"){
+      var dorks = window.FG_CORE.buildBuyerRoleDorks(c, prod, roleSel.value);
+      roleBtns.innerHTML = '<a class="pill primary" style="min-height:28px;padding:3px 10px;font-size:12px" target="_blank" rel="noopener" href="'+dorks.linkedinPeopleUrl+'">🔍 LinkedIn 直搜该职位</a>'
+        + '<a class="pill" style="min-height:28px;padding:3px 10px;font-size:12px" target="_blank" rel="noopener" href="'+dorks.webDecisionUrl+'">🌐 全网搜该职位邮箱/名片</a>';
+    }
     var meta = COUNTRY_META[c];
     var gl = COUNTRY_GL[c] || "";
     var activeProdShow = customVal ? ("自定义「" + customVal + "」") : ("预设「" + prod.split(/\s+OR\s+/i)[0] + "」");
@@ -5196,6 +5324,8 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     updateLF();
   });
   document.getElementById("lfCustom").addEventListener("input", updateLF);
+  var lfRoleEl = document.getElementById("lfRoleSel");
+  if(lfRoleEl) lfRoleEl.addEventListener("change", updateLF);
   var btnLiAp = document.getElementById("btnCopyLiAppeal");
   if(btnLiAp){
     btnLiAp.addEventListener("click", function(){
@@ -6477,6 +6607,15 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     function fill(s){ return s.replace(/\{(\w+)\}/g, function(_,k){ return vars[k]||""; }).replace(/\n+$/,""); }
     var sub = fill(tpl.sub), body = fill(tpl.body);
 
+    var isLinkedin = (type === "linkedin_conn" || type === "linkedin_dm");
+    var liMeta = null;
+    if(isLinkedin && window.FG_CORE && typeof window.FG_CORE.buildLinkedInOutreach === "function"){
+      liMeta = window.FG_CORE.buildLinkedInOutreach(type, vars, lang);
+      body = liMeta.text;
+    }
+
+    var sigKey = (document.getElementById("emSignal") || {}).value || "general";
+    var sigNote = ((document.getElementById("emSignalNote") || {}).value || "").trim();
     var awCtx = window._emAwardContext;
     if(awCtx && awCtx.company && compVal.toLowerCase() === awCtx.company.toLowerCase() && (type === "first" || type === "wa")){
       var projShort = String(awCtx.projectTitle || "the recent project").slice(0, 90);
@@ -6498,22 +6637,49 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       } else {
         body = awLine + " " + body;
       }
+    } else if(sigKey !== "general" && (type === "first" || type === "wa") && window.FG_CORE && typeof window.FG_CORE.buildSignalIcebreaker === "function"){
+      var sigLine = window.FG_CORE.buildSignalIcebreaker(sigKey, {
+        comp: compVal, country: cClean, prod: prodLocalized, signalNote: sigNote
+      }, lang);
+      if(sigLine){
+        if(type === "first"){
+          var nlIdx2 = body.indexOf("\n\n");
+          body = nlIdx2 > 0 ? (body.slice(0, nlIdx2 + 2) + sigLine + "\n\n" + body.slice(nlIdx2 + 2)) : (sigLine + "\n\n" + body);
+        } else {
+          body = sigLine + " " + body;
+        }
+      }
     }
 
-    var isWa = (type === "wa");
+    var isNoSubjectChannel = (type === "wa" || isLinkedin);
     var subBtn = document.getElementById("btnCopySub");
     var allBtn = document.getElementById("btnCopyAll");
     var mailBtn = document.getElementById("btnMailto");
-    if(subBtn) subBtn.hidden = isWa;
-    if(mailBtn) mailBtn.style.display = isWa ? "none" : "";
-    if(allBtn) allBtn.textContent = isWa ? "📋 复制 WhatsApp 破冰消息" : "📋 复制主题+正文";
+    var charBadge = document.getElementById("emCharBadge");
+    if(subBtn) subBtn.hidden = isNoSubjectChannel;
+    if(mailBtn) mailBtn.style.display = isNoSubjectChannel ? "none" : "";
+    if(allBtn){
+      allBtn.textContent = type === "wa"
+        ? "📋 复制 WhatsApp 破冰消息"
+        : (type === "linkedin_conn" ? "📋 复制 LinkedIn 加好友附言" : (type === "linkedin_dm" ? "📋 复制 LinkedIn 私信" : "📋 复制主题+正文"));
+    }
+    if(charBadge){
+      if(type === "linkedin_conn" && liMeta){
+        charBadge.hidden = false;
+        charBadge.textContent = "LinkedIn 附言字数：" + liMeta.charCount + " / " + liMeta.maxChars + "（安全防截断）";
+      } else {
+        charBadge.hidden = true;
+      }
+    }
 
-    document.getElementById("emSubOut").textContent = isWa ? "（即时通讯无邮件主题 · 点击下方复制按钮仅复制纯外文破冰消息）" : sub;
+    document.getElementById("emSubOut").textContent = isNoSubjectChannel
+      ? (isLinkedin ? "（LinkedIn 站内邀请/私信无邮件主题 · 复制按钮仅复制下方纯外文内容）" : "（即时通讯无邮件主题 · 点击下方复制按钮仅复制纯外文破冰消息）")
+      : sub;
     document.getElementById("emBodyOut").textContent = body;
     var toEmail = (document.getElementById("emToEmail") ? document.getElementById("emToEmail").value.trim() : "");
     document.getElementById("btnMailto").href = "mailto:" + (toEmail ? encodeURIComponent(toEmail) : "") + "?subject=" + encodeURIComponent(sub) + "&body=" + encodeURIComponent(body);
   }
-  ["emCountry","emLang","emType","emCompany","emContact","emToEmail","emProduct","emEdge","emSender","emPhone"].forEach(function(id){
+  ["emCountry","emLang","emType","emCompany","emContact","emToEmail","emProduct","emSignal","emSignalNote","emEdge","emSender","emPhone"].forEach(function(id){
     var el = document.getElementById(id);
     if(el){
       el.addEventListener("input", function(){
@@ -6528,17 +6694,21 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
   });
   document.getElementById("trustHooks").addEventListener("change", updateEmail);
   emSel.addEventListener("change", function(){ document.getElementById("emLang").value = guessLang(this.value); updateEmail(); });
+  function isNoSubjectEmType(){
+    var v = document.getElementById("emType").value;
+    return v === "wa" || v === "linkedin_conn" || v === "linkedin_dm";
+  }
   document.getElementById("btnCopySub").addEventListener("click", function(){
-    if(document.getElementById("emType").value === "wa"){
-      copyTxt(document.getElementById("emBodyOut").textContent, "WhatsApp 破冰消息");
+    if(isNoSubjectEmType()){
+      copyTxt(document.getElementById("emBodyOut").textContent, "外文破冰消息");
       return;
     }
     copyTxt(document.getElementById("emSubOut").textContent, "邮件主题");
   });
-  document.getElementById("btnCopyBody").addEventListener("click", function(){ copyTxt(document.getElementById("emBodyOut").textContent, "邮件正文"); });
+  document.getElementById("btnCopyBody").addEventListener("click", function(){ copyTxt(document.getElementById("emBodyOut").textContent, "正文内容"); });
   document.getElementById("btnCopyAll").addEventListener("click", function(){
-    if(document.getElementById("emType").value === "wa"){
-      copyTxt(document.getElementById("emBodyOut").textContent, "WhatsApp 破冰消息");
+    if(isNoSubjectEmType()){
+      copyTxt(document.getElementById("emBodyOut").textContent, "外文破冰消息");
       return;
     }
     copyTxt("Subject: "+document.getElementById("emSubOut").textContent+"\n\n"+document.getElementById("emBodyOut").textContent, "完整开发信");
@@ -6583,10 +6753,14 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(cRes.ok && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(lfSel, cRes.value, false);
     document.getElementById("emLang").value = lang || (cRes.ok ? guessLang(cRes.value) : "en");
     if(opts && opts.emType) document.getElementById("emType").value = opts.emType;
+    var sigEl = document.getElementById("emSignal");
+    if(sigEl) sigEl.value = (opts && opts.emSignal) ? opts.emSignal : "general";
+    var sigNoteEl = document.getElementById("emSignalNote");
+    if(sigNoteEl) sigNoteEl.value = (opts && opts.signalNote) ? String(opts.signalNote).trim() : "";
     document.getElementById("emProduct").value = prod ? (window.FG_GEO ? window.FG_GEO.ensureEnglishProd(prod) : prod) : "industrial equipment";
     document.getElementById("emCompany").value = comp ? String(comp).trim() : "";
     var ctEl = document.getElementById("emContact");
-    if(ctEl) ctEl.value = "";
+    if(ctEl) ctEl.value = (opts && opts.contact) ? String(opts.contact).trim() : "";
     var toEl = document.getElementById("emToEmail");
     if(toEl) toEl.value = toEmail ? String(toEmail).trim() : "";
     updateEmail(); updateLF();
@@ -8827,19 +9001,45 @@ function renderClientDetailPanel(){
   var bodyHtml = "";
   if(selectedClientTab === "info"){
     var safeInfoWeb = l.website ? window.FG_CORE.safeHttpUrl(l.website.indexOf("http")===0 ? l.website : ("https://" + l.website)) : "";
+    var ctArr = Array.isArray(l.contacts) ? l.contacts : [];
+    var ctRowsHtml = ctArr.length
+      ? ('<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">' + ctArr.map(function(cItem, cIdx){
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:12.5px">'
+            + '<div><b>'+esc(cItem.name||"联系人")+'</b> <span class="meta-pill" style="padding:1px 7px">'+esc(cItem.role||"采购/技术")+'</span>'
+            + (cItem.email ? (' · <a href="mailto:'+esc(cItem.email)+'">'+esc(cItem.email)+'</a>') : '')
+            + (cItem.phone ? (' · '+esc(cItem.phone)) : '')
+            + '</div>'
+            + '<div style="display:flex;gap:6px">'
+            + (cItem.email ? ('<button type="button" class="pill" data-cd-ct-em="'+cIdx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">写信给TA</button>') : '')
+            + '<button type="button" class="pill danger" data-cd-ct-del="'+cIdx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">移除</button>'
+            + '</div></div>';
+        }).join("") + '</div>')
+      : '<div class="src-ok" style="margin-top:6px;white-space:normal">尚未登记其他决策人（大单常需同时跟进「采购询价 + 技术审图 + 老板拍板」，可在下方追加不覆盖主联系人）。</div>';
+
     bodyHtml = '<div class="form-grid-4" style="gap:8px">'
       + '<div><label>公司 / 代理名称</label><input type="text" data-cd-f="company" value="'+esc(l.company||"")+'"></div>'
       + '<div><label>档案类型</label><select data-cd-f="leadType"><option value="客户"'+((l.leadType||"客户")==="客户"?' selected':'')+'>海外客户</option><option value="渠道代理"'+(l.leadType==="渠道代理"?' selected':'')+'>渠道代理</option></select></div>'
-      + '<div><label>联系人</label><input type="text" data-cd-f="contact" value="'+esc(l.contact||"")+'" placeholder="姓名 / 职位"></div>'
+      + '<div><label>主联系人</label><input type="text" data-cd-f="contact" value="'+esc(l.contact||"")+'" placeholder="姓名 / 职位"></div>'
       + '<div><label>负责人</label><input type="text" data-cd-f="owner" value="'+esc(l.owner||"")+'" placeholder="业务员"></div>'
-      + '<div><label>邮箱</label><input type="email" data-cd-f="email" value="'+esc(l.email||"")+'" placeholder="buyer@company.com"></div>'
+      + '<div><label>主联系邮箱</label><input type="email" data-cd-f="email" value="'+esc(l.email||"")+'" placeholder="buyer@company.com"></div>'
       + '<div><label>电话 / WhatsApp</label><input type="text" data-cd-f="phone" value="'+esc(l.phone||"")+'" placeholder="+84 ..."></div>'
       + '<div><label>公司官网 '+(safeInfoWeb ? ('<a target="_blank" rel="noopener noreferrer" href="'+esc(safeInfoWeb)+'" style="font-size:11px">↗打开</a>') : '')+'</label><input type="text" data-cd-f="website" value="'+esc(l.website||"")+'" placeholder="https://..."></div>'
       + '<div><label>意向产品</label><input type="text" data-cd-f="product" value="'+esc(l.product||"")+'" placeholder="如 阀门/钢构/电缆"></div>'
+      + '</div>'
+      + '<div class="detail-box" style="margin-top:10px">'
+      + '<div style="font-size:12.5px;font-weight:800;color:var(--brown)">👥 多角色决策链联系人（采购 / 工程技术 / 高管财务，跨端同步不丢失）</div>'
+      + '<div class="form-grid-4" style="gap:8px;margin-top:6px">'
+      + '<div><input id="cdCtName" type="text" placeholder="姓名（如 Carlos）"></div>'
+      + '<div><select id="cdCtRole"><option value="采购负责人">采购负责人 (Procurement)</option><option value="工程/技术总工">工程/技术总工 (Engineering)</option><option value="项目经理">项目经理 (Project Mgr)</option><option value="老板/总经理">老板/总经理 (MD/Owner)</option><option value="单证/财务">单证/财务 (Finance/Logistics)</option></select></div>'
+      + '<div><input id="cdCtEmail" type="email" placeholder="邮箱（选填）"></div>'
+      + '<div style="display:flex;gap:6px"><input id="cdCtPhone" type="text" placeholder="电话/WA（选填）" style="flex:1"><button type="button" class="pill primary" data-cd-action="add-contact" style="white-space:nowrap">＋ 添加</button></div>'
+      + '</div>'
+      + ctRowsHtml
       + '</div>';
   } else if(selectedClientTab === "follow"){
     var defNext3 = localDateOffsetStr(3);
     var curCadBadge = l.cadenceLabel ? (' <span class="fta-tag" style="margin-left:6px">'+esc(l.cadenceLabel)+'</span>') : '';
+    var lossOpts = ["", "价格高于目标价", "交期无法满足", "缺目的国强制认证", "付款条件分歧(赊账/LC)", "客户项目延期或取消", "被当地现货/同行截单", "多轮跟进未回复"];
     var cadBarHtml = '<div class="detail-box" style="margin-top:10px;border-left:3px solid var(--orange)">'
       + '<div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">⚡ 21 天 5 步开发信打卡（一键记时间线并自动排好下一封提醒日期，周日顺延周一）'+curCadBadge+'</div>'
       + '<div class="pills" style="margin:0">'
@@ -8858,10 +9058,11 @@ function renderClientDetailPanel(){
             + '</div>';
         }).join("") + '</div>')
       : '<p style="color:var(--muted);font-size:12.5px;margin:8px 0">暂无时间线记录。在上方追加每次联系结果，历史记录将永久按时间顺序留档，不会覆盖。</p>';
-    bodyHtml = '<div class="form-grid" style="gap:8px">'
+    bodyHtml = '<div class="form-grid-4" style="gap:8px">'
       + '<div><label>当前阶段</label><select data-cd-f="stage">'+STATUS_OPTS.map(function(st){ return '<option value="'+st+'"'+(l.stage===st?' selected':'')+'>'+st+'</option>'; }).join("")+'</select></div>'
       + '<div><label>下次跟进日期</label><input type="date" data-cd-f="nextDate" value="'+esc(l.nextDate||"")+'"></div>'
       + '<div><label>线索来源</label><input type="text" data-cd-f="source" value="'+esc(l.source||"")+'"></div>'
+      + '<div><label>丢单/搁置原因（复盘统计用）</label><select data-cd-f="lossReason">'+lossOpts.map(function(op){ return '<option value="'+esc(op)+'"'+((l.lossReason||"")===op?' selected':'')+'>'+(op||"— 未丢单 / 正常推进 —")+'</option>'; }).join("")+'</select></div>'
       + '</div>'
       + cadBarHtml
       + '<div class="detail-box" style="margin-top:10px">'
@@ -8914,11 +9115,28 @@ function renderClientDetailPanel(){
         ? ('<div class="flag-note" style="margin:6px 0 0">号码识别：<code>'+esc(phInfo.raw)+'</code> → <b>'+esc(phInfo.formatted)+'</b>（已按 '+esc(CN[l.country]||l.country)+' 补国际区号'+(phInfo.needsConfirm?'，请人工确认':'')+'）</div>')
         : (phInfo.needsConfirm ? ('<div class="flag-note" style="margin:6px 0 0;color:var(--high)">⚠️ 国际号码 <code>'+esc(phInfo.formatted)+'</code> 位数与常规格式不符，打开前请核对区号</div>') : '');
     }
-    bodyHtml = '<p style="color:var(--muted);font-size:13px;margin:4px 0 8px">一键将「'+esc(l.company)+'」的国家、产品与收件邮箱带入开发信生成器，或直接打开 WhatsApp 对话。</p>'
+    var clLang = guessLang(l.country) === "es" ? "es" : "en";
+    var initClar = (window.FG_CORE && typeof window.FG_CORE.buildInquiryClarification === "function")
+      ? window.FG_CORE.buildInquiryClarification({ company: l.company, contact: l.contact || "Procurement Team", prod: l.product || "industrial equipment", missingItems: ["spec","qty","incoterm"], lang: clLang })
+      : { tierLabel: "", text: "" };
+    bodyHtml = '<p style="color:var(--muted);font-size:13px;margin:4px 0 8px">一键将「'+esc(l.company)+'」的国家、产品与收件邮箱带入开发信生成器，或针对收到的宽泛询盘快速生成专业澄清回复。</p>'
       + '<div class="pills" style="margin-top:4px">'
       + '<button type="button" class="pill primary" data-cd-action="email">带入写开发信</button>'
       + (waUrl ? ('<a class="pill good-btn" target="_blank" rel="noopener" href="'+waUrl+'">打开 WhatsApp ('+esc(phInfo.formatted)+')</a>') : '<span class="src-ok">填写电话后可一键打开 WhatsApp</span>')
-      + '</div>' + phPreview;
+      + '</div>' + phPreview
+      + '<div class="detail-box" style="margin-top:12px">'
+      + '<div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">⚡ 收到询盘 15 分钟快速分级（A/B/C）与缺项澄清清单生成</div>'
+      + '<div class="check-grid" id="cdClarifyChecks">'
+      + '<label class="check-pill"><input type="checkbox" value="spec" checked> 缺规格参数/材质/图纸</label>'
+      + '<label class="check-pill"><input type="checkbox" value="qty" checked> 缺采购数量/试单或整柜</label>'
+      + '<label class="check-pill"><input type="checkbox" value="incoterm" checked> 缺FOB/CIF条款或目的港</label>'
+      + '<label class="check-pill"><input type="checkbox" value="cert"> 缺目的国认证/电压频率</label>'
+      + '<label class="check-pill"><input type="checkbox" value="enduse"> 缺工况介质/期望交期</label>'
+      + '</div>'
+      + '<div id="cdClarifyTier" style="margin-top:8px;font-size:12.5px;font-weight:800;color:var(--brown)">'+esc(initClar.tierLabel)+'</div>'
+      + '<div class="email-box" id="cdClarifyOut" style="font-size:12.5px;margin-top:6px">'+esc(initClar.text)+'</div>'
+      + '<div class="pills" style="margin-top:8px"><button type="button" class="pill primary" data-cd-action="copy-clarify">📋 复制外文澄清确认函</button></div>'
+      + '</div>';
   } else if(selectedClientTab === "quote"){
     var todayStr = localDateStr();
     var qHtml = qList.length
@@ -8978,6 +9196,7 @@ window.openClientDetail = function(id, tabName){
 };
 
 function renderTools(){
+  if(currentToolId === "home-workspace" && typeof renderHomeWorkspace === "function") renderHomeWorkspace();
   var cb = document.getElementById("compareBody");
   if(cb){
     if(!compareList.length){
@@ -9210,6 +9429,30 @@ if(cdPanel){
       window.advanceLeadCadence(selectedClientId, cadBtn.getAttribute("data-cd-cadence"));
       return;
     }
+    var ctEmBtn = e.target.closest("[data-cd-ct-em]");
+    if(ctEmBtn && selectedClientId){
+      var lCtE = findLeadById(selectedClientId);
+      var ctItemE = lCtE && Array.isArray(lCtE.contacts) ? lCtE.contacts[+ctEmBtn.getAttribute("data-cd-ct-em")] : null;
+      if(lCtE && ctItemE && typeof window.loadIntoEmailGen === "function"){
+        window.loadIntoEmailGen(lCtE.country, guessLang(lCtE.country), lCtE.product || "", lCtE.company, ctItemE.email || "");
+        var emContactEl = document.getElementById("emContact");
+        if(emContactEl && ctItemE.name){ emContactEl.value = ctItemE.name; emContactEl.dispatchEvent(new Event("input", {bubbles:true})); }
+      }
+      return;
+    }
+    var ctDelBtn = e.target.closest("[data-cd-ct-del]");
+    if(ctDelBtn && selectedClientId){
+      var lCtD = findLeadById(selectedClientId);
+      var delIdx = +ctDelBtn.getAttribute("data-cd-ct-del");
+      if(lCtD && Array.isArray(lCtD.contacts) && lCtD.contacts[delIdx]){
+        lCtD.contacts.splice(delIdx, 1);
+        lCtD.updated = localDateStr();
+        lCtD.updatedAt = Date.now();
+        saveSingleLead(lCtD);
+        renderClientDetailPanel();
+      }
+      return;
+    }
     var lq = e.target.closest("[data-cd-load-q]");
     if(lq){
       var l0 = selectedClientId ? findLeadById(selectedClientId) : null;
@@ -9225,6 +9468,37 @@ if(cdPanel){
     var l = selectedClientId ? findLeadById(selectedClientId) : null;
     if(a === "close"){ selectedClientId = null; renderTools(); return; }
     if(!l) return;
+    if(a === "add-contact"){
+      var nm = ((document.getElementById("cdCtName") || {}).value || "").trim();
+      var rl = ((document.getElementById("cdCtRole") || {}).value || "采购负责人").trim();
+      var em = ((document.getElementById("cdCtEmail") || {}).value || "").trim();
+      var ph = ((document.getElementById("cdCtPhone") || {}).value || "").trim();
+      if(!nm && !em && !ph){ showToast("请至少填写联系人姓名、邮箱或电话中的一项"); return; }
+      if(!Array.isArray(l.contacts)) l.contacts = [];
+      l.contacts.push({
+        ctId: window.FG_CORE.genStableId("ct"),
+        name: nm || (em ? em.split("@")[0] : "联系人"),
+        role: rl,
+        email: em,
+        phone: ph
+      });
+      l.updated = localDateStr();
+      l.updatedAt = Date.now();
+      saveSingleLead(l);
+      renderClientDetailPanel();
+      showToast("已添加决策链联系人：「" + (nm || em) + "」");
+      return;
+    }
+    if(a === "copy-clarify"){
+      var clTxt = (document.getElementById("cdClarifyOut") || {}).textContent || "";
+      if(clTxt && navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(clTxt).then(function(){ showToast("已复制外文询盘澄清确认函"); });
+      } else if(clTxt){
+        var ta = document.createElement("textarea"); ta.value = clTxt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+        showToast("已复制外文询盘澄清确认函");
+      }
+      return;
+    }
     if(a === "add-tl"){
       var ch = (document.getElementById("cdTlChannel") || {}).value || "跟进";
       var res = ((document.getElementById("cdTlResult") || {}).value || "").trim();
@@ -9261,6 +9535,26 @@ if(cdPanel){
     }
   });
   function onCdFieldChange(e){
+    if(e.target && e.target.closest("#cdClarifyChecks") && selectedClientId && window.FG_CORE && typeof window.FG_CORE.buildInquiryClarification === "function"){
+      var lCl = findLeadById(selectedClientId);
+      if(lCl){
+        var checkedMissing = Array.from(document.querySelectorAll("#cdClarifyChecks input:checked")).map(function(cb){ return cb.value; });
+        var clRes = window.FG_CORE.buildInquiryClarification({
+          company: lCl.company,
+          contact: lCl.contact || "Procurement Team",
+          prod: lCl.product || "industrial equipment",
+          missingItems: checkedMissing,
+          lang: guessLang(lCl.country) === "es" ? "es" : "en"
+        });
+        var tEl = document.getElementById("cdClarifyTier");
+        var oEl = document.getElementById("cdClarifyOut");
+        if(tEl) tEl.textContent = clRes.tierLabel;
+        if(oEl) oEl.textContent = clRes.text;
+        lCl.inquiryTier = clRes.tier;
+        saveSingleLead(lCl);
+      }
+      return;
+    }
     var field = e.target.getAttribute("data-cd-f");
     if(!field || !selectedClientId) return;
     var l = findLeadById(selectedClientId);
@@ -9544,12 +9838,17 @@ function parseBackupBundleObject(obj){
         product: String(x.product || ""),
         stage: String(x.stage || "重点跟进"),
         nextDate: String(x.nextDate || ""),
+        cadenceStep: String(x.cadenceStep || ""),
+        cadenceLabel: String(x.cadenceLabel || ""),
+        lossReason: String(x.lossReason || ""),
+        inquiryTier: String(x.inquiryTier || ""),
         owner: String(x.owner || defaultOwner || ""),
         source: String(x.source || "备份恢复"),
         note: String(x.note || ""),
         ddRecord: (x.ddRecord && typeof x.ddRecord === "object") ? x.ddRecord : null,
         timeline: Array.isArray(x.timeline) ? x.timeline : [],
         quotes: Array.isArray(x.quotes) ? x.quotes : [],
+        contacts: Array.isArray(x.contacts) ? x.contacts : [],
         createdAt: x.createdAt || new Date().toISOString(),
         updated: String(x.updated || localDateStr()),
         updatedAt: x.updatedAt || Date.now(),
@@ -10514,7 +10813,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       return /@/.test(x) || /^https?:\/\/|^www\./i.test(x) || x.replace(/[^\d]/g,"").length >= 7;
     });
     var headerHits = 0;
-    var headerRe = /^(company|company\s*name|business|business\s*name|name|client|customer|country|nation|region|email|e-mail|mail|phone|tel|telephone|mobile|whatsapp|web|website|site|domain|url|address|category|notes?|公司|公司名|公司名称|名称|客户|客户名|国家|邮箱|电邮|电话|手机|官网|网站|地址)$/;
+    var headerRe = /^(company|company\s*name|business|business\s*name|consignee|importer|buyer|name|client|customer|country|nation|region|email|e-mail|mail|phone|tel|telephone|mobile|whatsapp|web|website|site|domain|url|address|category|notes?|hs|hs\s*code|hscode|shipments?|shipment\s*count|containers?|teu|arrival|last\s*arrival|shipment\s*date|supplier|shipper|exporter|公司|公司名|公司名称|收货人|进口商|名称|客户|客户名|国家|邮箱|电邮|电话|手机|官网|网站|地址|海关编码|hs编码|税号|票数|柜数|提单数|最近到港|提单日期|原供应商|发货人)$/;
     h0.forEach(function(x){ if(headerRe.test(x)) headerHits++; });
     var hasHeader = (rows.length >= 2) && !looksLikeData && (headerHits >= 2 || (h0.length === 1 && headerHits === 1));
     var start = hasHeader ? 1 : 0;
@@ -10523,11 +10822,15 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       for(var k=0; k<h0.length; k++){ if(re.test(h0[k])) return k; }
       return -1;
     }
-    var iComp = findCol(/company|business|title|name|公司|名称|客户/, 0);
+    var iComp = findCol(/company|business|consignee|importer|buyer|title|name|公司|收货人|进口商|名称|客户/, 0);
     var iCountry = findCol(/country|nation|国家/, 1);
     var iEmail = findCol(/email|e-mail|mail|邮箱/, 2);
     var iPhone = findCol(/phone|tel|mobile|whatsapp|电话|手机/, 3);
     var iWeb = findCol(/web|site|domain|url|官网|网站/, 4);
+    var iHs = findCol(/hs\s*code|hscode|^hs$|hs编码|海关编码|税号/, -1);
+    var iShip = findCol(/shipments?|containers?|teu|票数|柜数|提单数/, -1);
+    var iArr = findCol(/last\s*arrival|arrival|shipment\s*date|最近到港|提单日/, -1);
+    var iSup = findCol(/supplier|shipper|exporter|原供应商|发货人/, -1);
 
     var out = [];
     for(var r=start; r<rows.length; r++){
@@ -10543,7 +10846,19 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         if(!web && /^https?:\/\/|^www\./i.test(cell)) web = cell;
       });
       if(!comp && !email && !phone && !web) continue;
-      out.push({company:comp || extractDom(email||web) || "未命名客户", country:resolveCountryEn(country) || country, email:email, phone:phone, website:web});
+      var blParts = [];
+      if(iHs>=0 && row[iHs]) blParts.push("HS " + row[iHs]);
+      if(iShip>=0 && row[iShip]) blParts.push(/^\d+$/.test(row[iShip]) ? (row[iShip] + "票提单") : row[iShip]);
+      if(iArr>=0 && row[iArr]) blParts.push("到港 " + row[iArr]);
+      if(iSup>=0 && row[iSup]) blParts.push("原供 " + String(row[iSup]).slice(0, 26));
+      out.push({
+        company:comp || extractDom(email||web) || "未命名客户",
+        country:resolveCountryEn(country) || country,
+        email:email,
+        phone:phone,
+        website:web,
+        customsInfo:blParts.join(" · ")
+      });
     }
     return out;
   }
@@ -10580,6 +10895,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         phone: raw.phone || "",
         website: raw.website || "",
         category: raw.category || "",
+        customsInfo: raw.customsInfo || "",
         domain: dom,
         isFree: isFree,
         suspect: rk.suspect,
@@ -10661,10 +10977,11 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       var webHtml = safeWebHref
         ? ('<a target="_blank" rel="noopener noreferrer" href="'+esc(safeWebHref)+'">'+esc(extractDom(r.website))+'</a>')
         : '<span class="src-ok">—</span>';
+      var blBadge = r.customsInfo ? ('<div style="margin-top:3px"><span class="fta-tag" style="margin-left:0">🚢 提单买家：'+esc(r.customsInfo)+'</span></div>') : '';
       var susBadge = r.suspect ? ('<div style="margin-top:3px"><span class="mx-warn" style="font-size:11px">'+esc(r.suspectLabel)+'（提单常见代收货人，建议核实或剔除）</span></div>') : '';
 
       return '<tr'+(r.suspect?' style="background:color-mix(in srgb,var(--med-bg) 45%,transparent)"':'')+'>'
-        + '<td><b>'+esc(r.company)+'</b>'+susBadge+'</td>'
+        + '<td><b>'+esc(r.company)+'</b>'+blBadge+susBadge+'</td>'
         + '<td>'+esc(CN[r.country]||r.country||"—")+'</td>'
         + '<td>'+(r.email ? ('<div style="font-size:12px">'+esc(r.email)+'</div>') : '')+badge+'</td>'
         + '<td>'+waHtml+'</td>'
@@ -10826,11 +11143,11 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   document.getElementById("btnExportCleanCsv").addEventListener("click", function(){
     if(!csvLeads.length){ showToast("请先导入名单"); return; }
     var exportRows = csvFilter === "clean" ? csvLeads.filter(function(r){ return !r.suspect; }) : csvLeads;
-    var lines = ["Company,Country,Lead_Clean_Flag,Email,Role_Email,Domain,MX_Status,Phone,WhatsApp_Link,Website"];
+    var lines = ["Company,Country,Lead_Clean_Flag,Email,Role_Email,Domain,MX_Status,Phone,WhatsApp_Link,Website,Customs_BL_Info"];
     exportRows.forEach(function(r){
       var d = cleanPhone(r.phone, r.country);
       var wa = d.length >= 7 ? ("https://wa.me/" + d) : "";
-      lines.push([qCsv(r.company),qCsv(r.country),qCsv(r.suspectLabel||"正常工业/贸易主体"),qCsv(r.email),qCsv(r.isRoleEmail?"泛邮箱":"直邮/普通"),qCsv(r.domain),qCsv(r.mxStatus),qCsv(r.phone),qCsv(wa),qCsv(r.website)].join(","));
+      lines.push([qCsv(r.company),qCsv(r.country),qCsv(r.suspectLabel||"正常工业/贸易主体"),qCsv(r.email),qCsv(r.isRoleEmail?"泛邮箱":"直邮/普通"),qCsv(r.domain),qCsv(r.mxStatus),qCsv(r.phone),qCsv(wa),qCsv(r.website),qCsv(r.customsInfo||"")].join(","));
     });
     downloadFile("friesgo-cleaned-leads-"+localDateStr()+".csv", "\ufeff"+lines.join("\n"), "text/csv;charset=utf-8");
     showToast("已导出清洗后名单（" + exportRows.length + " 条 CSV）");
@@ -10846,7 +11163,10 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var bEm = e.target.closest("button[data-csv-em]");
     if(bEm){
       var r = csvLeads[+bEm.getAttribute("data-csv-em")]; if(!r) return;
-      if(typeof window.loadIntoEmailGen === "function") window.loadIntoEmailGen(r.country || "Vietnam", guessLang(r.country||""), ((document.getElementById("csvWaProd")||{}).value||"").trim(), r.company, r.email);
+      if(typeof window.loadIntoEmailGen === "function"){
+        var emOpts = r.customsInfo ? { emType: "first", emSignal: "import", signalNote: r.customsInfo } : undefined;
+        window.loadIntoEmailGen(r.country || "Vietnam", guessLang(r.country||""), ((document.getElementById("csvWaProd")||{}).value||"").trim(), r.company, r.email, emOpts);
+      }
       return;
     }
     var bCrm = e.target.closest("button[data-csv-crm]");
@@ -10857,7 +11177,8 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
           company: rC.company, country: rC.country || "Vietnam", email: rC.email || "",
           phone: rC.phone || "", website: rC.website || "",
           product: ((document.getElementById("csvWaProd")||{}).value||"").trim(),
-          source: "导入与洗名单", note: (rC.suspectLabel ? (rC.suspectLabel + "｜") : "") + (rC.mxDetail ? ("邮局状态：" + rC.mxDetail) : "")
+          source: rC.customsInfo ? "海关提单清洗" : "导入与洗名单",
+          note: (rC.customsInfo ? ("提单记录：" + rC.customsInfo + "｜") : "") + (rC.suspectLabel ? (rC.suspectLabel + "｜") : "") + (rC.mxDetail ? ("邮局状态：" + rC.mxDetail) : "")
         });
       }
       return;
