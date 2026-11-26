@@ -1,27 +1,27 @@
 {
-  "updatedIso": "2026-11-25T14:44:30Z",
-  "updatedCn": "2026-11-25 22:44 北京时间",
-  "updatedDate": "2026-11-25",
+  "updatedIso": "2026-11-26T05:17:03Z",
+  "updatedCn": "2026-11-26 13:17 北京时间",
+  "updatedDate": "2026-11-26",
   "aiEnriched": true,
   "sourcesStatus": {
     "gdacs": {
       "ok": true,
       "count": 14,
-      "lastOk": "2026-11-25 22:44 北京时间",
+      "lastOk": "2026-11-26 13:17 北京时间",
       "staleFallback": false,
       "error": ""
     },
     "worldbank": {
       "ok": true,
       "count": 22,
-      "lastOk": "2026-11-25 22:44 北京时间",
+      "lastOk": "2026-11-26 13:17 北京时间",
       "staleFallback": false,
       "error": ""
     },
     "gnews": {
       "ok": true,
       "count": 19,
-      "lastOk": "2026-11-25 22:44 北京时间",
+      "lastOk": "2026-11-26 13:17 北京时间",
       "staleFallback": false,
       "error": ""
     }
@@ -34,7 +34,7 @@
   },
   "items": [
     {
-      "id": "gdacs_15_DR",
+      "id": "gdacs_12_DR",
       "cat": "weather",
       "hazardType": "DR",
       "catLabel": "☀️ 干旱预警",
@@ -48,7 +48,7 @@
       "lang": "en",
       "date": "2026-07-03",
       "startDate": "2026-07-03",
-      "lastSeenDate": "2026-11-25",
+      "lastSeenDate": "2026-11-26",
       "ongoing": true,
       "title": "Drought is on going in Burundi, Democratic Republic of Congo, Central African Republic, Cameroon, Eritrea, Ethiopia, Kenya, Rwanda, Sudan, South Sudan, Chad, Tanzania, Uganda",
       "titleCn": "🟠 橙色预警 ☀️ 干旱预警：肯尼亚等13国",
@@ -62,7 +62,7 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=DR&eventid=1027450"
     },
     {
-      "id": "gdacs_17_DR",
+      "id": "gdacs_13_DR",
       "cat": "weather",
       "hazardType": "DR",
       "catLabel": "☀️ 干旱预警",
@@ -76,7 +76,7 @@
       "lang": "es",
       "date": "2026-07-03",
       "startDate": "2026-07-03",
-      "lastSeenDate": "2026-11-25",
+      "lastSeenDate": "2026-11-26",
       "ongoing": true,
       "title": "Drought is on going in Belize, Costa Rica, Cuba, Dominican Republic, Guatemala, Honduras, Mexico, Nicaragua, El Salvador, United States",
       "titleCn": "🟠 橙色预警 ☀️ 干旱预警：墨西哥等10国",
@@ -90,7 +90,7 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=DR&eventid=1027449"
     },
     {
-      "id": "gdacs_18_DR",
+      "id": "gdacs_14_DR",
       "cat": "weather",
       "hazardType": "DR",
       "catLabel": "☀️ 干旱预警",
@@ -104,7 +104,7 @@
       "lang": "pt",
       "date": "2026-07-03",
       "startDate": "2026-07-03",
-      "lastSeenDate": "2026-11-25",
+      "lastSeenDate": "2026-11-26",
       "ongoing": true,
       "title": "Drought is on going in Aruba, , Brazil, Colombia, Costa Rica, , French Guiana, Guyana, Panama, Suriname, Venezuela",
       "titleCn": "🟠 橙色预警 ☀️ 干旱预警：巴西等9国",
@@ -174,62 +174,6 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=EQ&eventid=1578798"
     },
     {
-      "id": "gdacs_5_EQ",
-      "cat": "weather",
-      "hazardType": "EQ",
-      "catLabel": "🌋 强震预警",
-      "severity": "Green",
-      "severityLabel": "🟢 常规关注",
-      "windowLabel": "灾后 2–8 周 · 政府/保险重建总包 & 建材批发商补库",
-      "mapQuery": "steel structure construction contractor building materials",
-      "country": "Indonesia",
-      "countryCn": "印度尼西亚",
-      "region": "东南亚",
-      "lang": "id",
-      "date": "2026-11-21",
-      "startDate": "2026-11-21",
-      "lastSeenDate": "2026-11-21",
-      "ongoing": false,
-      "title": "Green earthquake (Magnitude 6.8M, Depth:143.423km) in Indonesia 21/11/2026 09:42 UTC, 70 thousand in MMI V.",
-      "titleCn": "🟢 常规关注 🌋 强震预警 M6.8：印度尼西亚",
-      "summary": "On 11/21/2026 9:42:10 AM, an earthquake occurred in Indonesia potentially affecting 70 thousand in MMI V. The earthquake had Magnitude 6.8M, Depth:143.423km.",
-      "amount": "",
-      "entity": "",
-      "productsCn": "快装预制钢结构/活动板房、抗震紧固件、供水/燃气钢管与阀门、抢修五金",
-      "productsEn": "prefabricated steel structures, seismic fasteners, water/gas pipes & valves, repair hardware",
-      "angleCn": "强震重建刚需：对接当地大型建材/钢构批发商、市政水务管道承包商及政府/世行重建总包",
-      "source": "GDACS 国际灾害预警",
-      "url": "https://www.gdacs.org/report.aspx?eventtype=EQ&eventid=1578530"
-    },
-    {
-      "id": "gdacs_6_EQ",
-      "cat": "weather",
-      "hazardType": "EQ",
-      "catLabel": "🌋 强震预警",
-      "severity": "Green",
-      "severityLabel": "🟢 常规关注",
-      "windowLabel": "灾后 2–8 周 · 政府/保险重建总包 & 建材批发商补库",
-      "mapQuery": "steel structure construction contractor building materials",
-      "country": "Peru",
-      "countryCn": "秘鲁",
-      "region": "拉美",
-      "lang": "es",
-      "date": "2026-11-21",
-      "startDate": "2026-11-21",
-      "lastSeenDate": "2026-11-21",
-      "ongoing": false,
-      "title": "Green earthquake (Magnitude 6.7M, Depth:107.991km) in Peru 21/11/2026 00:09 UTC, 230 thousand in MMI V.",
-      "titleCn": "🟢 常规关注 🌋 强震预警 M6.7：秘鲁",
-      "summary": "On 11/21/2026 12:09:19 AM, an earthquake occurred in Peru potentially affecting 230 thousand in MMI V. The earthquake had Magnitude 6.7M, Depth:107.991km.",
-      "amount": "",
-      "entity": "",
-      "productsCn": "快装预制钢结构/活动板房、抗震紧固件、供水/燃气钢管与阀门、抢修五金",
-      "productsEn": "prefabricated steel structures, seismic fasteners, water/gas pipes & valves, repair hardware",
-      "angleCn": "强震重建刚需：对接当地大型建材/钢构批发商、市政水务管道承包商及政府/世行重建总包",
-      "source": "GDACS 国际灾害预警",
-      "url": "https://www.gdacs.org/report.aspx?eventtype=EQ&eventid=1578468"
-    },
-    {
       "id": "gdacs_2_FL",
       "cat": "weather",
       "hazardType": "FL",
@@ -258,7 +202,7 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104299"
     },
     {
-      "id": "gdacs_9_FL",
+      "id": "gdacs_7_FL",
       "cat": "weather",
       "hazardType": "FL",
       "catLabel": "🌊 洪涝灾害",
@@ -286,7 +230,7 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104300"
     },
     {
-      "id": "gdacs_7_FL",
+      "id": "gdacs_5_FL",
       "cat": "weather",
       "hazardType": "FL",
       "catLabel": "🌊 洪涝灾害",
@@ -370,7 +314,7 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104297"
     },
     {
-      "id": "gdacs_8_FL",
+      "id": "gdacs_6_FL",
       "cat": "weather",
       "hazardType": "FL",
       "catLabel": "🌊 洪涝灾害",
@@ -398,7 +342,7 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104293"
     },
     {
-      "id": "gdacs_11_FL",
+      "id": "gdacs_8_FL",
       "cat": "weather",
       "hazardType": "FL",
       "catLabel": "🌊 洪涝灾害",
@@ -426,6 +370,62 @@
       "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104292"
     },
     {
+      "id": "gdacs_9_FL",
+      "cat": "weather",
+      "hazardType": "FL",
+      "catLabel": "🌊 洪涝灾害",
+      "severity": "Green",
+      "severityLabel": "🟢 常规关注",
+      "windowLabel": "灾后 2–6 周 · 市政排涝总包 & 泵阀批发商补库",
+      "mapQuery": "water pump industrial valve distributor",
+      "country": "Indonesia",
+      "countryCn": "印度尼西亚",
+      "region": "东南亚",
+      "lang": "id",
+      "date": "2026-10-29",
+      "startDate": "2026-10-29",
+      "lastSeenDate": "2026-10-29",
+      "ongoing": false,
+      "title": "Green flood alert in Indonesia",
+      "titleCn": "🟢 常规关注 🌊 洪涝灾害：印度尼西亚",
+      "summary": "On 24/10/2026, a flood started in Indonesia, lasting until 20/11/2026 (last update). The flood caused 3 deaths and 6133 displaced .",
+      "amount": "",
+      "entity": "",
+      "productsCn": "大流量排涝水泵、球墨阀门、防水电力电缆、应急发电机",
+      "productsEn": "high-flow dewatering pumps, industrial valves, waterproof cables & diesel generators",
+      "angleCn": "洪涝受损区：重点跟进当地大型泵阀批发商补库、市政排涝工程与工业园恢复供电急单",
+      "source": "GDACS 国际灾害预警",
+      "url": "https://www.gdacs.org/report.aspx?eventtype=FL&eventid=1104253"
+    },
+    {
+      "id": "gdacs_10_DR",
+      "cat": "weather",
+      "hazardType": "DR",
+      "catLabel": "☀️ 干旱预警",
+      "severity": "Green",
+      "severityLabel": "🟢 常规关注",
+      "windowLabel": "旱季持续窗口 · 农机/水务经销商与农场灌溉采购",
+      "mapQuery": "irrigation pump agricultural equipment distributor",
+      "country": "New Zealand",
+      "countryCn": "新西兰",
+      "region": "大洋洲",
+      "lang": "en",
+      "date": "2026-11-12",
+      "startDate": "2026-11-12",
+      "lastSeenDate": "2026-11-26",
+      "ongoing": false,
+      "title": "Drought is on going in New Zealand",
+      "titleCn": "🟢 常规关注 ☀️ 干旱预警：新西兰",
+      "summary": "The Drought notification level is Green.",
+      "amount": "",
+      "entity": "",
+      "productsCn": "深井/光伏灌溉水泵、喷灌阀门管件、储水钢罐 & 农机设备",
+      "productsEn": "deep-well solar/diesel irrigation pumps, agricultural valves, water storage tanks & farm equipment",
+      "angleCn": "干旱农区：切入当地农机/水泵大经销商、大型种植园打井提水、光伏灌溉水泵与输水管件刚需",
+      "source": "GDACS 国际灾害预警",
+      "url": "https://www.gdacs.org/report.aspx?eventtype=DR&eventid=1027737"
+    },
+    {
       "id": "wb_OP00483425",
       "cat": "loan",
       "catLabel": "公开招标",
@@ -442,7 +442,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Supply and Installation of 10KVA Solar Powered in 50 Selected Secondary Schools Phase II to be distributed within Adamawa State",
-      "titleCn": "【尼日利亚】Supply and Installation of 10KVA Solar Powered in 50 Selected Secondary Schools Phase II to be distributed within Adamawa State",
+      "titleCn": "尼日利亚：50所中学10KVA太阳能系统供装",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Adolescent Girls Initiative for Learning and Empowerment ｜ 官方邮箱：saddiki2024@gmail.com ｜ 截标日期：2026-12-23 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "ADAMAWA AGILE ADF",
@@ -452,7 +452,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483425"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483425",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00483526",
@@ -471,7 +474,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Acquisition de matériel et équipements de production du riz et des cultures maraîchères",
-      "titleCn": "【尼日尔】Acquisition de matériel et équipements de production du riz et des cultures maraîchères",
+      "titleCn": "尼日尔：水稻及蔬菜生产农机设备采购",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Livestock and Agriculture Modernization Project (LAMP) ｜ 官方邮箱：younoussaidrissa@yahoo.fr ｜ 截标日期：2026-12-22 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "Livestock and Agriculture Modernization Project (LAMP)",
@@ -481,7 +484,10 @@
       "productsEn": "agricultural machinery, irrigation pumps, cold-storage steel structures & tools",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（农业机械、光伏/柴油灌溉泵、钢构粮仓/冷库 & 维修工具）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483526"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483526",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00483489",
@@ -500,7 +506,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Travaux d'aménagement de sites de périmètres irrigués pour la formation des jeunes agriculteurs des régions de Diffa et Tahoua",
-      "titleCn": "【尼日尔】Travaux d'aménagement de sites de périmètres irrigués pour la formation des jeunes agriculteurs des régions de Diffa et Tahoua",
+      "titleCn": "尼日尔：青年农民培训基地灌溉区建设",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Livestock and Agriculture Modernization Project (LAMP) ｜ 官方邮箱：younoussaidrissa@yahoo.fr ｜ 截标日期：2026-12-21 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Livestock and Agriculture Modernization Project (LAMP)",
@@ -510,7 +516,10 @@
       "productsEn": "agricultural machinery, irrigation pumps, cold-storage steel structures & tools",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（农业机械、光伏/柴油灌溉泵、钢构粮仓/冷库 & 维修工具）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483489"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483489",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00483210",
@@ -529,7 +538,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Conception, Fourniture, Installation et Maintenance de Systèmes Solaires Photovoltaïques pour l’électrification de 98 Centres de San...",
-      "titleCn": "【几内亚比绍】Conception, Fourniture, Installation et Maintenance de Systèmes Solaires Photovoltaïques pour l’électrification de 98 Centres de San...",
+      "titleCn": "几内亚比绍：98个医疗中心光伏系统建设",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Guinea-Bissau: Solar Energy Scale-up and Access Project ｜ 官方邮箱：puasee@outlook.pt ｜ 截标日期：2027-01-19 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Projet d Urgence pour l Amelioration des Services de l eau et l' Electricite",
@@ -539,7 +548,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483210"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483210",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00483291",
@@ -558,7 +570,7 @@
       "origNoticeDate": "2023-07-03",
       "procGroup": "CW",
       "title": "Noro Water Supply Scheme",
-      "titleCn": "【所罗门群岛】Noro Water Supply Scheme",
+      "titleCn": "所罗门群岛：诺罗供水计划基建项目",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Urban Water Supply and Sanitation Sector Project ｜ 官方邮箱：hmolia@solomonwater.com.sb ｜ 截标日期：2026-11-30 ｜ 正文原日期：2023-07-03（重新挂网） ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Solomon Water",
@@ -568,7 +580,10 @@
       "productsEn": "industrial waterworks valves, heavy-duty pumps, pipe fittings & control panels",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（工业阀门、离心/排涝水泵、管道法兰 & 控制柜）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483291"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483291",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00483146",
@@ -587,7 +602,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Design and Construction of the Solar Sludge Drying Facility for the Asım Kibar Organized Industrial Zone (AKOSB)",
-      "titleCn": "【土耳其】Design and Construction of the Solar Sludge Drying Facility for the Asım Kibar Organized Industrial Zone (AKOSB)",
+      "titleCn": "土耳其：AKOSB工业区太阳能污泥干燥设施",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Turkey Organized Industrial Zones Project ｜ 官方邮箱：hanife.yucedal@sanayi.gov.tr ｜ 截标日期：2026-12-15 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Ministry of Industry and Technology",
@@ -597,7 +612,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483146"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483146",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482820",
@@ -616,7 +634,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "BEŞYÜZEVLER – ATIŞALANI 154 kV UNDERGROUND POWER CABLE PROJECT",
-      "titleCn": "【土耳其】BEŞYÜZEVLER – ATIŞALANI 154 kV UNDERGROUND POWER CABLE PROJECT",
+      "titleCn": "土耳其：154kV地下电力电缆建设项目",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Türkiye - Transforming Power Transmission System Project ｜ 官方邮箱：nur.kiris@teias.gov.tr ｜ 截标日期：2026-12-28 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "TURKISH ELECTRICITY TRANSMISSION CORPORATION",
@@ -626,7 +644,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482820"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482820",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00483241",
@@ -645,7 +666,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Acquisition, installation et la configuration des équipements de la salle serveur (datacenter) du Registre Social Unifié du Cameroun...",
-      "titleCn": "【喀麦隆】Acquisition, installation et la configuration des équipements de la salle serveur (datacenter) du Registre Social Unifié du Cameroun...",
+      "titleCn": "喀麦隆：社会登记处数据中心机房设备采购",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Adaptive Safety Nets and Economic Inclusion Project ｜ 官方邮箱：michnjoh@yahoo.fr ｜ 截标日期：2026-12-30 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "PIU MINEPAT",
@@ -655,7 +676,10 @@
       "productsEn": "industrial valves, pumps, power cables & structural hardware",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（工业泵阀、电力电缆、钢结构与工业五金配套）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483241"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483241",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00483149",
@@ -674,7 +698,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Global Mixed OIZ Electrical Grid Rehabilitation, Natural Gas Infrastructure Construction, and SCADA System Installation Works",
-      "titleCn": "【土耳其】Global Mixed OIZ Electrical Grid Rehabilitation, Natural Gas Infrastructure Construction, and SCADA System Installation Works",
+      "titleCn": "土耳其：工业区电网改造及燃气基建工程",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Turkey Organized Industrial Zones Project ｜ 官方邮箱：hanife.yucedal@sanayi.gov.tr ｜ 截标日期：2026-12-11 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Ministry of Industry and Technology",
@@ -684,7 +708,10 @@
       "productsEn": "mining slurry pumps, high-pressure valves, wear-resistant pipes & mining cables",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（矿用渣浆泵、高压油气阀门、耐磨管件 & 矿用电缆）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483149"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00483149",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482140",
@@ -703,7 +730,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Construction d'un nouveau captage sur le fleuve Congo (440 000 m3/jour) pour l'usine de N'djili y compris les conduites de refoulement",
-      "titleCn": "【刚果（金）】Construction d'un nouveau captage sur le fleuve Congo (440 000 m3/jour) pour l'usine de N'djili y compris les conduites de refoulement",
+      "titleCn": "刚果（金）：刚果河取水工程及输水管线",
       "summary": "类型：Invitation for Bids ｜ 所属项目：DRC: Scaling Up Water Supply and Sanitation Access in Kinshasa Project ｜ 官方邮箱：nmanduku@cepordc.com ｜ 截标日期：2027-01-08 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Cellule d’Exécution des Projets Eau",
@@ -713,7 +740,10 @@
       "productsEn": "industrial waterworks valves, heavy-duty pumps, pipe fittings & control panels",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（工业阀门、离心/排涝水泵、管道法兰 & 控制柜）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482140"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482140",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482584",
@@ -723,16 +753,16 @@
       "severity": "High",
       "severityLabel": "公开招标",
       "country": "West Bank and Gaza",
-      "countryCn": "West Bank and Gaza",
-      "region": "其他",
-      "lang": "en",
+      "countryCn": "巴勒斯坦地区",
+      "region": "中东",
+      "lang": "ar",
       "date": "2026-11-22",
       "deadline": "2027-01-10",
       "reposted": false,
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Supply and Installation of Solar Systems to cover Electricity Consumption for Educational Facilities in West Bank.",
-      "titleCn": "【West Bank and Gaza】Supply and Installation of Solar Systems to cover Electricity Consumption for Educational Facilities in West Bank.",
+      "titleCn": "巴勒斯坦：约旦河西岸教育设施太阳能系统",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Phase 3 Advancing Sustainability in Performance, Infrastructure, and R ｜ 官方邮箱：doaa@menr.org ｜ 截标日期：2027-01-10 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "Palestinian Energy and Natural Resources Authority",
@@ -742,7 +772,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482584"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482584",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482794",
@@ -761,7 +794,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Fourniture et installation des équipements informatiques et d’un logiciel de gestion des services de la Cour d’appel de commerce et ...",
-      "titleCn": "【布隆迪】Fourniture et installation des équipements informatiques et d’un logiciel de gestion des services de la Cour d’appel de commerce et ...",
+      "titleCn": "布隆迪：上诉法院IT设备及管理软件采购",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Burundi Jobs and Economic Transformation Project ｜ 官方邮箱：bnzeyimana@prete.bi ｜ 截标日期：2026-12-22 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "Burundi Development Agency",
@@ -771,7 +804,10 @@
       "productsEn": "industrial valves, pumps, power cables & structural hardware",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（工业泵阀、电力电缆、钢结构与工业五金配套）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482794"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482794",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482702",
@@ -790,7 +826,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Fourniture, déploiement et mise en service d’un système intégré de Plateforme GUCE 2.0 pour le Guichet Unique de Création d'Entreprises",
-      "titleCn": "【刚果（金）】Fourniture, déploiement et mise en service d’un système intégré de Plateforme GUCE 2.0 pour le Guichet Unique de Création d'Entreprises",
+      "titleCn": "刚果（金）：企业创建一站式服务平台部署",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Empowering Women Entrepreneurs and Upgrading MSMEs for Economic Transf ｜ 官方邮箱：alexis.mangala@transforme.cd ｜ 截标日期：2027-01-06 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "Ministry of Entrepreneurship and Small Medium Enterprises",
@@ -800,7 +836,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482702"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482702",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482713",
@@ -819,7 +858,7 @@
       "origNoticeDate": "",
       "procGroup": "CW",
       "title": "Construction du nouveau Siège de l'EAGB-SA immeuble Administratif rc+4, surface ≈ 4600 m²",
-      "titleCn": "【几内亚比绍】Construction du nouveau Siège de l'EAGB-SA immeuble Administratif rc+4, surface ≈ 4600 m²",
+      "titleCn": "几内亚比绍：EAGB-SA总部办公楼建设",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Guinea-Bissau: Solar Energy Scale-up and Access Project ｜ 官方邮箱：puasee@outlook.pt ｜ 截标日期：2027-01-08 ｜ 采购类别：土建工程（需经总包供货）",
       "amount": "",
       "entity": "Projet d Urgence pour l Amelioration des Services de l eau et l' Electricite",
@@ -829,7 +868,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482713"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482713",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482280",
@@ -848,7 +890,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Household Appliances, Electrical Equipment, Extension Cords and Air Conditioners for 14 Rehabilitation Centers for Victims of Domest...",
-      "titleCn": "【乌兹别克斯坦】Household Appliances, Electrical Equipment, Extension Cords and Air Conditioners for 14 Rehabilitation Centers for Victims of Domest...",
+      "titleCn": "乌兹别克斯坦：康复中心家电及电气采购",
       "summary": "类型：Invitation for Bids ｜ 所属项目：INnovative SOcial Protection System for inclusiON of Vulnerable People ｜ 官方邮箱：m.xusanov@ihma.uz ｜ 截标日期：2026-12-04 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "NATIONAL AGENCY FOR SOCIAL PROTECTION UNDER THE PRESIDENT OF THE REPUBLIC OF UZBEK...",
@@ -858,7 +900,10 @@
       "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482280"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482280",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482505",
@@ -868,8 +913,8 @@
       "severity": "High",
       "severityLabel": "公开招标",
       "country": "Tuvalu",
-      "countryCn": "Tuvalu",
-      "region": "其他",
+      "countryCn": "图瓦卢",
+      "region": "大洋洲",
       "lang": "en",
       "date": "2026-11-18",
       "deadline": "2026-12-07",
@@ -877,7 +922,7 @@
       "origNoticeDate": "",
       "procGroup": "GO",
       "title": "Port Management Information System",
-      "titleCn": "【Tuvalu】Port Management Information System",
+      "titleCn": "图瓦卢：港口管理信息系统建设项目",
       "summary": "类型：Invitation for Bids ｜ 所属项目：Maritime Investment in Climate Resilient Operations II ｜ 官方邮箱：projectmanager@micro2pmu.com ｜ 截标日期：2026-12-07 ｜ 采购类别：货物直采",
       "amount": "",
       "entity": "Ministry of Public Works, Infrastructure, Environment, Labour, Metrology and Disas...",
@@ -887,7 +932,10 @@
       "productsEn": "steel structures, construction hardware, industrial pumps/valves & power cables",
       "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具）",
       "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482505"
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482505",
+      "aiFields": [
+        "titleCn"
+      ]
     },
     {
       "id": "wb_OP00482404",
@@ -929,9 +977,9 @@
       "severity": "High",
       "severityLabel": "公开招标",
       "country": "West Bank and Gaza",
-      "countryCn": "West Bank and Gaza",
-      "region": "其他",
-      "lang": "en",
+      "countryCn": "巴勒斯坦地区",
+      "region": "中东",
+      "lang": "ar",
       "date": "2026-11-18",
       "deadline": "2027-01-11",
       "reposted": false,
@@ -1018,38 +1066,6 @@
       ]
     },
     {
-      "id": "wb_OP00482039",
-      "cat": "loan",
-      "catLabel": "公开招标",
-      "noticeType": "Invitation for Bids",
-      "severity": "High",
-      "severityLabel": "公开招标",
-      "country": "India",
-      "countryCn": "印度",
-      "region": "南亚",
-      "lang": "en",
-      "date": "2026-11-17",
-      "deadline": "2026-11-25",
-      "reposted": false,
-      "origNoticeDate": "",
-      "procGroup": "CW",
-      "title": "Civil Works for Material Bank at 09 (nine) locations (Barnagar, Dergaon, Golaghat, Khumtai, Ujoni Majuli, Dhakuakhana, Nowboicha, Na...",
-      "titleCn": "印度阿萨姆邦九处物资库土建工程",
-      "summary": "类型：Invitation for Bids ｜ 所属项目：Assam Integrated River Basin Management Program ｜ 官方邮箱：piu.asdma.proc@gmail.com ｜ 截标日期：2026-11-25 ｜ 采购类别：土建工程（需经总包供货）",
-      "amount": "",
-      "entity": "Assam Disaster Risk Management Agency",
-      "contactEmail": "piu.asdma.proc@gmail.com",
-      "contactPhone": "+919864050750",
-      "productsCn": "基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具",
-      "productsEn": "steel structures, construction hardware, industrial pumps/valves & power cables",
-      "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具）",
-      "source": "世界银行实时招标 API",
-      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482039",
-      "aiFields": [
-        "titleCn"
-      ]
-    },
-    {
       "id": "wb_OP00482120",
       "cat": "loan",
       "catLabel": "公开招标",
@@ -1077,6 +1093,38 @@
       "angleCn": "土建工程总包招标，工厂一般不能直接投标：跟踪投标或中标的承包商，争取分包供货（电力电缆、配电变压器、开关柜 & 柴油发电机组）",
       "source": "世界银行实时招标 API",
       "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00482120",
+      "aiFields": [
+        "titleCn"
+      ]
+    },
+    {
+      "id": "wb_OP00472679",
+      "cat": "loan",
+      "catLabel": "公开招标",
+      "noticeType": "Invitation for Bids",
+      "severity": "High",
+      "severityLabel": "公开招标",
+      "country": "Georgia",
+      "countryCn": "格鲁吉亚",
+      "region": "欧亚",
+      "lang": "en",
+      "date": "2026-11-17",
+      "deadline": "2026-12-17",
+      "reposted": false,
+      "origNoticeDate": "",
+      "procGroup": "GO",
+      "title": "Design, Development, Integration, Migration, Testing, Deployment, and Support of the Preferential Agro-Credit Project System (PACPS)",
+      "titleCn": "格鲁吉亚优惠农业信贷项目系统开发与部署",
+      "summary": "类型：Invitation for Bids ｜ 所属项目：Georgia Resilient Agriculture, Irrigation, and Land Project ｜ 官方邮箱：Lali.Durmishidze@mepa.gov.ge ｜ 截标日期：2026-12-17 ｜ 采购类别：货物直采",
+      "amount": "",
+      "entity": "Ministry of Environmental Protection and Agriculture of Georgia (MEPA)",
+      "contactEmail": "Lali.Durmishidze@mepa.gov.ge",
+      "contactPhone": "+995 32 2470101",
+      "productsCn": "工业阀门、离心/排涝水泵、管道法兰 & 控制柜",
+      "productsEn": "industrial waterworks valves, heavy-duty pumps, pipe fittings & control panels",
+      "angleCn": "货物直采招标，可直接投标：先下载标书核对资格要求、交货期与投标保函（工业阀门、离心/排涝水泵、管道法兰 & 控制柜）",
+      "source": "世界银行实时招标 API",
+      "url": "https://projects.worldbank.org/en/projects-operations/procurement-detail/OP00472679",
       "aiFields": [
         "titleCn"
       ]
@@ -1114,33 +1162,6 @@
       "catLabel": "线索 · 国际开发项目立项",
       "severity": "Normal",
       "severityLabel": "线索 · 国际开发项目立项",
-      "country": "Turkey (Türkiye)",
-      "countryCn": "土耳其",
-      "region": "欧亚",
-      "lang": "en",
-      "date": "2026-11-19",
-      "ageDays": 6,
-      "title": "ADB to support Türkiye’s industrial decarbonization with financing",
-      "titleCn": "土耳其：亚行融资支持工业脱碳转型",
-      "summary": "来源：Hürriyet Daily News",
-      "amount": "",
-      "entity": "",
-      "productsCn": "基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具",
-      "productsEn": "steel structures, construction hardware, industrial pumps/valves & power cables",
-      "angleCn": "关注工业节能减排设备及配套钢结构、阀门供应机会。",
-      "source": "Hürriyet Daily News",
-      "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQZ2JvZ2prV182Vy1kaF9taXFSSlpnZ1RoYTBJeVVHMkxldExaRVdYekFtZkYtaHh4VjN3T2ZpbkcxWnJic24zX3I4akZrd1RpanlXUGlYMGZXbGlKQTdHejlNX1NlTF81LXNiWFUwUmFFSVNJaWw5QjlHME5Rem8yZFNDLVBLNklVUnRaVG1lSGR3bGJ4TnlQblV5dHBsRU44Tm56OFpKSzNkdw?oc=5",
-      "aiFields": [
-        "titleCn",
-        "angleCn"
-      ]
-    },
-    {
-      "id": "news_2",
-      "cat": "news",
-      "catLabel": "线索 · 国际开发项目立项",
-      "severity": "Normal",
-      "severityLabel": "线索 · 国际开发项目立项",
       "country": "Global",
       "countryCn": "全球新兴市场",
       "region": "全球",
@@ -1157,6 +1178,33 @@
       "angleCn": "跟踪多边银行资助的基础设施项目，提前储备机电产品资质。",
       "source": "International Water Power",
       "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNaGhHcExyeWQ4anViSUFYZkdRblJINTlCbDZvUHUxLVVSZFNPcnRrNW1qT1lYMVhadnpxMzE0dTcwQ3BnMV9QQXdrNDlKaVdlVE1HcFNMWVl5RmhxMURBeFpjNTBOMmtsYVViaHFSeU9ERXN5dk41T0c4MkpWMXN5LUlaVVMtQVBT?oc=5",
+      "aiFields": [
+        "titleCn",
+        "angleCn"
+      ]
+    },
+    {
+      "id": "news_2",
+      "cat": "news",
+      "catLabel": "线索 · 国际开发项目立项",
+      "severity": "Normal",
+      "severityLabel": "线索 · 国际开发项目立项",
+      "country": "Turkey (Türkiye)",
+      "countryCn": "土耳其",
+      "region": "欧亚",
+      "lang": "en",
+      "date": "2026-11-19",
+      "ageDays": 6,
+      "title": "ADB to support Türkiye’s industrial decarbonization with financing",
+      "titleCn": "土耳其：亚行融资支持工业脱碳转型",
+      "summary": "来源：Hürriyet Daily News",
+      "amount": "",
+      "entity": "",
+      "productsCn": "基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具",
+      "productsEn": "steel structures, construction hardware, industrial pumps/valves & power cables",
+      "angleCn": "关注工业节能减排设备及配套钢结构、阀门供应机会。",
+      "source": "Hürriyet Daily News",
+      "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQZ2JvZ2prV182Vy1kaF9taXFSSlpnZ1RoYTBJeVVHMkxldExaRVdYekFtZkYtaHh4VjN3T2ZpbkcxWnJic24zX3I4akZrd1RpanlXUGlYMGZXbGlKQTdHejlNX1NlTF81LXNiWFUwUmFFSVNJaWw5QjlHME5Rem8yZFNDLVBLNklVUnRaVG1lSGR3bGJ4TnlQblV5dHBsRU44Tm56OFpKSzNkdw?oc=5",
       "aiFields": [
         "titleCn",
         "angleCn"
@@ -1247,33 +1295,6 @@
       "id": "news_6",
       "cat": "news",
       "catLabel": "线索 · 国际开发项目立项",
-      "severity": "Normal",
-      "severityLabel": "线索 · 国际开发项目立项",
-      "country": "Global",
-      "countryCn": "全球新兴市场",
-      "region": "全球",
-      "lang": "en",
-      "date": "2026-11-19",
-      "ageDays": 6,
-      "title": "Africa Day at COP31 calls for water security, climate resilience and accessible finance to advance Agenda 2063",
-      "titleCn": "非洲：COP31呼吁加强水安全与气候韧性融资",
-      "summary": "来源：African Development Bank Group",
-      "amount": "",
-      "entity": "",
-      "productsCn": "工业阀门、离心/排涝水泵、管道法兰 & 控制柜",
-      "productsEn": "industrial waterworks valves, heavy-duty pumps, pipe fittings & control panels",
-      "angleCn": "重点关注非洲水利工程中的水泵、阀门及管廊钢结构机会。",
-      "source": "African Development Bank Group",
-      "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQclFyOWxvWEs2MU5OOXcxcGM4ejhkOFBCc2p0MURKMGo0OE5WSGNKcVhLNEtBMTE3QXBlNjVJRG12NlQ0TE8yN3pYeWRHbVVPMHlTMG41YllHaENFU3dlVWlmUUh5RGRRVFlfaDgwSUdMZXVyZ1JwS0FiaXphZGx5TjJKSWdWLTc2WnBVMkpYRDhiSWo1QVE?oc=5",
-      "aiFields": [
-        "titleCn",
-        "angleCn"
-      ]
-    },
-    {
-      "id": "news_7",
-      "cat": "news",
-      "catLabel": "线索 · 国际开发项目立项",
       "severity": "High",
       "severityLabel": "💰 $300m",
       "country": "Sri Lanka",
@@ -1292,6 +1313,33 @@
       "angleCn": "针对市政供水项目，推介高标准工业阀门与水泵系统。",
       "source": "Smart Water Magazine",
       "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxQUUNVRlJsVzc5cVZXTUZXQm95N0ZnMGRFdjJVTVFQNnlLR0tKUWV5eEtjdExPbGl3OWRHVkh6ZTljZUVaU2dzS0lFT2lIRmRmakdsblQ4TTRxeHdEdHFvZkpPR1JlSDVfTkdCeEl5QklrTVNpN0RMeG9pbTBuQlBvUllqYnpqaXdxN3lIVjRTQk5ZcjYtYlRKVEFwVFU3c1hzS3R2amJlc05td1JKVjlHNDU3ZkQ3cmh5QTNPSWMtekQ2a3M?oc=5",
+      "aiFields": [
+        "titleCn",
+        "angleCn"
+      ]
+    },
+    {
+      "id": "news_7",
+      "cat": "news",
+      "catLabel": "线索 · 国际开发项目立项",
+      "severity": "Normal",
+      "severityLabel": "线索 · 国际开发项目立项",
+      "country": "Global",
+      "countryCn": "全球新兴市场",
+      "region": "全球",
+      "lang": "en",
+      "date": "2026-11-19",
+      "ageDays": 6,
+      "title": "Africa Day at COP31 calls for water security, climate resilience and accessible finance to advance Agenda 2063",
+      "titleCn": "非洲：COP31呼吁加强水安全与气候韧性融资",
+      "summary": "来源：African Development Bank Group",
+      "amount": "",
+      "entity": "",
+      "productsCn": "工业阀门、离心/排涝水泵、管道法兰 & 控制柜",
+      "productsEn": "industrial waterworks valves, heavy-duty pumps, pipe fittings & control panels",
+      "angleCn": "重点关注非洲水利工程中的水泵、阀门及管廊钢结构机会。",
+      "source": "African Development Bank Group",
+      "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQclFyOWxvWEs2MU5OOXcxcGM4ejhkOFBCc2p0MURKMGo0OE5WSGNKcVhLNEtBMTE3QXBlNjVJRG12NlQ0TE8yN3pYeWRHbVVPMHlTMG41YllHaENFU3dlVWlmUUh5RGRRVFlfaDgwSUdMZXVyZ1JwS0FiaXphZGx5TjJKSWdWLTc2WnBVMkpYRDhiSWo1QVE?oc=5",
       "aiFields": [
         "titleCn",
         "angleCn"
@@ -1362,7 +1410,7 @@
       "region": "非洲",
       "lang": "en",
       "date": "2026-11-09",
-      "ageDays": 16,
+      "ageDays": 17,
       "title": "Olam Agri breaks ground on New Integrated Feed Mill in Delta State, deepening investment in Nigeria’s agricultural sector",
       "titleCn": "尼日利亚：Olam Agri在三角州投建综合饲料厂",
       "summary": "来源：Asia Food Journal",
@@ -1430,29 +1478,6 @@
       "catLabel": "线索 · 中资总包项目",
       "severity": "Normal",
       "severityLabel": "线索 · 中资总包项目",
-      "country": "Global",
-      "countryCn": "全球新兴市场",
-      "region": "全球",
-      "lang": "en",
-      "date": "2026-11-24",
-      "ageDays": 1,
-      "title": "7.75GWh巨无霸储能开工！中企领跑中东光储赛道",
-      "titleCn": "7.75GWh巨无霸储能开工！中企领跑中东光储赛道",
-      "summary": "来源：碳索储能网",
-      "amount": "",
-      "entity": "",
-      "productsCn": "电力电缆、配电变压器、开关柜 & 柴油发电机组",
-      "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
-      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 电力电缆、配电变压器、开关柜 & 柴油发电机组",
-      "source": "碳索储能网",
-      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1oVFh0QkgwUVkyc3hBRVNFRU9DVGNtdGN2SmJfS2tGQkJacmF0SDJ2YnFhak41QnlYNmotUEpncWxUWjNzdTUwOXVRU3JVV2hrYzhTNjBQay1QVWlHVkg0?oc=5"
-    },
-    {
-      "id": "news_14",
-      "cat": "news",
-      "catLabel": "线索 · 中资总包项目",
-      "severity": "Normal",
-      "severityLabel": "线索 · 中资总包项目",
       "country": "Brazil",
       "countryCn": "巴西",
       "region": "拉美",
@@ -1469,6 +1494,29 @@
       "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 电力电缆、配电变压器、开关柜 & 柴油发电机组",
       "source": "国际电力网",
       "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE5ZMURNZ2JWY2Jnb2RmMHNKNjRSay1fWWRlNlJZRjkzT1JWV3BZd1lKbDFkdkQ4SGhNZllRMHpucWpBOVVERmlLUjAya3pOYWM1bnBVWlI5YmJ0UV9tRlE?oc=5"
+    },
+    {
+      "id": "news_14",
+      "cat": "news",
+      "catLabel": "线索 · 中资总包项目",
+      "severity": "Normal",
+      "severityLabel": "线索 · 中资总包项目",
+      "country": "Nigeria",
+      "countryCn": "尼日利亚",
+      "region": "非洲",
+      "lang": "en",
+      "date": "2026-11-13",
+      "ageDays": 12,
+      "title": "西非首单落地！苏美达能源成功签约尼日利亚AA轮胎厂孤岛微电网电力负荷平衡系统EPC项目",
+      "titleCn": "西非首单落地！苏美达能源成功签约尼日利亚AA轮胎厂孤岛微电网电力负荷平衡系统EPC项目",
+      "summary": "来源：碳索储能网",
+      "amount": "",
+      "entity": "西非首单",
+      "productsCn": "电力电缆、配电变压器、开关柜 & 柴油发电机组",
+      "productsEn": "power cables, distribution transformers, switchgear & backup diesel generators",
+      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 电力电缆、配电变压器、开关柜 & 柴油发电机组",
+      "source": "碳索储能网",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5oZ3lTeVFpdXFteEM1b2NfWk5Xc0hpRzdMczRDb3JrelBoYUp1a1hDLU4xZHlqY09HWk5ucUI0NEFTY0w1RXpHUEYtbE16XzJlLVh0WGxBOU9CeVJ5SFZZ?oc=5"
     },
     {
       "id": "news_15",
@@ -1499,6 +1547,29 @@
       "catLabel": "线索 · 中资总包项目",
       "severity": "Normal",
       "severityLabel": "线索 · 中资总包项目",
+      "country": "Vietnam",
+      "countryCn": "越南",
+      "region": "东南亚",
+      "lang": "vi",
+      "date": "2026-11-26",
+      "ageDays": 0,
+      "title": "越南PSA与拉辰国际物流产业园在海防开工建设470万标准箱集装箱码头",
+      "titleCn": "越南PSA与拉辰国际物流产业园在海防开工建设470万标准箱集装箱码头",
+      "summary": "来源：维度网",
+      "amount": "",
+      "entity": "",
+      "productsCn": "基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具",
+      "productsEn": "steel structures, construction hardware, industrial pumps/valves & power cables",
+      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 基建钢结构、施工机电、工业泵阀、照明电缆 & 五金工具",
+      "source": "维度网",
+      "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE9WRlNKNWc2UWlyLVB2bF9hcUFCbFB1cHZDVmZHdFFIeGdBNlI5aVVnSnBpOWR2Q0lyRUczWG0zdWltOUNCeDBnREdVNkRXMGtsd21nQXNzeTI?oc=5"
+    },
+    {
+      "id": "news_17",
+      "cat": "news",
+      "catLabel": "线索 · 中资总包项目",
+      "severity": "Normal",
+      "severityLabel": "线索 · 中资总包项目",
       "country": "Global",
       "countryCn": "全球新兴市场",
       "region": "全球",
@@ -1515,29 +1586,6 @@
       "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 电力电缆、配电变压器、开关柜 & 柴油发电机组",
       "source": "世纪新能源网",
       "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE1pQk1SbndIRlZCRi1UaXdQOHlrWW5XZ1hvLUg4OC1jOEhUZTFOTUtPUDZnRUg5QW85V3ZLT3U4eVJtOUVEdUszbUZpTFlteVRmQXc?oc=5"
-    },
-    {
-      "id": "news_17",
-      "cat": "news",
-      "catLabel": "线索 · 中资总包项目",
-      "severity": "Normal",
-      "severityLabel": "线索 · 中资总包项目",
-      "country": "Global",
-      "countryCn": "全球新兴市场",
-      "region": "全球",
-      "lang": "en",
-      "date": "2026-11-23",
-      "ageDays": 2,
-      "title": "中国三一集团与印尼AlamTri签署五年战略合作协议",
-      "titleCn": "中国三一集团与印尼AlamTri签署五年战略合作协议",
-      "summary": "来源：维度网",
-      "amount": "",
-      "entity": "",
-      "productsCn": "工业泵阀、电力电缆、钢结构与工业五金配套",
-      "productsEn": "industrial valves, pumps, power cables & structural hardware",
-      "angleCn": "新闻线索（联系前请核实原文）：可在「客户背调」核查业主或总包官网，重点切入 工业泵阀、电力电缆、钢结构与工业五金配套",
-      "source": "维度网",
-      "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1jeUdLd2JaWHpmYWtDdnJxXzVVWHgyOUQ4ZG1hN0s1N0d3TDJiczF6VWVpd3Q2d2k4VHQ3TDRrSG10LU5ZV09Mb3hkREp2bW16RWQxYkdhNVA?oc=5"
     },
     {
       "id": "news_18",
