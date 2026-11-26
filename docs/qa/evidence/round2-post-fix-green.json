@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-11-26T10:15:12.386Z",
+  "baseCommit": "a0a5ccc",
+  "p0_1_multiTabConcurrentNoOverwrite": true,
+  "p0_2_fullBackupRestoreTrashAndCompliance": true,
+  "p0_3_corruptJsonMigrationAbortsSafely": true,
+  "p1_4_indicativeVsFormalQuotation": true,
+  "p1_5_ffdHeavyUnits5x9t": true,
+  "p1_6_quoteRefDeviceTagAndIdbSeq": true,
+  "p1_7_postRoundingProfitFloorGuard": true,
+  "p1_8_gmapsDirectKeyBillingWarnAndProdGuard": true,
+  "p1_9_orderLevelComplianceDecoupled": true
+}

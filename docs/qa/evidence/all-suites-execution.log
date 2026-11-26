@@ -1,0 +1,89 @@
+=== 1. Unit & Worker Concurrency Suite (node --test tests/unit-core-and-worker.test.js) ===
+[FG_INIT_ERROR:BrokenModule] Error: boom
+    at /Users/jasun/Antigravity-project/tests/unit-core-and-worker.test.js:33:50
+    at Object.safeInit (/Users/jasun/Antigravity-project/js/fg-core.js:86:14)
+    at TestContext.<anonymous> (/Users/jasun/Antigravity-project/tests/unit-core-and-worker.test.js:33:11)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.start (node:internal/test_runner/test:1262:17)
+    at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+✔ T01 Security Sanitizers: escHtml, extractCleanDomain, safeHttpUrl & safeInit (1.491625ms)
+✔ T02/T03 Fixed-Point Math & Conservative Default Tax Mode (Small-Scale Taxpayer) (22.616209ms)
+✔ T02/T03 Fastener Auto Precision & CIF Commission Mode A vs Mode B (0.4335ms)
+✔ T04 Container Load Optimizer: 40GP Long Cargo, 30t Single Unit Hard Block, noStack & noRotate (0.260584ms)
+✔ T08 Phone Extension Stripping, Italian Landline Zero & Cross-Country CSV Dedupe (0.780416ms)
+✔ T05 Lossless Stable-ID CRM Lead Merge (id / tlId / quoteId) (4.229084ms)
+✔ T09 Cloudflare Worker & QuotaLimiter Durable Object Atomic Concurrency, Fail-Closed & Security (139.112709ms)
+✔ Round 2 P1-5 / P1-6 / P1-7 / P0-1: 5x9t FFD Packing, Device-Tagged Ref, Post-Rounding Profit Floor & Soft-Delete Protection (0.881083ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 208.582667
+
+=== 2. Round 1 Baseline Regression Proof (node tests/red-baseline-proof.js) ===
+{
+  "capturedAt": "2026-11-26T12:23:51.647Z",
+  "baseCommit": "413f04f",
+  "worker_hasQuotaLimiterDO": true,
+  "bug01_xssSafe": true,
+  "bug02_fastenerNoUnderprice": true,
+  "bug03_conservativeDefaultNoBlind13": true,
+  "bug04_cifIncludesFreightComm": true,
+  "bug05_blocksMultiDry": true,
+  "bug06_oogClearedAndNoStack": true,
+  "bug07_allows40Gp": true,
+  "bug08_crmIndexedDbAuthoritative": true,
+  "bug09_staleCleared": true,
+  "bug10_noFullFallback": true,
+  "bug11_extStripped": true,
+  "bug11_italyZero": true,
+  "bug12_crossCountryKept": true,
+  "bug13_historyPushed": true,
+  "bug14_ddDecoupledRiskDecision": true
+}
+
+=== 3. Round 2 Red-to-Green Proof (node tests/round2-red-baseline.js) ===
+{
+  "capturedAt": "2026-11-26T12:23:54.426Z",
+  "baseCommit": "a0a5ccc",
+  "p0_1_multiTabConcurrentNoOverwrite": true,
+  "p0_2_fullBackupRestoreTrashAndCompliance": true,
+  "p0_3_corruptJsonMigrationAbortsSafely": true,
+  "p1_4_indicativeVsFormalQuotation": true,
+  "p1_5_ffdHeavyUnits5x9t": true,
+  "p1_6_quoteRefDeviceTagAndIdbSeq": true,
+  "p1_7_postRoundingProfitFloorGuard": true,
+  "p1_8_gmapsDirectKeyBillingWarnAndProdGuard": true,
+  "p1_9_orderLevelComplianceDecoupled": true
+}
+
+=== 4. Core E2E, Failure Injection & 10k/10k Stress Suite (node tests/e2e-and-stress.js) ===
+▶ [1/9] Verifying zero errors across all workspaces/tools & popstate Back/Forward...
+▶ [2/9] Verifying legacy localStorage -> IndexedDB migration & backup preservation...
+▶ [3/9] Verifying IndexedDB failure injection (honest error UI, no false save)...
+▶ [4/9] Verifying transactional pre-destructive snapshot & 1-click rollback...
+▶ [5/9] Verifying lossless stable-ID merge restore across divergent backups...
+▶ [6/9] Verifying multi-tab BroadcastChannel live sync...
+▶ [7/9] Verifying Quote DD Gate (unbound warn vs blocked/review hard-lock vs approved)...
+▶ [8/9] Verifying order-bound 6-step #precheck archive & client-switch reset...
+▶ [9/9] Running 10,000 CRM leads & 10,000 CSV rows stress benchmarks...
+
+✅ ALL E2E, FAILURE-INJECTION & 10K/10K STRESS VERIFICATIONS PASSED!
+{
+  "crm10k_dbWriteMs": 288,
+  "crm10k_dbQueryMs": 28,
+  "crm10k_firstScreenRenderMs": 66,
+  "crm10k_filterRerenderMs": 21,
+  "crm10k_clearWithSnapshotMs": 504,
+  "crm10k_snapshotRollbackMs": 400,
+  "csv10k_parseAndFirstRenderMs": 37,
+  "csv10k_filterRerenderMs": 5
+}
+
+=== 5. Python CI Data Freshness & Policy Review Checks ===
+商机数据最后更新：2026-11-26 13:17 北京时间（距今 7.1 小时）｜AI 中文研判：已启用｜异常来源：无
+共核查 12 条政策/海关数据表述，待处理 0 条

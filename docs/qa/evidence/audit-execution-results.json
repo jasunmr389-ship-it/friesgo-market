@@ -1,0 +1,340 @@
+{
+  "executedAt": "2026-11-26T12:21:10.465Z",
+  "gitBranch": "fix/phase1-round2-audit",
+  "headCommit": "a0a5ccc",
+  "screenshots": [
+    "docs/qa/evidence/01-home-and-navigation.png",
+    "docs/qa/evidence/02-quote-formal-and-profit-guard.png",
+    "docs/qa/evidence/03-container-5x9t-ffd.png",
+    "docs/qa/evidence/04-precheck-order-compliance-ledger.png",
+    "docs/qa/evidence/05-crm-10k-windowed-dom.png",
+    "docs/qa/evidence/06-mobile-390x844-quote-view.png"
+  ],
+  "migrationMatrix": {
+    "case1_corruptJsonAbortsAndPreservesRaw": true,
+    "case2_duplicateIdsMergedAndVerified": true,
+    "case3_midMigrationErrorAbortsSafely": true,
+    "case4_interruptedInProgressRecovered": true,
+    "case5_repeatMigrationIdempotent": true,
+    "case6_higherSchemaReadOnlyGuard": true
+  },
+  "multiTabConflictMatrix": {
+    "pass": true,
+    "concurrentTimelineAndFields": {
+      "contact": "Ing. Roberto Garza",
+      "website": "https://mhm.mx",
+      "timelineCount": 5,
+      "hasTabATl": true,
+      "hasTabBTl": true,
+      "quotesCount": 3,
+      "uniqueQuoteIds": 3,
+      "uniqueSeqNums": 3,
+      "refs": [
+        "FG-20261126-MONTER-KKWY-001-V1",
+        "FG-20261126-MONTER-KKWY-002-V1",
+        "FG-20261126-MONTER-KKWY-003-V3"
+      ]
+    },
+    "softDeleteProtection": {
+      "inActive": false,
+      "stayedInTrash": true,
+      "keptTabBLateTimeline": true
+    },
+    "restoredInTabB": true
+  },
+  "e2e20Steps": [
+    {
+      "step": 1,
+      "name": "今日工作台与默认负责人配置",
+      "pass": true,
+      "detail": {
+        "active": true,
+        "owner": "李外贸总监"
+      }
+    },
+    {
+      "step": 2,
+      "name": "今日商机情报源健康度与分类筛选",
+      "pass": true,
+      "detail": {
+        "badgeTxt": "更新：2026-11-26 13:17 北京时间"
+      }
+    },
+    {
+      "step": 3,
+      "name": "146国市场速查检索（越南工业与关税口径）",
+      "pass": true,
+      "detail": {
+        "foundVietnam": true
+      }
+    },
+    {
+      "step": 4,
+      "name": "多国并排对比矩阵（越南/沙特/墨西哥）",
+      "pass": true,
+      "detail": {
+        "hasAll3": true
+      }
+    },
+    {
+      "step": 5,
+      "name": "地图找客户与直连API Key独立计费警示(P1-8)",
+      "pass": true,
+      "detail": {
+        "hasIndependentBillingWarn": true
+      }
+    },
+    {
+      "step": 6,
+      "name": "海外精准搜索语法生成器（墨西哥买家）",
+      "pass": true,
+      "detail": {
+        "dorkLinksCount": 6
+      }
+    },
+    {
+      "step": 7,
+      "name": "CSV清洗：分机剥离、意大利固话保0、跨国同名保留与货代剔除",
+      "pass": true,
+      "detail": {
+        "beforePurge": 4,
+        "afterPurge": 3,
+        "extClean": true,
+        "italyZeroKept": true
+      }
+    },
+    {
+      "step": 8,
+      "name": "从清洗工作台一键建档至IndexedDB客户库",
+      "pass": true,
+      "detail": {
+        "crmCount": 1,
+        "leadId": "ld_mwxiuc21_h5hn",
+        "company": "Delta Industrial Valve Co."
+      }
+    },
+    {
+      "step": 9,
+      "name": "采购决策人企业邮箱格式推演",
+      "pass": true,
+      "detail": {
+        "guessedTxt": "carlos.mendez@deltavalve.mxcmendez@deltavalve.mxcarlos@deltavalve.mxc.mendez@deltavalve.mxcarlosmendez@deltavalve.mxmendez@deltavalve.mxprocurement@deltavalve.mxpurchasing@deltavalve.mx"
+      }
+    },
+    {
+      "step": 10,
+      "name": "实时汇率扣除结汇安全缓冲同步至报价器",
+      "pass": true,
+      "detail": {
+        "syncedFx": 6.6
+      }
+    },
+    {
+      "step": 11,
+      "name": "未背调客户仅生成Indicative初步参考报价(P1-4)",
+      "pass": true,
+      "detail": {
+        "quoteTier": "indicative",
+        "hasIndicative": true,
+        "noFormalLeak": true
+      }
+    },
+    {
+      "step": 12,
+      "name": "舍入后实际利润跌破底线自动预警并阻断报价(P1-7)",
+      "pass": true,
+      "detail": {
+        "floorBlocked": true
+      }
+    },
+    {
+      "step": 13,
+      "name": "禁止交易客户全链路硬拦截（不可切换参考报价绕过）(P1-4)",
+      "pass": true,
+      "detail": {
+        "tierWhenBlocked": "locked",
+        "btnDisabled": true
+      }
+    },
+    {
+      "step": 14,
+      "name": "完成主体与制裁必查并显式审批通过客户背调",
+      "pass": true,
+      "detail": {
+        "ddDecisionSaved": "approved"
+      }
+    },
+    {
+      "step": 15,
+      "name": "5台×9吨不可拆卸重货FFD离散分柜推荐3柜(P1-5)",
+      "pass": true,
+      "detail": {
+        "rec5x9t": "3 × 20'GP 小柜（重货按不可拆单元离散配重分柜）",
+        "is3Containers": true,
+        "summaryEn5x9t": "5 indivisible packages, approx. 37.62 CBM / 45.00 MT (Est. fit: 3 x 20'GP (heavy cargo discrete unit FFD weight checked), subject to forwarder/carrier stowage plan)"
+      }
+    },
+    {
+      "step": 16,
+      "name": "背调通过解锁Formal Quotation并归档V1/V2唯一编号版本(P1-6)",
+      "pass": true,
+      "detail": {
+        "hasFormalHeader": true,
+        "includes3CtnPacking": true,
+        "versionsSaved": [
+          "V1",
+          "V2"
+        ],
+        "refsSaved": [
+          "FG-20261126-DELTAI-KKWY-004-V1",
+          "FG-20261126-DELTAI-KKWY-005-V2"
+        ],
+        "distinctQuoteIds": 2
+      }
+    },
+    {
+      "step": 17,
+      "name": "多语种开发信生成与10大高频异议谈判话术",
+      "pass": true,
+      "detail": {
+        "hasSpanishOrProdEmail": true,
+        "objCards": 10
+      }
+    },
+    {
+      "step": 18,
+      "name": "合规台账按订单号独立绑定、6/6与结论解耦及高风险终端阻断(P1-9)",
+      "pass": true,
+      "detail": {
+        "decoupled6of6Ok": true,
+        "blockedHighRiskWithoutEndUser": true,
+        "ordersArchived": [
+          {
+            "orderRef": "PI-2026-MX-001",
+            "decision": "approved"
+          },
+          {
+            "orderRef": "PI-2026-MX-002",
+            "decision": "rework"
+          }
+        ]
+      }
+    },
+    {
+      "step": 19,
+      "name": "客户主体域名变更触发背调失效并自动将Formal降级回Indicative",
+      "pass": true,
+      "detail": {
+        "staleNow": true,
+        "downgradedTier": "indicative"
+      }
+    },
+    {
+      "step": 20,
+      "name": "含合规台账与回收站的本地事务快照创建及无损回滚(P0-2)",
+      "pass": true,
+      "detail": {
+        "activeCount": 1,
+        "trashCount": 1,
+        "complianceRestoredCount": 2,
+        "snapComplianceCount": 2
+      }
+    }
+  ],
+  "interactiveViewsAudit": {
+    "routerKeysTested": 33,
+    "containersVerified": 41,
+    "allVisibleAndNonEmpty": true,
+    "interactiveChecks": {
+      "marketFilterAndMapToggle": true,
+      "radarMoneyPitch": true,
+      "radarJobsLinks": true,
+      "radarWeatherToggle": true,
+      "radarExposRows": true,
+      "radarAgentsPitch": true,
+      "fxSwapWorked": true,
+      "hsRefRows": true,
+      "bundlesCards": true,
+      "actions10Countries": true,
+      "complianceRedYellow": true,
+      "ytd2026Rows": true,
+      "matrixRows": true,
+      "chinaRows": true,
+      "suppliersRows": true,
+      "scopeScoreTrendControls": true,
+      "market30Rows": true,
+      "sourcesRendered": true
+    }
+  },
+  "crossBrowserBackupRestore": {
+    "pass": true,
+    "beforeActive": 0,
+    "afterActive": 1,
+    "afterTrash": 1,
+    "afterCompliance": 2,
+    "afterCompare": [
+      "Vietnam",
+      "Saudi Arabia",
+      "Mexico"
+    ],
+    "afterOwner": "李外贸总监",
+    "quotesPreserved": 2,
+    "timelinesPreserved": 7,
+    "ordersPreserved": [
+      "PI-2026-MX-001",
+      "PI-2026-MX-002"
+    ],
+    "persistedAfterReload": {
+      "active": 1,
+      "trash": 1,
+      "compliance": 2,
+      "compareList": [
+        "Vietnam",
+        "Saudi Arabia",
+        "Mexico"
+      ],
+      "defaultOwner": "李外贸总监"
+    }
+  },
+  "performance10k": {
+    "crm10k": {
+      "totalRowsTested": 10000,
+      "dbWriteMs": 273,
+      "dbQueryMs": 27,
+      "firstScreenRenderMs": 37,
+      "filterRerenderMs": 26,
+      "domRowsCapLimit": 200,
+      "domRowsActual": 200,
+      "domRowsFilteredVietnam": 200,
+      "exactNeedleMatchRows": 1,
+      "trashTotalInDb": 120,
+      "trashDomCapLimit": 50,
+      "trashDomActual": 50
+    },
+    "csv10k": {
+      "totalRowsTested": 10000,
+      "firstScreenRenderMs": 37,
+      "filterRerenderMs": 18,
+      "domRowsCapLimit": 500,
+      "domRowsActual": 500,
+      "domRowsCleanFilter": 500,
+      "domRowsSuspectFilter": 500
+    }
+  },
+  "mobileAndCrossEngine": {
+    "chromiumMobileViewport390x844": {
+      "pass": true,
+      "viewport": "390x844",
+      "homeNoHorizontalOverflow": true,
+      "quoteActiveOnMobile": true,
+      "quoteNoHorizontalOverflow": true
+    },
+    "safariWebDriverProbe": {
+      "available": false,
+      "httpStatus": 500,
+      "safariDriverMessage": "Could not create a session: You must enable 'Allow remote automation' in the Developer section of Safari Settings to control Safari via WebDriver."
+    },
+    "physicalMobileDeviceNote": "Verified 390x844 DPR=3 mobile touch viewport in headless Chromium; physical iOS/Android hardware & Safari GUI 'Allow remote automation' require interactive device/TouchID authorization outside CLI sandbox."
+  },
+  "runtimePageErrors": []
+}

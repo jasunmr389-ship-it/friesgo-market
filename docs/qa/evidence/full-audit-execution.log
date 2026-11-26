@@ -1,0 +1,54 @@
+▶ [Part A] Testing P0-3 IndexedDB Migration Exception & Integrity Matrix (6 cases)...
+▶ [Part B] Testing real 2-tab concurrent conflicts (timeline, quote seq, field edit, soft-delete, restore)...
+▶ [Part C] Running complete 20-step export business E2E workflow with step-by-step assertions...
+▶ [Part D] Verifying full business JSON backup & clean second-browser-profile restore...
+▶ [Part E] Interactively testing buttons, forms & cross-module actions across all 41 view containers...
+▶ [Part F] Running 10,000 CRM & 10,000 CSV stress tests with split timings & DOM cap checks...
+▶ [Part G] Testing 390x844 mobile viewport navigation & probing macOS safaridriver...
+
+✅ FULL ROUND-2 AUDIT SUITE PASSED! Evidence saved to docs/qa/evidence/
+{
+  "migrationMatrix": {
+    "case1_corruptJsonAbortsAndPreservesRaw": true,
+    "case2_duplicateIdsMergedAndVerified": true,
+    "case3_midMigrationErrorAbortsSafely": true,
+    "case4_interruptedInProgressRecovered": true,
+    "case5_repeatMigrationIdempotent": true,
+    "case6_higherSchemaReadOnlyGuard": true
+  },
+  "e2eStepsPassed": 20,
+  "viewsVerified": 41,
+  "performance10k": {
+    "crm10k": {
+      "totalRowsTested": 10000,
+      "dbWriteMs": 273,
+      "dbQueryMs": 27,
+      "firstScreenRenderMs": 37,
+      "filterRerenderMs": 26,
+      "domRowsCapLimit": 200,
+      "domRowsActual": 200,
+      "domRowsFilteredVietnam": 200,
+      "exactNeedleMatchRows": 1,
+      "trashTotalInDb": 120,
+      "trashDomCapLimit": 50,
+      "trashDomActual": 50
+    },
+    "csv10k": {
+      "totalRowsTested": 10000,
+      "firstScreenRenderMs": 37,
+      "filterRerenderMs": 18,
+      "domRowsCapLimit": 500,
+      "domRowsActual": 500,
+      "domRowsCleanFilter": 500,
+      "domRowsSuspectFilter": 500
+    }
+  },
+  "mobileViewport": {
+    "pass": true,
+    "viewport": "390x844",
+    "homeNoHorizontalOverflow": true,
+    "quoteActiveOnMobile": true,
+    "quoteNoHorizontalOverflow": true
+  },
+  "safariDriverAvailable": false
+}

@@ -497,7 +497,7 @@ async function fetchJson(url) {
 
       return {
         unboundLocked,
-        unboundWarnShown: unboundBanner.includes("风控提醒"),
+        unboundWarnShown: unboundBanner.includes("Indicative Quotation"),
         blockedRfqDisabled,
         blockedCopyDisabled,
         blockedSaveVerDisabled,
@@ -506,7 +506,7 @@ async function fetchJson(url) {
         reviewRfqDisabled,
         approvedRfqDisabled,
         rfqVisible,
-        refNoFormatOk: /^FG-\\d{8}-[A-Z0-9]+-\\d{3}-V\\d+$/.test(refNo),
+        refNoFormatOk: /^FG-\\d{8}-[A-Z0-9]+-[A-Z0-9]{4}-\\d{3}-V\\d+$/.test(refNo),
         refNo
       };
     })()`);
@@ -534,23 +534,31 @@ async function fetchJson(url) {
       bindSel.value = "ld_leg_1";
       bindSel.dispatchEvent(new Event("change", { bubbles: true }));
 
+      document.getElementById("pcOrderRef").value = "PI-20261126-E2E-01";
       document.getElementById("pcProductHs").value = "8481.80 Industrial Gate Valves";
       document.getElementById("pcEndUser").value = "Civil municipal water treatment plant";
+      document.getElementById("pcEvidence").value = "CSL-20261126-CLEAN + EUS-01";
       document.getElementById("pcReviewer").value = "Jasun";
       document.querySelectorAll("#complianceChecklist input[type='checkbox']").forEach(cb => {
         cb.checked = true;
         cb.dispatchEvent(new Event("change", { bubbles: true }));
       });
+      document.getElementById("pcDecision").value = "approved";
+      document.getElementById("pcDecision").dispatchEvent(new Event("change", { bubbles: true }));
       document.getElementById("btnSavePrecheckOrder").click();
       await new Promise(r => setTimeout(r, 250));
 
-      // Switch to Client B -> all 6 checkboxes MUST reset to false!
+      // Switch to Client B -> all 6 checkboxes, orderRef, and decision MUST reset!
       bindSel.value = "ld_leg_2";
       bindSel.dispatchEvent(new Event("change", { bubbles: true }));
       const checkedAfterSwitch = Array.from(document.querySelectorAll("#complianceChecklist input[type='checkbox']")).filter(cb => cb.checked).length;
-      return { checkedAfterSwitch, logsInMem: complianceLogs.length };
+      const orderRefAfterSwitch = document.getElementById("pcOrderRef").value;
+      const decisionAfterSwitch = document.getElementById("pcDecision").value;
+      return { checkedAfterSwitch, orderRefAfterSwitch, decisionAfterSwitch, logsInMem: complianceLogs.length };
     })()`);
     assert.strictEqual(precheckStep1.checkedAfterSwitch, 0, "Switching client must reset all 6 checkboxes");
+    assert.strictEqual(precheckStep1.orderRefAfterSwitch, "", "Switching client must clear orderRef");
+    assert.strictEqual(precheckStep1.decisionAfterSwitch, "pending", "Switching client must reset decision to pending");
     assert.strictEqual(precheckStep1.logsInMem, 1);
 
     await tab1.send("Page.reload");
@@ -561,7 +569,7 @@ async function fetchJson(url) {
       const historyHtml = document.getElementById("pcHistoryBox").innerHTML;
       return {
         persistedLogs: complianceLogs.length,
-        showsArchiveBadge: historyHtml.includes("6/6 全项核查通过") && historyHtml.includes("8481.80 Industrial Gate Valves")
+        showsArchiveBadge: historyHtml.includes("PI-20261126-E2E-01") && historyHtml.includes("审核放行") && historyHtml.includes("8481.80 Industrial Gate Valves")
       };
     })()`);
     assert.strictEqual(precheckAfterReload.persistedLogs, 1);
@@ -569,9 +577,9 @@ async function fetchJson(url) {
     report.results.orderBoundPrecheck = { pass: true, ...precheckStep1, ...precheckAfterReload };
 
     /* =========================================================================
-     * 9. Performance Stress Benchmarks: 10,000 CRM Leads & 5,000 CSV Rows
+     * 9. Performance Stress Benchmarks: 10,000 CRM Leads & 10,000 CSV Rows
      * ========================================================================= */
-    console.log("▶ [9/9] Running 10,000 CRM leads & 5,000 CSV rows stress benchmarks...");
+    console.log("▶ [9/9] Running 10,000 CRM leads & 10,000 CSV rows stress benchmarks...");
     const stressCrm = await tab1.evalJs(`(async () => {
       const countries = ["Vietnam", "Mexico", "Saudi Arabia", "Indonesia", "Brazil", "Poland", "Italy", "Thailand", "Chile", "United Arab Emirates"];
       const stages = ["重点跟进", "已发开发信", "有询盘", "已报价", "谈判逼单中"];
@@ -598,16 +606,25 @@ async function fetchJson(url) {
       await window.FG_STORE.syncActiveLeads(leads10k, { replaceActive: true });
       const syncIdbMs = Math.round(performance.now() - tSync0);
 
-      const tRender0 = performance.now();
+      const tQuery0 = performance.now();
+      const loadedSt = await window.FG_STORE.loadState();
+      const dbQueryMs = Math.round(performance.now() - tQuery0);
+
+      const tFirst0 = performance.now();
       await window.reloadCrmFromStore();
       navigateTo("client-list");
+      const firstScreenRenderMs = Math.round(performance.now() - tFirst0);
+      const domRowsInitial = document.querySelectorAll("#followBody tr.crm-row-tr").length;
+
+      const tFilter0 = performance.now();
       const srch = document.getElementById("crmSearch");
       srch.value = "TargetNeedle9999";
       srch.dispatchEvent(new Event("input", { bubbles: true }));
       const needleRows = document.querySelectorAll("#followBody tr.crm-row-tr").length;
       srch.value = "";
       srch.dispatchEvent(new Event("input", { bubbles: true }));
-      const renderAndSearchMs = Math.round(performance.now() - tRender0);
+      const filterRerenderMs = Math.round(performance.now() - tFilter0);
+      const domRowsAfterClearFilter = document.querySelectorAll("#followBody tr.crm-row-tr").length;
 
       // Soft-delete all 10,000 active leads with pre-destructive snapshot -> verify ZERO truncation!
       const tClear0 = performance.now();
@@ -626,25 +643,32 @@ async function fetchJson(url) {
 
       return {
         syncIdbMs,
-        renderAndSearchMs,
+        dbQueryMs,
+        firstScreenRenderMs,
+        filterRerenderMs,
+        domRowsInitial,
+        domRowsAfterClearFilter,
         clearWithSnapMs,
         rollback10kMs,
         needleRows,
+        loadedActiveCount: loadedSt.activeLeads.length,
         deletedRetainedNoCap: stAfterClear.deletedLeads.length,
         restoredActive10k: stAfterRb.activeLeads.length
       };
     })()`);
     assert.strictEqual(stressCrm.needleRows, 1, "Exact search match in 10,000 CRM rows");
+    assert.strictEqual(stressCrm.domRowsInitial <= 200, true, "CRM paginated DOM rows must not exceed 200");
+    assert.strictEqual(stressCrm.domRowsAfterClearFilter <= 200, true, "CRM paginated DOM rows after filter must not exceed 200");
     assert.ok(stressCrm.deletedRetainedNoCap >= 10000, "All 10,000+ soft-deleted leads retained without 50-item truncation");
     assert.strictEqual(stressCrm.restoredActive10k, 10000, "All 10,000 active leads restored from snapshot");
-    assert.ok(stressCrm.renderAndSearchMs < 3000, `10k CRM render+search (${stressCrm.renderAndSearchMs}ms) must be < 3000ms`);
+    assert.ok(stressCrm.firstScreenRenderMs < 2500, `10k CRM firstScreenRenderMs (${stressCrm.firstScreenRenderMs}ms) must be < 2500ms`);
 
     const stressCsv = await tab1.evalJs(`(async () => {
       navigateTo("csv-workbench");
       document.getElementById("btnClearCsv").click();
       const countries = ["Vietnam", "Mexico", "Italy", "Saudi Arabia", "Indonesia"];
       const lines = ["Company,Country,Email,Phone,Website"];
-      for (let i = 0; i < 5000; i++) {
+      for (let i = 0; i < 10000; i++) {
         const c = countries[i % countries.length];
         const ph = c === "Italy" ? ("02 " + String(10000000 + i)) : ("+52 81 " + String(10000000 + i) + " ext. " + (i % 500));
         lines.push("Multinational Industrial Branch #" + Math.floor(i / 2) + "," + c + ",buyer" + i + "@ind-" + i + ".com," + ph + ",https://ind-" + i + ".com");
@@ -653,31 +677,47 @@ async function fetchJson(url) {
       const t0 = performance.now();
       document.getElementById("csvPasteInput").value = csvText;
       document.getElementById("btnParseCsv").click();
-      const parseAndDedupe5kMs = Math.round(performance.now() - t0);
+      const parseAndFirstRender10kMs = Math.round(performance.now() - t0);
+      const csvDomRows = document.querySelectorAll("#csvTbody tr:not(.csv-more-row)").length;
+
+      const tF0 = performance.now();
+      const suspectBtn = document.querySelector('#csvFilterPills button[data-csvf="suspect"]');
+      const allBtn = document.querySelector('#csvFilterPills button[data-csvf="all"]');
+      if (suspectBtn && allBtn) {
+        suspectBtn.click();
+        allBtn.click();
+      }
+      const csvFilterRerenderMs = Math.round(performance.now() - tF0);
       return {
-        parseAndDedupe5kMs,
+        parseAndFirstRender10kMs,
+        csvFilterRerenderMs,
+        csvDomRows,
         dedupedCount: window.getCsvLeadsCount()
       };
     })()`);
-    assert.strictEqual(stressCsv.dedupedCount, 5000, "All 5,000 distinct rows parsed and retained");
-    assert.ok(stressCsv.parseAndDedupe5kMs < 2000, `5k CSV parse+dedupe (${stressCsv.parseAndDedupe5kMs}ms) must be < 2000ms`);
+    assert.strictEqual(stressCsv.dedupedCount, 10000, "All 10,000 distinct CSV rows parsed and retained");
+    assert.strictEqual(stressCsv.csvDomRows <= 500, true, "CSV paginated DOM rows must not exceed 500");
+    assert.ok(stressCsv.parseAndFirstRender10kMs < 3000, `10k CSV parse+render (${stressCsv.parseAndFirstRender10kMs}ms) must be < 3000ms`);
 
     assert.strictEqual(tab1.pageErrors.length, 0, "Zero uncaught runtime/console errors throughout entire E2E & stress run");
 
     report.timingsMs = {
-      crm10k_syncIdbMs: stressCrm.syncIdbMs,
-      crm10k_renderAndSearchMs: stressCrm.renderAndSearchMs,
+      crm10k_dbWriteMs: stressCrm.syncIdbMs,
+      crm10k_dbQueryMs: stressCrm.dbQueryMs,
+      crm10k_firstScreenRenderMs: stressCrm.firstScreenRenderMs,
+      crm10k_filterRerenderMs: stressCrm.filterRerenderMs,
       crm10k_clearWithSnapshotMs: stressCrm.clearWithSnapMs,
       crm10k_snapshotRollbackMs: stressCrm.rollback10kMs,
-      csv5k_parseAndDedupeMs: stressCsv.parseAndDedupe5kMs
+      csv10k_parseAndFirstRenderMs: stressCsv.parseAndFirstRender10kMs,
+      csv10k_filterRerenderMs: stressCsv.csvFilterRerenderMs
     };
     report.results.stress10kCrm = { pass: true, ...stressCrm };
-    report.results.stress5kCsv = { pass: true, ...stressCsv };
+    report.results.stress10kCsv = { pass: true, ...stressCsv };
     report.pageErrors = tab1.pageErrors;
 
     fs.mkdirSync(path.join(ROOT, "tests/artifacts"), { recursive: true });
     fs.writeFileSync(path.join(ROOT, "tests/artifacts/e2e-stress-report.json"), JSON.stringify(report, null, 2));
-    console.log("\n✅ ALL E2E, FAILURE-INJECTION & 10K STRESS VERIFICATIONS PASSED!");
+    console.log("\n✅ ALL E2E, FAILURE-INJECTION & 10K/10K STRESS VERIFICATIONS PASSED!");
     console.log(JSON.stringify(report.timingsMs, null, 2));
 
     tab1.ws.close();

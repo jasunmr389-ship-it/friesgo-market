@@ -365,7 +365,89 @@ test("T09 Cloudflare Worker & QuotaLimiter Durable Object Atomic Concurrency, Fa
     assert.equal(okCount, 30, `Expected exact 30 allowed (921..950), got ${okCount}`);
     assert.equal(blockedCount, 20, `Expected exact 20 blocked with 429, got ${blockedCount}`);
     assert.equal(upstreamCalls, 30, `Expected exact 30 upstream Google calls, got ${upstreamCalls}`);
+    assert.equal(responses.find(r => r.status === 200).headers.get("X-Quota-Mode"), "durable-object");
+
+    // 7. Round 2 P1-8: ENVIRONMENT="production" MUST block ALLOW_UNMETERED_DEV="true" (Fail-Closed 503)
+    const rProdBypassBlocked = await worker.fetch(new Request("https://proxy.example.com/", {
+      method: "POST",
+      headers: { Origin: "https://jasunmr389-ship-it.github.io", "X-Team-Pass": "fg-secret-2026", "Content-Type": "application/json" },
+      body: JSON.stringify({ textQuery: "valve" })
+    }), { ...baseEnv, QUOTA_LIMITER: null, ALLOW_UNMETERED_DEV: "true", ENVIRONMENT: "production" });
+    assert.equal(rProdBypassBlocked.status, 503);
   } finally {
     global.fetch = origFetch;
   }
 });
+
+test("Round 2 P1-5 / P1-6 / P1-7 / P0-1: 5x9t FFD Packing, Device-Tagged Ref, Post-Rounding Profit Floor & Soft-Delete Protection", () => {
+  // P1-5: 5 indivisible machines x 9,000 kg = 45t on 26t container limit -> 2 per container max (18t <= 26t, 3x9t=27t > 26t) => MUST be 3 containers!
+  const c5x9t = FG_CORE.computeContainerLoad(
+    [{ name: "9t重型数控立车", l: 220, w: 180, h: 190, kg: 9000, qty: 5, noStack: false, noRotate: false }],
+    { routeMode: "std", packMode: "crate" }
+  );
+  assert.equal(c5x9t.ok, true);
+  assert.ok(/^3\s*×/.test(c5x9t.rec), `Expected 3 containers for 5x9t on 26t limit, got: ${c5x9t.rec}`);
+
+  // Mixed FFD: 3 x 15t + 3 x 10t (total 75t) on 26t limit -> FFD pairs (15t + 10t = 25t <= 26t) into 3 containers!
+  const cMixedFfd = FG_CORE.computeContainerLoad(
+    [
+      { name: "10t辅机", l: 150, w: 120, h: 150, kg: 10000, qty: 3 },
+      { name: "15t主机", l: 200, w: 150, h: 180, kg: 15000, qty: 3 }
+    ],
+    { routeMode: "std", packMode: "crate" }
+  );
+  assert.ok(/^3\s*×/.test(cMixedFfd.rec), `Expected FFD to pair 15t+10t into 3 containers, got: ${cMixedFfd.rec}`);
+
+  // P1-6: Device-tagged Quote Reference format + backward compatibility
+  const refWithDev = FG_CORE.formatQuoteRef({ dateStr: "2026-11-26", clientName: "Saigon Valve JSC", deviceTag: "A9F2", seq: 7, version: 2 });
+  assert.equal(refWithDev, "FG-20261126-SAIGON-A9F2-007-V2");
+  const refLegacy = FG_CORE.formatQuoteRef({ dateStr: "2026-11-26", clientName: "Saigon Valve JSC", seq: 7, version: 2 });
+  assert.equal(refLegacy, "FG-20261126-SAIGON-007-V2");
+
+  // P1-7: Post-rounding profit floor guard & conservative 0-rebate negative warning
+  const qBelowFloor = FG_CORE.computeQuote({
+    priceMode: "unit",
+    taxMode: "vat_rebate",
+    rawFac: "10000",
+    qty: 5,
+    fx: "7.2",
+    vatPct: 13,
+    rebPct: 13,
+    marginPct: 6,
+    minMarginFloorPct: 10
+  });
+  assert.equal(qBelowFloor.ok, true);
+  assert.equal(qBelowFloor.belowProfitFloor, true);
+  assert.equal(qBelowFloor.conservativeNegativeWarn, true); // 6% post-rebate margin with 13% rebate => negative if rebate is denied!
+  assert.ok(qBelowFloor.quoteId.startsWith("qt_"));
+
+  // P0-1: Soft-delete protection against stale background tab overwrite + monotonic _rev
+  const softDeletedInDb = {
+    id: "ld_del_race",
+    company: "Deleted Corp",
+    country: "Vietnam",
+    deletedAt: 1795600099000,
+    deletedAtStr: "2026-11-26 17:00",
+    deletedBy: "TabA",
+    deleteReason: "风控淘汰",
+    _rev: 4,
+    updatedAt: 1795600099000,
+    timeline: [{ tlId: "tl_a", ts: "2026-11-26 16:50", result: "TabA记录" }],
+    quotes: []
+  };
+  const staleActiveFromTabB = {
+    id: "ld_del_race",
+    company: "Deleted Corp",
+    country: "Vietnam",
+    deletedAt: null,
+    _rev: 3,
+    updatedAt: 1795600105000,
+    timeline: [{ tlId: "tl_b", ts: "2026-11-26 17:01", result: "TabB并发跟进不丢失" }],
+    quotes: []
+  };
+  const protectedMerge = FG_CORE.mergeLeadRecord(softDeletedInDb, staleActiveFromTabB, { respectExistingSoftDelete: true });
+  assert.equal(protectedMerge.deletedAt, 1795600099000, "Soft-deleted lead MUST NOT be resurrected by stale tab");
+  assert.equal(protectedMerge.timeline.length, 2, "Concurrent timeline from Tab B still safely preserved in trash record");
+  assert.equal(protectedMerge._rev, 5, "Monotonic _rev incremented");
+});
+
