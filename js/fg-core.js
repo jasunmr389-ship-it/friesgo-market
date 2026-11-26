@@ -250,9 +250,11 @@
       datePart = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
     }
     var code = sanitizeClientCode(o.clientName || o.country || "GEN");
+    var devRaw = String(o.deviceTag || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    var devPart = devRaw ? ("-" + devRaw.slice(0, 4).padEnd(4, "X")) : "";
     var seqNum = Math.max(1, parseInt(o.seq || 1, 10) || 1);
     var verNum = Math.max(1, parseInt(o.version || 1, 10) || 1);
-    return "FG-" + datePart + "-" + code + "-" + String(seqNum).padStart(3, "0") + "-V" + verNum;
+    return "FG-" + datePart + "-" + code + devPart + "-" + String(seqNum).padStart(3, "0") + "-V" + verNum;
   }
 
   /**
@@ -452,14 +454,36 @@
     var breakEvenUnitUsdS = divScaled(divScaled(pricingTotalCostRmbS, fxS, "ceil"), mulScaled(breakEvenDenomS, qtyS), "ceil");
     var fxDropLossRmb = Math.round(fromScaled(mulScaled(fobUsdS, mulScaled(fxS, toScaled("0.03"))), 2));
 
+    // Post-rounding actual profit floor check (evaluated strictly AFTER external unit/total/commission/insurance rounding)
+    var minFloorRaw = Number(p.minMarginFloorPct);
+    var minFloorPctNum = (Number.isFinite(minFloorRaw) && minFloorRaw > 0) ? Math.min(80, minFloorRaw) : 0;
+    var isLossAfterRounding = (fobProfitPricingRmbS < 0n || cifProfitPricingRmbS < 0n);
+    var isBelowFobFloor = minFloorPctNum > 0 && (fobMarginPricingPct + 1e-6 < minFloorPctNum);
+    var isBelowCifPctFloor = minFloorPctNum > 0 && commBasis === "cif_keep_pct" && frtUsdS > 0n && (cifMarginPricingPct + 1e-6 < minFloorPctNum);
+    var belowProfitFloor = isLossAfterRounding || isBelowFobFloor || isBelowCifPctFloor;
+    var conservativeNegativeWarn = (fobProfitConsRmbS < 0n || cifProfitConsRmbS < 0n);
+    var profitFloorMsg = "";
+    if (isLossAfterRounding) {
+      profitFloorMsg = "⛔ 舍入后实得净利为负（FOB ¥" + fromScaled(fobProfitPricingRmbS, 2).toFixed(2) + " / CIF ¥" + fromScaled(cifProfitPricingRmbS, 2).toFixed(2) + "），严禁按此价格对外正式报价！";
+    } else if (belowProfitFloor) {
+      profitFloorMsg = "⚠️ 最终对外舍入后实际净利率（FOB " + fobMarginPricingPct.toFixed(2) + "%" + (frtUsdS > 0n ? (" / CIF " + cifMarginPricingPct.toFixed(2) + "%") : "") + "）低于设定的公司最低利润红线（" + minFloorPctNum.toFixed(1) + "%），已拦截正式报价输出，请上调目标利润率或经管理层特批调整底线！";
+    } else if (conservativeNegativeWarn) {
+      profitFloorMsg = "⚠️ 退税依赖风险：当前报价建立在出口退税抵扣基础上，若退税受阻（按保守不退税口径），本单将亏损 ¥" + Math.abs(fromScaled(fobProfitConsRmbS, 2)).toFixed(2) + "，请务必确认进项专票与退税率无误！";
+    }
+
     return {
       ok: true,
+      quoteId: p.quoteId || genStableId("qt"),
       taxMode: taxMode,
       commBasis: commBasis,
       decimals: decFob,
       cifDecimals: decCif,
       isAutoDecimals: isAutoDec,
       precisionNote: precisionNote,
+      minMarginFloorPct: minFloorPctNum,
+      belowProfitFloor: belowProfitFloor,
+      conservativeNegativeWarn: conservativeNegativeWarn,
+      profitFloorMsg: profitFloorMsg,
 
       facBaseRmb: fromScaled(facBaseRmbS, 2),
       payableProcRmb: fromScaled(payableProcRmbS, 2),
@@ -677,7 +701,69 @@
       rec = "1 × 40'HQ 高柜";
       recEn = "1 x 40'HQ";
     } else {
-      // Multi-container calculation (only reached when NO single unit exceeds route container payload or OOG)
+      // Multi-container calculation with First-Fit Decreasing (FFD) discrete unit packing (P1-5)
+      function packDiscreteFFD(cVol, cWt, cArea, colH) {
+        var preBins = 0;
+        var items = [];
+        for (var idx = 0; idx < list.length; idx++) {
+          var row = list[idx];
+          var uCbm = (row.l * row.w * row.h) / 1000000;
+          var uArea = row.noStack ? ((row.l * row.w) / 10000) : 0;
+          var eVol = row.noStack ? Math.max(uCbm, uArea * colH) : uCbm;
+          var uTon = row.kg / 1000;
+          if (uTon > cWt + 1e-9 || eVol > cVol + 1e-9 || uArea > cArea + 1e-9) {
+            return Infinity;
+          }
+          var remQty = row.qty;
+          if (remQty > 400) {
+            var maxPerBin = Math.min(
+              uTon > 0 ? Math.floor((cWt + 1e-9) / uTon) : 1e9,
+              eVol > 0 ? Math.floor((cVol + 1e-9) / eVol) : 1e9,
+              uArea > 0 ? Math.floor((cArea + 1e-9) / uArea) : 1e9
+            );
+            if (maxPerBin < 1) return Infinity;
+            var batchBins = Math.max(0, Math.floor((remQty - 200) / maxPerBin));
+            preBins += batchBins;
+            remQty -= batchBins * maxPerBin;
+          }
+          var domRatio = Math.max(
+            cWt > 0 ? (uTon / cWt) : 0,
+            cVol > 0 ? (eVol / cVol) : 0,
+            uArea > 0 && cArea > 0 ? (uArea / cArea) : 0
+          );
+          for (var q = 0; q < remQty; q++) {
+            items.push({ wt: uTon, vol: eVol, area: uArea, score: domRatio });
+          }
+        }
+        items.sort(function (a, b) {
+          if (Math.abs(b.score - a.score) > 1e-9) return b.score - a.score;
+          return b.wt - a.wt;
+        });
+        var bins = [];
+        for (var m = 0; m < items.length; m++) {
+          var it = items[m];
+          var placed = false;
+          for (var b = 0; b < bins.length; b++) {
+            var bin = bins[b];
+            if (
+              bin.wt + it.wt <= cWt + 1e-9 &&
+              bin.vol + it.vol <= cVol + 1e-9 &&
+              bin.area + it.area <= cArea + 1e-9
+            ) {
+              bin.wt += it.wt;
+              bin.vol += it.vol;
+              bin.area += it.area;
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) {
+            bins.push({ wt: it.wt, vol: it.vol, area: it.area });
+          }
+        }
+        return preBins + bins.length;
+      }
+
       var byVol40Hq = Math.ceil(effCbmWithNoStackHq / cap40HqVol);
       var byVol40Gp = Math.ceil(effCbmWithNoStackGp / cap40GpVol);
       var byArea40 = Math.ceil(noStackAreaM2 / floorArea40);
@@ -685,37 +771,33 @@
       var byWt20 = Math.ceil(totTon / maxWt20);
       var byArea20 = Math.ceil(noStackAreaM2 / floorArea20);
       var byVol20 = Math.ceil(effCbmWithNoStackGp / cap20Vol);
-      var n20 = Math.max(byWt20, byArea20, byVol20);
-      var n40Hq = Math.max(byVol40Hq, byWt40, byArea40);
-      var n40Gp = Math.max(byVol40Gp, byWt40, byArea40);
 
-      // Discrete indivisible weight check: e.g. two 15t machines in a 26t limit route CANNOT fit in 2 * 26t? They CAN (1 per box = 2 boxes), whereas three 15t machines (45t) ceil(45/26)=2 boxes CANNOT hold 3 * 15t -> needs 3 boxes!
-      var heavyCountOverHalf20 = 0, heavyCountOverHalf40 = 0;
-      for (var hIdx = 0; hIdx < list.length; hIdx++) {
-        var uTon = list[hIdx].kg / 1000;
-        if (uTon > maxWt20 / 2) heavyCountOverHalf20 += list[hIdx].qty;
-        if (uTon > maxWt40 / 2) heavyCountOverHalf40 += list[hIdx].qty;
-      }
-      if (heavyCountOverHalf20 > n20) n20 = heavyCountOverHalf20;
-      if (heavyCountOverHalf40 > n40Hq) n40Hq = heavyCountOverHalf40;
-      if (heavyCountOverHalf40 > n40Gp) n40Gp = heavyCountOverHalf40;
+      var ffd20 = forbid20Gp ? Infinity : packDiscreteFFD(cap20Vol, maxWt20, floorArea20, 2.20);
+      var ffd40Gp = forbid40GpByHeight ? Infinity : packDiscreteFFD(cap40GpVol, maxWt40, floorArea40, 2.20);
+      var ffd40Hq = packDiscreteFFD(cap40HqVol, maxWt40, floorArea40, 2.50);
+
+      var n20 = Math.max(byWt20, byArea20, byVol20, Number.isFinite(ffd20) ? ffd20 : 0);
+      var n40Hq = Math.max(byVol40Hq, byWt40, byArea40, Number.isFinite(ffd40Hq) ? ffd40Hq : 0);
+      var n40Gp = Math.max(byVol40Gp, byWt40, byArea40, Number.isFinite(ffd40Gp) ? ffd40Gp : 0);
+      var discreteBump = (Number.isFinite(ffd40Hq) && ffd40Hq > Math.max(byVol40Hq, byWt40, byArea40)) ||
+                         (Number.isFinite(ffd20) && ffd20 > Math.max(byWt20, byArea20, byVol20));
 
       if (forbid40GpByHeight) {
-        rec = n40Hq + " × 40'HQ 高柜（含超高/不可叠放/限重校核）";
-        recEn = n40Hq + " x 40'HQ (height, floor & weight checked)";
+        rec = n40Hq + " × 40'HQ 高柜（含超高/不可叠放/离散限重校核）";
+        recEn = n40Hq + " x 40'HQ (height, floor & discrete unit weight checked)";
       } else if (forbid20Gp) {
-        if (n40Gp <= n40Hq && effCbmWithNoStackGp <= n40Gp * cap40GpVol) {
+        if (Number.isFinite(ffd40Gp) && n40Gp <= n40Hq && effCbmWithNoStackGp <= n40Gp * cap40GpVol) {
           rec = n40Gp + " × 40'GP 平柜（或同数 40'HQ）";
           recEn = n40Gp + " x 40'GP (or 40'HQ)";
         } else {
-          rec = n40Hq + " × 40'HQ 高柜（含超长/限重校核）";
-          recEn = n40Hq + " x 40'HQ (length & weight checked)";
+          rec = n40Hq + " × 40'HQ 高柜（含超长/离散限重校核）";
+          recEn = n40Hq + " x 40'HQ (length & discrete unit weight checked)";
         }
-      } else if (byWt20 > byVol40Hq && n20 === byWt20 && maxWt20 >= 19) {
-        rec = n20 + " × 20'GP 小柜（重货按航线限重分柜）";
-        recEn = n20 + " x 20'GP (heavy cargo route weight checked)";
+      } else if (Number.isFinite(ffd20) && n20 <= n40Hq && (byWt20 > byVol40Hq || discreteBump) && maxWt20 >= 19) {
+        rec = n20 + " × 20'GP 小柜（重货按不可拆单元离散配重分柜）";
+        recEn = n20 + " x 20'GP (heavy cargo discrete unit FFD weight checked)";
       } else {
-        rec = n40Hq + " × 40'HQ 高柜（按实装容积/底面积/限重）";
+        rec = n40Hq + " × 40'HQ 高柜（按实装容积/底面积/离散限重）";
         recEn = n40Hq + " x 40'HQ";
       }
     }
@@ -900,7 +982,8 @@
     return x;
   }
 
-  function mergeLeadRecord(existingRaw, incomingRaw) {
+  function mergeLeadRecord(existingRaw, incomingRaw, opts) {
+    var o = opts || {};
     var a = normalizeLeadForStore(existingRaw);
     var b = normalizeLeadForStore(incomingRaw);
     var aMs = parseTsMs(a.updatedAt);
@@ -914,7 +997,7 @@
     // Never overwrite non-empty scalar fields with empty strings
     var scalarFields = [
       "company", "country", "contact", "role", "email", "phone",
-      "website", "stage", "source", "nextDate", "note", "product", "estUsd"
+      "website", "stage", "source", "nextDate", "note", "product", "estUsd", "owner", "leadType"
     ];
     for (var i = 0; i < scalarFields.length; i++) {
       var f = scalarFields[i];
@@ -929,19 +1012,19 @@
     var tlMap = new Map();
     [a.timeline, b.timeline].forEach(function (arr) {
       (arr || []).forEach(function (item) {
-        if (!item || (!item.txt && !item.tlId)) return;
+        if (!item || (!item.txt && !item.result && !item.tlId)) return;
         var prev = tlMap.get(item.tlId);
         if (!prev) {
           tlMap.set(item.tlId, Object.assign({}, item));
         } else {
-          var prevMs = parseTsMs(prev.editedAt || prev.ts);
-          var curMs = parseTsMs(item.editedAt || item.ts);
+          var prevMs = parseTsMs(prev.editedAt || prev.ts || prev.at);
+          var curMs = parseTsMs(item.editedAt || item.ts || item.at);
           if (curMs >= prevMs) tlMap.set(item.tlId, Object.assign({}, prev, item));
         }
       });
     });
     out.timeline = Array.from(tlMap.values()).sort(function (x, y) {
-      return String(y.ts || "").localeCompare(String(x.ts || ""));
+      return String(y.ts || y.at || "").localeCompare(String(x.ts || x.at || ""));
     });
 
     // Merge quotes by stable `quoteId`
@@ -972,24 +1055,33 @@
       out.ddRecord = b.ddRecord || a.ddRecord || null;
     }
 
-    // Soft-delete resolution: keep active if updated after deletion; otherwise preserve soft-delete metadata
+    // Soft-delete resolution:
+    // If `respectExistingSoftDelete` is set (background/concurrent tab save), NEVER resurrect an already soft-deleted DB record!
     var delA = a.deletedAt ? parseTsMs(a.deletedAt) : 0;
     var delB = b.deletedAt ? parseTsMs(b.deletedAt) : 0;
-    if (delA || delB) {
+    if (o.respectExistingSoftDelete && delA) {
+      out.deletedAt = a.deletedAt;
+      out.deletedAtStr = a.deletedAtStr || "";
+      out.deletedBy = a.deletedBy || "";
+      out.deleteReason = a.deleteReason || "";
+    } else if (delA || delB) {
       var latestDel = Math.max(delA, delB);
       var latestActiveUpdate = Math.max(!a.deletedAt ? aMs : 0, !b.deletedAt ? bMs : 0);
       if (latestActiveUpdate > latestDel) {
         delete out.deletedAt;
+        delete out.deletedAtStr;
         delete out.deletedBy;
         delete out.deleteReason;
       } else {
         var delSrc = delB >= delA ? b : a;
         out.deletedAt = delSrc.deletedAt;
+        out.deletedAtStr = delSrc.deletedAtStr || "";
         out.deletedBy = delSrc.deletedBy || "";
         out.deleteReason = delSrc.deleteReason || "";
       }
     }
 
+    out._rev = Math.max(Number(a._rev || 0), Number(b._rev || 0)) + 1;
     out.createdAt = (parseTsMs(a.createdAt) && parseTsMs(b.createdAt))
       ? (parseTsMs(a.createdAt) <= parseTsMs(b.createdAt) ? a.createdAt : b.createdAt)
       : (a.createdAt || b.createdAt);

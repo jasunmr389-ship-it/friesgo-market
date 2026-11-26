@@ -254,6 +254,7 @@ export default {
           info: qData.info,
           high: qData.high,
           tier: qData.tier,
+          mode: "durable-object",
         };
       } catch (err) {
         return jsonResp(
@@ -262,14 +263,21 @@ export default {
           cors
         );
       }
-    } else if (String(env.ALLOW_UNMETERED_DEV || "") !== "true") {
-      return jsonResp(
-        {
-          error: "服务端未绑定 QUOTA_LIMITER (Durable Object)，已默认阻断请求 (Fail-Closed 503) 以防无上限计费。",
-        },
-        503,
-        cors
-      );
+    } else {
+      const isProdEnv = String(env.ENVIRONMENT || "").trim().toLowerCase() === "production";
+      const allowDevBypass = !isProdEnv && String(env.ALLOW_UNMETERED_DEV || "") === "true";
+      if (!allowDevBypass) {
+        return jsonResp(
+          {
+            error: isProdEnv
+              ? "生产环境严禁使用 ALLOW_UNMETERED_DEV 绕过限额，必须绑定 QUOTA_LIMITER (Durable Object)！已执行安全熔断 (Fail-Closed 503)。"
+              : "服务端未绑定 QUOTA_LIMITER (Durable Object)，已默认阻断请求 (Fail-Closed 503) 以防无上限计费。",
+          },
+          503,
+          cors
+        );
+      }
+      quotaMeta.mode = "unmetered-dev";
     }
 
     // 5. Upstream Google Places API call (NEVER refund quota once initiated, as upstream may bill)
@@ -280,6 +288,11 @@ export default {
     };
     if (body.pageToken) payload.pageToken = String(body.pageToken).slice(0, 512);
     if (body.languageCode) payload.languageCode = String(body.languageCode).slice(0, 16);
+
+    const quotaHeaders = {
+      ...cors,
+      "X-Quota-Mode": quotaMeta.mode || "durable-object",
+    };
 
     let gRes;
     try {
@@ -303,7 +316,7 @@ export default {
           quotaTier: quotaMeta.tier,
         },
         502,
-        cors
+        quotaHeaders
       );
     }
 
@@ -322,7 +335,7 @@ export default {
           quotaTier: quotaMeta.tier,
         },
         502,
-        cors
+        quotaHeaders
       );
     }
 
@@ -343,10 +356,11 @@ export default {
         quotaWarnInfo: quotaMeta.info,
         quotaWarnHigh: quotaMeta.high,
         quotaTier: quotaMeta.tier,
+        quotaMode: quotaMeta.mode || "durable-object",
         quotaNotice,
       },
       gRes.ok ? 200 : gRes.status,
-      cors
+      quotaHeaders
     );
   },
 };

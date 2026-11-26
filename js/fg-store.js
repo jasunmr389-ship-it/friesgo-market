@@ -1,10 +1,10 @@
 /**
- * FriesGo Global - IndexedDB Authoritative Local Persistence & Snapshot Engine (Phase 1 T05/T06)
+ * FriesGo Global - IndexedDB Authoritative Local Persistence, Concurrency Merge & Snapshot Engine
  * Single Source of Truth for:
- *   1. `leads`: Active & Soft-Deleted CRM leads (no 50/500 cap truncation; stable `id`/`tlId`/`quoteId`)
- *   2. `snapshots`: Transactional pre-destructive snapshots with 1-click rollback
+ *   1. `leads`: Active & Soft-Deleted CRM leads (transactional read-merge-write, monotonic `_rev`, soft-delete resurrection guard)
+ *   2. `snapshots`: Transactional pre-destructive snapshots covering BOTH `leads` AND `compliance_logs` with 1-click rollback
  *   3. `compliance_logs`: Order-bound 6-step pre-shipment export compliance records
- *   4. `meta`: Schema version guard & idempotent migration audit record
+ *   4. `meta`: Schema version guard, 2-phase verified migration audit, persistent `deviceTag`, and atomic daily quote sequences
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -22,17 +22,54 @@
   var BUS_NAME = "friesgo_crm_bus";
 
   var _dbPromise = null;
+  var _liveDbRef = null;
   var _tabId = FG_CORE.genStableId("tab");
   var _bus = null;
   var _changeListeners = [];
   var _readOnlyHigherSchema = false;
+  var _deviceTag = "";
+  var _quoteSeqCache = Object.create(null);
+
+  function genDeviceTag4() {
+    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var out = "";
+    for (var i = 0; i < 4; i++) {
+      out += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return out;
+  }
+
+  function ensureLocalDeviceTag() {
+    if (_deviceTag) return _deviceTag;
+    try {
+      var saved = localStorage.getItem("friesgo_device_tag");
+      if (saved && /^[A-Z0-9]{4}$/.test(saved)) {
+        _deviceTag = saved;
+        return _deviceTag;
+      }
+    } catch (_) {}
+    _deviceTag = genDeviceTag4();
+    try { localStorage.setItem("friesgo_device_tag", _deviceTag); } catch (_) {}
+    return _deviceTag;
+  }
 
   var api = {
     DB_NAME: DB_NAME,
     APP_SCHEMA_VERSION: APP_SCHEMA_VERSION,
     tabId: _tabId,
     _simulateFailure: false,
-    isReadOnlyHigherSchema: function () { return _readOnlyHigherSchema; }
+    isReadOnlyHigherSchema: function () { return _readOnlyHigherSchema; },
+    getDeviceTag: function () { return ensureLocalDeviceTag(); },
+    _resetForTest: function () {
+      if (_liveDbRef) {
+        try { _liveDbRef.close(); } catch (_) {}
+        _liveDbRef = null;
+      }
+      _dbPromise = null;
+      _readOnlyHigherSchema = false;
+      _deviceTag = "";
+      _quoteSeqCache = Object.create(null);
+    }
   };
 
   function initBus() {
@@ -42,6 +79,12 @@
       _bus.onmessage = function (ev) {
         var msg = ev && ev.data;
         if (!msg || msg.tabId === _tabId) return;
+        if (msg.type === "qseq_bumped" && msg.dateKey && msg.seq) {
+          if ((_quoteSeqCache[msg.dateKey] || 0) < msg.seq) {
+            _quoteSeqCache[msg.dateKey] = msg.seq;
+          }
+          return;
+        }
         for (var i = 0; i < _changeListeners.length; i++) {
           try { _changeListeners[i](msg); } catch (_) {}
         }
@@ -102,8 +145,10 @@
       };
       req.onsuccess = function (ev) {
         var db = ev.target.result;
+        _liveDbRef = db;
         db.onversionchange = function () {
           db.close();
+          _liveDbRef = null;
           _dbPromise = null;
         };
         resolve(db);
@@ -181,6 +226,7 @@
       if (!item.result && item.txt) item.result = item.txt;
       return item;
     });
+    if (!norm._rev || typeof norm._rev !== "number") norm._rev = 1;
     return norm;
   }
 
@@ -195,57 +241,90 @@
     return { active: active, deleted: deleted, timelines: timelines, quotes: quotes };
   }
 
+  function recordsIdenticalFast(ex, inc) {
+    if (!ex || !inc) return false;
+    if (!!ex.deletedAt !== !!inc.deletedAt) return false;
+    if (Number(ex.updatedAt || 0) !== Number(inc.updatedAt || 0)) return false;
+    if ((ex.timeline ? ex.timeline.length : 0) !== (inc.timeline ? inc.timeline.length : 0)) return false;
+    if ((ex.quotes ? ex.quotes.length : 0) !== (inc.quotes ? inc.quotes.length : 0)) return false;
+    if (String(ex.company || "") !== String(inc.company || "")) return false;
+    if (String(ex.stage || "") !== String(inc.stage || "")) return false;
+    if (String(ex.nextDate || "") !== String(inc.nextDate || "")) return false;
+    if (String(ex.phone || "") !== String(inc.phone || "")) return false;
+    if (String(ex.email || "") !== String(inc.email || "")) return false;
+    if (String(ex.note || "") !== String(inc.note || "")) return false;
+    var ddA = ex.ddRecord ? (ex.ddRecord.decision + "|" + ex.ddRecord.checkedAt) : "";
+    var ddB = inc.ddRecord ? (inc.ddRecord.decision + "|" + inc.ddRecord.checkedAt) : "";
+    return ddA === ddB;
+  }
+
   /**
-   * Initialize IndexedDB & run idempotent lossless migration from legacy localStorage if needed.
+   * Initialize IndexedDB & run strict two-phase verified migration from legacy localStorage (P0-3).
+   * - Never silently swallows corrupted JSON! Aborts migration, preserves untouched raw localStorage keys, and surfaces error.
+   * - Commits `migratedAt` ONLY in Phase 3 AFTER Phase 2 readback integrity verification passes!
    */
   api.init = function (opts) {
     var o = opts || {};
     initBus();
+    ensureLocalDeviceTag();
 
-    // Check localStorage schema guard first
     try {
       var guardRaw = localStorage.getItem("friesgo_schema_guard");
       if (guardRaw) {
         var guard = JSON.parse(guardRaw);
-        if (guard && Number(guard.version) > APP_SCHEMA_VERSION) {
+        var gVer = (typeof guard === "number") ? guard : Number(guard && guard.version);
+        if (gVer > APP_SCHEMA_VERSION) {
           _readOnlyHigherSchema = true;
         }
       }
     } catch (_) {}
 
     return runTx(["meta", "leads"], "readonly", function (tx, setRes) {
-      var metaReq = tx.objectStore("meta").get("schema");
+      var mStore = tx.objectStore("meta");
+      var metaReq = mStore.get("schema");
+      var devReq = mStore.get("device_tag");
       var allReq = tx.objectStore("leads").getAll();
       metaReq.onsuccess = function () {
-        allReq.onsuccess = function () {
-          setRes({
-            schema: metaReq.result || null,
-            leads: allReq.result || []
-          });
+        devReq.onsuccess = function () {
+          allReq.onsuccess = function () {
+            setRes({
+              schema: metaReq.result || null,
+              devRec: devReq.result || null,
+              leads: allReq.result || []
+            });
+          };
         };
       };
     }).then(function (initial) {
+      if (initial.devRec && initial.devRec.tag && /^[A-Z0-9]{4}$/.test(initial.devRec.tag)) {
+        _deviceTag = initial.devRec.tag;
+        try { localStorage.setItem("friesgo_device_tag", _deviceTag); } catch (_) {}
+      }
       if (initial.schema && Number(initial.schema.version) > APP_SCHEMA_VERSION) {
         _readOnlyHigherSchema = true;
         return api.loadState();
       }
-      if (initial.schema && initial.schema.migratedAt) {
-        // Already migrated idempotently; ensure legacy full-data localStorage keys are cleaned up if still lingering
+      if (initial.schema && initial.schema.migrationStatus === "verified" && initial.schema.migratedAt) {
+        // Already verified & committed; clean up lingering live keys ONLY if valid JSON or backup exists
         try {
-          if (localStorage.getItem("friesgo_leads_v2")) {
+          var remV2 = localStorage.getItem("friesgo_leads_v2");
+          if (remV2) {
+            JSON.parse(remV2); // Verify parseable before touching
             if (!localStorage.getItem("friesgo_leads_v2_backup_pre_p1")) {
-              localStorage.setItem("friesgo_leads_v2_backup_pre_p1", localStorage.getItem("friesgo_leads_v2"));
+              localStorage.setItem("friesgo_leads_v2_backup_pre_p1", remV2);
             }
             localStorage.removeItem("friesgo_leads_v2");
           }
-          if (localStorage.getItem("friesgo_trash_v1")) {
+          var remTr = localStorage.getItem("friesgo_trash_v1");
+          if (remTr) {
+            JSON.parse(remTr);
             localStorage.removeItem("friesgo_trash_v1");
           }
         } catch (_) {}
         return api.loadState();
       }
 
-      // Perform one-time lossless migration from localStorage -> IndexedDB
+      // Read legacy localStorage keys
       var rawV2 = null, rawTrash = null, rawFollow = null;
       try {
         rawV2 = localStorage.getItem("friesgo_leads_v2");
@@ -256,66 +335,90 @@
       var toMigrate = [];
       var seenIds = {};
 
-      if (rawV2) {
+      // Strict JSON validation (P0-3): NEVER silently swallow corrupt legacy JSON!
+      if (rawV2 != null && String(rawV2).trim() !== "") {
+        var parsedV2;
         try {
-          var parsedV2 = JSON.parse(rawV2);
-          if (Array.isArray(parsedV2)) {
-            parsedV2.forEach(function (item) {
-              if (!item || typeof item !== "object" || !item.company) return;
-              var norm = ensureTimelineAndQuoteIds(item);
-              delete norm.deletedAt;
-              if (seenIds[norm.id]) norm.id = FG_CORE.genStableId("ld");
-              seenIds[norm.id] = 1;
-              toMigrate.push(norm);
-            });
+          parsedV2 = JSON.parse(rawV2);
+        } catch (parseErr) {
+          throw new Error("旧版客户缓存 (friesgo_leads_v2) JSON 格式已损坏，已安全中止自动迁移并原样保留旧数据不删除：" + parseErr.message);
+        }
+        if (!Array.isArray(parsedV2)) {
+          throw new Error("旧版客户缓存 (friesgo_leads_v2) 结构异常（非数组），已安全中止自动迁移并保留原始数据");
+        }
+        parsedV2.forEach(function (item) {
+          if (!item || typeof item !== "object" || !item.company) return;
+          var norm = ensureTimelineAndQuoteIds(item);
+          delete norm.deletedAt;
+          if (seenIds[norm.id]) {
+            var prevObj = seenIds[norm.id];
+            if (prevObj && typeof prevObj === "object" &&
+                String(prevObj.company || "").toLowerCase() === String(norm.company || "").toLowerCase() &&
+                String(prevObj.country || "").toLowerCase() === String(norm.country || "").toLowerCase()) {
+              var mergedDup = FG_CORE.mergeLeadRecord(prevObj, norm);
+              Object.assign(prevObj, mergedDup);
+              return;
+            }
+            norm.id = FG_CORE.genStableId("ld");
           }
-        } catch (_) {}
-      } else if (rawFollow) {
+          seenIds[norm.id] = norm;
+          toMigrate.push(norm);
+        });
+      } else if (rawFollow != null && String(rawFollow).trim() !== "") {
+        var fmap;
         try {
-          var fmap = JSON.parse(rawFollow);
-          if (fmap && typeof fmap === "object") {
-            Object.keys(fmap).forEach(function (c) {
-              var f = fmap[c] || {};
-              var cnName = (o.cnMap && o.cnMap[c]) || c;
-              var norm = ensureTimelineAndQuoteIds({
-                id: FG_CORE.genStableId("ld"),
-                company: cnName + " 市场跟进（旧版迁移）",
-                country: c,
-                stage: f.status || "重点跟进",
-                nextDate: f.nextDate || "",
-                owner: f.owner || o.defaultOwner || "",
-                source: "历史迁移",
-                note: f.note || "",
-                updated: f.updated || new Date().toISOString().slice(0, 10),
-                updatedAt: Date.now()
-              });
-              seenIds[norm.id] = 1;
-              toMigrate.push(norm);
-            });
-          }
-        } catch (_) {}
+          fmap = JSON.parse(rawFollow);
+        } catch (fErr) {
+          throw new Error("旧版国家跟进缓存 (friesgo_follow) JSON 格式已损坏，已中止迁移并保留原始数据：" + fErr.message);
+        }
+        if (!fmap || typeof fmap !== "object" || Array.isArray(fmap)) {
+          throw new Error("旧版国家跟进缓存 (friesgo_follow) 结构异常，已中止迁移并保留原始数据");
+        }
+        Object.keys(fmap).forEach(function (c) {
+          var f = fmap[c] || {};
+          var cnName = (o.cnMap && o.cnMap[c]) || c;
+          var norm = ensureTimelineAndQuoteIds({
+            id: FG_CORE.genStableId("ld"),
+            company: cnName + " 市场跟进（旧版迁移）",
+            country: c,
+            stage: f.status || "重点跟进",
+            nextDate: f.nextDate || "",
+            owner: f.owner || o.defaultOwner || "",
+            source: "历史迁移",
+            note: f.note || "",
+            updated: f.updated || new Date().toISOString().slice(0, 10),
+            updatedAt: Date.now()
+          });
+          seenIds[norm.id] = 1;
+          toMigrate.push(norm);
+        });
       }
 
-      if (rawTrash) {
+      if (rawTrash != null && String(rawTrash).trim() !== "") {
+        var parsedTrash;
         try {
-          var parsedTrash = JSON.parse(rawTrash);
-          if (Array.isArray(parsedTrash)) {
-            parsedTrash.forEach(function (tItem) {
-              if (!tItem || !tItem.lead || !tItem.lead.company) return;
-              var normT = ensureTimelineAndQuoteIds(tItem.lead);
-              if (seenIds[normT.id]) normT.id = FG_CORE.genStableId("ld_del");
-              seenIds[normT.id] = 1;
-              normT.deletedAt = tItem.deletedAt || Date.now();
-              normT.deletedAtStr = tItem.deletedAtStr || new Date(normT.deletedAt).toISOString().slice(0, 16).replace("T", " ");
-              normT.deletedBy = tItem.deletedBy || o.defaultOwner || "";
-              normT.deleteReason = tItem.deleteReason || "旧版回收站迁移";
-              toMigrate.push(normT);
-            });
-          }
-        } catch (_) {}
+          parsedTrash = JSON.parse(rawTrash);
+        } catch (tErr) {
+          throw new Error("旧版回收站缓存 (friesgo_trash_v1) JSON 格式已损坏，已中止迁移并保留原始数据：" + tErr.message);
+        }
+        if (!Array.isArray(parsedTrash)) {
+          throw new Error("旧版回收站缓存 (friesgo_trash_v1) 结构异常（非数组），已中止迁移并保留原始数据");
+        }
+        parsedTrash.forEach(function (tItem) {
+          var rawLead = (tItem && tItem.lead) ? tItem.lead : tItem;
+          if (!rawLead || !rawLead.company) return;
+          var normT = ensureTimelineAndQuoteIds(rawLead);
+          if (seenIds[normT.id]) normT.id = FG_CORE.genStableId("ld_del");
+          seenIds[normT.id] = 1;
+          normT.deletedAt = (tItem && tItem.deletedAt) || rawLead.deletedAt || Date.now();
+          normT.deletedAtStr = (tItem && tItem.deletedAtStr) || rawLead.deletedAtStr || new Date(normT.deletedAt).toISOString().slice(0, 16).replace("T", " ");
+          normT.deletedBy = (tItem && tItem.deletedBy) || rawLead.deletedBy || o.defaultOwner || "";
+          normT.deleteReason = (tItem && tItem.deleteReason) || rawLead.deleteReason || "旧版回收站迁移";
+          toMigrate.push(normT);
+        });
       }
 
-      // Preserve untouched raw backup before migration
+      // Preserve untouched raw backup BEFORE writing anything
       try {
         if (rawV2 && !localStorage.getItem("friesgo_leads_v2_backup_pre_p1")) {
           localStorage.setItem("friesgo_leads_v2_backup_pre_p1", rawV2);
@@ -323,33 +426,68 @@
       } catch (_) {}
 
       var expectedCounts = countNested(toMigrate);
-      var migratedAt = new Date().toISOString();
+      var startedAt = new Date().toISOString();
 
+      // PHASE 1: Write migrated records + mark `migrationStatus: "in_progress"` (migratedAt NOT set yet!)
       return runTx(["meta", "leads"], "readwrite", function (tx, setRes) {
         var lStore = tx.objectStore("leads");
+        var mStore = tx.objectStore("meta");
+        var existingById = {};
+        (initial.leads || []).forEach(function (ex) { existingById[ex.id] = ex; });
         for (var i = 0; i < toMigrate.length; i++) {
-          lStore.put(toMigrate[i]);
+          var item = toMigrate[i];
+          if (existingById[item.id]) {
+            lStore.put(FG_CORE.mergeLeadRecord(existingById[item.id], item));
+          } else {
+            lStore.put(item);
+          }
         }
-        var audit = {
+        mStore.put({ key: "device_tag", tag: ensureLocalDeviceTag() });
+        mStore.put({
           key: "schema",
           version: APP_SCHEMA_VERSION,
-          migratedAt: migratedAt,
+          migrationStatus: "in_progress",
+          startedAt: startedAt,
+          migratedAt: null,
           expectedCounts: expectedCounts
+        });
+        setRes(true);
+      }).then(function () {
+        // PHASE 2: Independent readback & strict integrity verification
+        return api.loadState();
+      }).then(function (state) {
+        var allRead = state.activeLeads.concat(state.deletedLeads);
+        var actualCounts = countNested(allRead);
+        var idSet = {};
+        allRead.forEach(function (r) { idSet[r.id] = 1; });
+        var missingAnyId = toMigrate.some(function (m) { return !idSet[m.id]; });
+
+        if (
+          missingAnyId ||
+          actualCounts.active < expectedCounts.active ||
+          actualCounts.deleted < expectedCounts.deleted ||
+          actualCounts.timelines < expectedCounts.timelines ||
+          actualCounts.quotes < expectedCounts.quotes
+        ) {
+          throw new Error("IndexedDB 迁移回读完整性校验未通过，已中止完成标记并保留原 localStorage 数据不删除");
+        }
+
+        // PHASE 3: Commit `migrationStatus: "verified"` & `migratedAt` ONLY AFTER verification succeeded!
+        var migratedAt = new Date().toISOString();
+        var verifiedAudit = {
+          key: "schema",
+          version: APP_SCHEMA_VERSION,
+          migrationStatus: "verified",
+          startedAt: startedAt,
+          migratedAt: migratedAt,
+          expectedCounts: expectedCounts,
+          verifiedCounts: actualCounts
         };
-        tx.objectStore("meta").put(audit);
-        setRes(audit);
-      }).then(function (audit) {
-        // Post-migration readback verification
-        return api.loadState().then(function (state) {
-          var actualCounts = countNested(state.activeLeads.concat(state.deletedLeads));
-          if (
-            actualCounts.active < expectedCounts.active ||
-            actualCounts.deleted < expectedCounts.deleted ||
-            actualCounts.timelines < expectedCounts.timelines ||
-            actualCounts.quotes < expectedCounts.quotes
-          ) {
-            throw new Error("IndexedDB 迁移数量校验不一致，已保留原 localStorage 数据不删除");
-          }
+        return runTx(["meta"], "readwrite", function (tx, setRes) {
+          tx.objectStore("meta").put(verifiedAudit);
+          setRes(verifiedAudit);
+        }).then(function (audit) {
+          // PHASE 4: Remove legacy live keys ONLY AFTER Phase 3 transaction committed
           try {
             localStorage.setItem("friesgo_idb_migrated_v1", JSON.stringify({
               migratedAt: migratedAt,
@@ -359,10 +497,10 @@
               version: APP_SCHEMA_VERSION,
               at: migratedAt
             }));
-            // Stop dual-writing active leads/trash to localStorage
             localStorage.removeItem("friesgo_leads_v2");
             localStorage.removeItem("friesgo_trash_v1");
           } catch (_) {}
+          state.schema = audit;
           state.migrationAudit = audit;
           return state;
         });
@@ -375,7 +513,7 @@
       var lReq = tx.objectStore("leads").getAll();
       var sReq = tx.objectStore("snapshots").getAll();
       var cReq = tx.objectStore("compliance_logs").getAll();
-      var mReq = tx.objectStore("meta").get("schema");
+      var mReq = tx.objectStore("meta").getAll();
       lReq.onsuccess = function () {
         sReq.onsuccess = function () {
           cReq.onsuccess = function () {
@@ -392,8 +530,21 @@
               deleted.sort(function (a, b) { return (Number(b.deletedAt) || 0) - (Number(a.deletedAt) || 0); });
               var snaps = (sReq.result || []).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
               var clogs = (cReq.result || []).sort(function (a, b) { return String(b.savedAt || "").localeCompare(String(a.savedAt || "")); });
+
+              var metaArr = mReq.result || [];
+              var schemaObj = null;
+              metaArr.forEach(function (m) {
+                if (!m || !m.key) return;
+                if (m.key === "schema") schemaObj = m;
+                else if (m.key === "device_tag" && m.tag && /^[A-Z0-9]{4}$/.test(m.tag)) _deviceTag = m.tag;
+                else if (m.key.indexOf("qseq_") === 0 && typeof m.seq === "number") {
+                  if ((_quoteSeqCache[m.key] || 0) < m.seq) _quoteSeqCache[m.key] = m.seq;
+                }
+              });
+
               setRes({
-                schema: mReq.result || null,
+                schema: schemaObj,
+                deviceTag: ensureLocalDeviceTag(),
                 activeLeads: active,
                 deletedLeads: deleted,
                 snapshots: snaps,
@@ -410,25 +561,84 @@
     return api.loadState().then(function (s) { return s.activeLeads; });
   };
 
-  api.putLead = function (lead) {
+  /**
+   * Peek next quote sequence synchronously from cache + localStorage fallback,
+   * and atomically reserve/increment in IndexedDB `meta` on formal save/copy (P1-6).
+   */
+  api.peekNextQuoteSeq = function (dateStr) {
+    var dKey = "qseq_" + String(dateStr || "").replace(/-/g, "").slice(0, 8);
+    var mem = _quoteSeqCache[dKey] || 0;
+    var loc = 0;
+    try { loc = parseInt(localStorage.getItem("friesgo_" + dKey) || "0", 10) || 0; } catch (_) {}
+    return Math.max(mem, loc) + 1;
+  };
+
+  api.reserveNextQuoteSeq = function (dateStr) {
+    var dKey = "qseq_" + String(dateStr || "").replace(/-/g, "").slice(0, 8);
+    return runTx(["meta"], "readwrite", function (tx, setRes) {
+      var mStore = tx.objectStore("meta");
+      var req = mStore.get(dKey);
+      req.onsuccess = function () {
+        var curDb = (req.result && typeof req.result.seq === "number") ? req.result.seq : 0;
+        var curLoc = 0;
+        try { curLoc = parseInt(localStorage.getItem("friesgo_" + dKey) || "0", 10) || 0; } catch (_) {}
+        var next = Math.max(curDb, curLoc, _quoteSeqCache[dKey] || 0) + 1;
+        _quoteSeqCache[dKey] = next;
+        mStore.put({ key: dKey, seq: next, updatedAt: Date.now() });
+        try { localStorage.setItem("friesgo_" + dKey, String(next)); } catch (_) {}
+        setRes(next);
+      };
+    }).then(function (seq) {
+      initBus();
+      if (_bus) {
+        try { _bus.postMessage({ type: "qseq_bumped", tabId: _tabId, dateKey: dKey, seq: seq }); } catch (_) {}
+      }
+      return seq;
+    });
+  };
+
+  /**
+   * Incremental single-lead transactional read-merge-write with soft-delete resurrection protection (P0-1).
+   */
+  api.putLeadMerged = function (lead, opts) {
+    var o = opts || {};
     var norm = ensureTimelineAndQuoteIds(lead);
-    delete norm.deletedAt;
-    delete norm.deletedAtStr;
-    delete norm.deletedBy;
-    delete norm.deleteReason;
+    if (!o.keepDeletedAt) {
+      delete norm.deletedAt;
+      delete norm.deletedAtStr;
+      delete norm.deletedBy;
+      delete norm.deleteReason;
+    }
     return runTx(["leads"], "readwrite", function (tx, setRes) {
-      tx.objectStore("leads").put(norm);
-      setRes(norm);
+      var store = tx.objectStore("leads");
+      var gReq = store.get(norm.id);
+      gReq.onsuccess = function () {
+        var ex = gReq.result;
+        var toWrite;
+        if (ex) {
+          toWrite = FG_CORE.mergeLeadRecord(ex, norm, { respectExistingSoftDelete: !o.allowResurrect });
+        } else {
+          norm._rev = Number(norm._rev || 0) + 1;
+          toWrite = norm;
+        }
+        store.put(toWrite);
+        setRes(toWrite);
+      };
     }).then(function (saved) {
       broadcastChange("put_lead", { id: saved.id });
       return saved;
     });
   };
 
+  api.putLead = function (lead, opts) {
+    return api.putLeadMerged(lead, opts);
+  };
+
   /**
-   * Sync active in-memory crmLeads array to IndexedDB authoritatively:
-   * Preserves all soft-deleted leads in IndexedDB (`deletedAt != null`),
-   * updates/inserts all active leads in `activeLeads`.
+   * Transactional multi-tab-safe active leads sync (P0-1):
+   * - Normal mode: merges each changed lead with existing DB record via `FG_CORE.mergeLeadRecord(..., { respectExistingSoftDelete: true })`
+   *   so concurrent tab timelines/quotes/edits are NEVER lost and soft-deleted leads are NEVER resurrected by stale tabs!
+   * - Authoritative overwrite (`opts.replaceActive && opts.authoritativeOverwrite`): replaces all active leads while keeping trash intact.
    */
   api.syncActiveLeads = function (activeLeads, opts) {
     var o = opts || {};
@@ -450,22 +660,42 @@
       var allReq = store.getAll();
       allReq.onsuccess = function () {
         var existingAll = allReq.result || [];
+        var existingById = Object.create(null);
+        for (var eIdx = 0; eIdx < existingAll.length; eIdx++) {
+          existingById[existingAll[eIdx].id] = existingAll[eIdx];
+        }
+
         if (o.replaceActive) {
-          // Remove active records that are not in activeIdMap (keep soft-deleted ones intact!)
           for (var j = 0; j < existingAll.length; j++) {
-            var ex = existingAll[j];
-            if (!ex.deletedAt && !activeIdMap[ex.id]) {
-              store.delete(ex.id);
+            var exRec = existingAll[j];
+            if (!exRec.deletedAt && !activeIdMap[exRec.id]) {
+              store.delete(exRec.id);
             }
           }
         }
+
+        var written = 0;
         for (var k = 0; k < normalizedActive.length; k++) {
-          store.put(normalizedActive[k]);
+          var inc = normalizedActive[k];
+          var ex = existingById[inc.id];
+          if (!ex) {
+            inc._rev = Number(inc._rev || 0) + 1;
+            store.put(inc);
+            written++;
+          } else if (o.authoritativeOverwrite && !ex.deletedAt) {
+            inc._rev = Math.max(Number(ex._rev || 0), Number(inc._rev || 0)) + 1;
+            store.put(inc);
+            written++;
+          } else if (!recordsIdenticalFast(ex, inc)) {
+            var merged = FG_CORE.mergeLeadRecord(ex, inc, { respectExistingSoftDelete: !o.allowResurrect });
+            store.put(merged);
+            written++;
+          }
         }
-        setRes({ count: normalizedActive.length });
+        setRes({ count: normalizedActive.length, written: written });
       };
     }).then(function (res) {
-      broadcastChange("sync_active", { count: res.count });
+      broadcastChange("sync_active", { count: res.count, written: res.written });
       return res;
     });
   };
@@ -478,12 +708,15 @@
       var store = tx.objectStore("leads");
       var gReq = store.get(leadId);
       gReq.onsuccess = function () {
-        var rec = gReq.result || (m.fallbackLead ? ensureTimelineAndQuoteIds(m.fallbackLead) : null);
+        var rec = gReq.result
+          ? (m.fallbackLead ? FG_CORE.mergeLeadRecord(gReq.result, m.fallbackLead) : ensureTimelineAndQuoteIds(gReq.result))
+          : (m.fallbackLead ? ensureTimelineAndQuoteIds(m.fallbackLead) : null);
         if (!rec) { setRes(null); return; }
         rec.deletedAt = now;
         rec.deletedAtStr = nowStr;
         rec.deletedBy = m.deletedBy || "";
         rec.deleteReason = m.deleteReason || "手动移入回收站";
+        rec._rev = Number(rec._rev || 0) + 1;
         store.put(rec);
         setRes(rec);
       };
@@ -505,6 +738,7 @@
         delete rec.deletedBy;
         delete rec.deleteReason;
         rec.updatedAt = Date.now();
+        rec._rev = Number(rec._rev || 0) + 1;
         store.put(rec);
         setRes(rec);
       };
@@ -546,44 +780,50 @@
   };
 
   /**
-   * Create a verified transactional snapshot BEFORE destructive operations (bulk clear / overwrite restore).
-   * Never deletes the sole valid snapshot when pruning old snapshots.
+   * Create a verified transactional snapshot BEFORE destructive operations (P0-2).
+   * Captures active leads, soft-deleted trash leads, AND `compliance_logs`!
    */
   api.createSnapshot = function (reason) {
     var now = Date.now();
     var snapId = "snap_" + now + "_" + Math.random().toString(36).slice(2, 6);
     var nowStr = new Date(now).toISOString().slice(0, 19).replace("T", " ");
-    return runTx(["leads", "snapshots"], "readwrite", function (tx, setRes) {
+    return runTx(["leads", "snapshots", "compliance_logs"], "readwrite", function (tx, setRes) {
       var lStore = tx.objectStore("leads");
       var sStore = tx.objectStore("snapshots");
+      var cStore = tx.objectStore("compliance_logs");
       var lReq = lStore.getAll();
       var sReq = sStore.getAll();
+      var cReq = cStore.getAll();
       lReq.onsuccess = function () {
         sReq.onsuccess = function () {
-          var allLeads = lReq.result || [];
-          var counts = countNested(allLeads);
-          var snap = {
-            snapId: snapId,
-            createdAt: now,
-            createdAtStr: nowStr,
-            reason: reason || "手动快照",
-            activeCount: counts.active,
-            deletedCount: counts.deleted,
-            leads: allLeads
-          };
-          sStore.put(snap);
+          cReq.onsuccess = function () {
+            var allLeads = lReq.result || [];
+            var allCompLogs = cReq.result || [];
+            var counts = countNested(allLeads);
+            var snap = {
+              snapId: snapId,
+              createdAt: now,
+              createdAtStr: nowStr,
+              reason: reason || "手动快照",
+              activeCount: counts.active,
+              deletedCount: counts.deleted,
+              complianceCount: allCompLogs.length,
+              leads: allLeads,
+              complianceLogs: allCompLogs
+            };
+            sStore.put(snap);
 
-          // Prune older snapshots beyond MAX_AUTO_SNAPSHOTS while NEVER deleting the newly written snapshot
-          var prevSnaps = (sReq.result || []).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
-          if (prevSnaps.length >= MAX_AUTO_SNAPSHOTS) {
-            var toPrune = prevSnaps.slice(MAX_AUTO_SNAPSHOTS - 1);
-            for (var i = 0; i < toPrune.length; i++) {
-              if (toPrune[i].snapId !== snapId) {
-                sStore.delete(toPrune[i].snapId);
+            var prevSnaps = (sReq.result || []).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+            if (prevSnaps.length >= MAX_AUTO_SNAPSHOTS) {
+              var toPrune = prevSnaps.slice(MAX_AUTO_SNAPSHOTS - 1);
+              for (var i = 0; i < toPrune.length; i++) {
+                if (toPrune[i].snapId !== snapId) {
+                  sStore.delete(toPrune[i].snapId);
+                }
               }
             }
-          }
-          setRes(snap);
+            setRes(snap);
+          };
         };
       };
     }).then(function (snap) {
@@ -592,10 +832,6 @@
     });
   };
 
-  /**
-   * Soft-delete ALL active leads atomically AFTER creating a verified snapshot in the SAME or preceding transaction.
-   * Zero truncation: all 10,000+ leads retain soft-delete metadata and full timeline/quote history.
-   */
   api.clearAllActiveWithSnapshot = function (meta) {
     var m = meta || {};
     return api.createSnapshot(m.reason || "清空客户列表前自动保护快照").then(function (snap) {
@@ -614,6 +850,7 @@
               rec.deletedAtStr = nowStr;
               rec.deletedBy = m.deletedBy || "";
               rec.deleteReason = "批量清空列表（快照 " + snap.snapId + " 可一键回滚）";
+              rec._rev = Number(rec._rev || 0) + 1;
               store.put(rec);
               moved++;
             }
@@ -628,25 +865,42 @@
   };
 
   api.restoreSnapshot = function (snapId) {
-    return runTx(["leads", "snapshots"], "readwrite", function (tx, setRes) {
+    return runTx(["leads", "snapshots", "compliance_logs"], "readwrite", function (tx, setRes) {
       var sStore = tx.objectStore("snapshots");
       var lStore = tx.objectStore("leads");
+      var cStore = tx.objectStore("compliance_logs");
       var sReq = sStore.get(snapId);
       sReq.onsuccess = function () {
         var snap = sReq.result;
         if (!snap || !Array.isArray(snap.leads)) {
           throw new Error("未找到指定快照或快照数据已损坏");
         }
-        var clearReq = lStore.clear();
-        clearReq.onsuccess = function () {
+        var clearL = lStore.clear();
+        clearL.onsuccess = function () {
           for (var i = 0; i < snap.leads.length; i++) {
             lStore.put(ensureTimelineAndQuoteIds(snap.leads[i]));
           }
-          setRes({
-            snapId: snap.snapId,
-            restoredActive: snap.activeCount,
-            restoredDeleted: snap.deletedCount
-          });
+          if (Array.isArray(snap.complianceLogs)) {
+            var clearC = cStore.clear();
+            clearC.onsuccess = function () {
+              for (var j = 0; j < snap.complianceLogs.length; j++) {
+                cStore.put(snap.complianceLogs[j]);
+              }
+              setRes({
+                snapId: snap.snapId,
+                restoredActive: snap.activeCount,
+                restoredDeleted: snap.deletedCount,
+                restoredCompliance: snap.complianceLogs.length
+              });
+            };
+          } else {
+            setRes({
+              snapId: snap.snapId,
+              restoredActive: snap.activeCount,
+              restoredDeleted: snap.deletedCount,
+              restoredCompliance: 0
+            });
+          }
         };
       };
     }).then(function (res) {
@@ -656,49 +910,172 @@
   };
 
   /**
-   * Lossless Stable-ID Merge Restore (`id` primary, fallback to normalized `(company, country)` only when IDs differ for exact same company+country).
-   * Preserves all timelines (`tlId`) and quote versions (`quoteId`) without truncation.
+   * Lossless Stable-ID Merge Restore (`id` primary, fallback to `(company, country)`).
    */
   api.mergeImportLeads = function (incomingList) {
-    var incoming = (incomingList || []).map(ensureTimelineAndQuoteIds);
-    return runTx(["leads"], "readwrite", function (tx, setRes) {
-      var store = tx.objectStore("leads");
-      var req = store.getAll();
-      req.onsuccess = function () {
-        var existingAll = (req.result || []).map(ensureTimelineAndQuoteIds);
-        var byId = new Map();
-        var byCompCountry = new Map();
-        existingAll.forEach(function (ex) {
-          byId.set(ex.id, ex);
-          if (!ex.deletedAt && ex.company) {
-            var ck = String(ex.company).trim().toLowerCase() + "|" + String(ex.country || "").trim().toLowerCase();
-            if (!byCompCountry.has(ck)) byCompCountry.set(ck, ex);
-          }
-        });
+    return api.restoreBackupBundle({ crmLeads: incomingList || [] }, { mode: "merge" });
+  };
 
-        var added = 0, mergedCount = 0;
-        incoming.forEach(function (inc) {
-          var target = byId.get(inc.id);
-          if (!target && inc.company) {
-            var ck = String(inc.company).trim().toLowerCase() + "|" + String(inc.country || "").trim().toLowerCase();
-            target = byCompCountry.get(ck) || null;
-          }
-          if (target) {
-            var merged = FG_CORE.mergeLeadRecord(target, inc);
-            byId.set(merged.id, merged);
-            store.put(merged);
-            mergedCount++;
-          } else {
-            byId.set(inc.id, inc);
-            if (!inc.deletedAt && inc.company) {
-              var ckNew = String(inc.company).trim().toLowerCase() + "|" + String(inc.country || "").trim().toLowerCase();
-              byCompCountry.set(ckNew, inc);
+  api.overwriteImportWithSnapshot = function (incomingList, reason) {
+    return api.restoreBackupBundle({ crmLeads: incomingList || [] }, { mode: "overwrite", reason: reason });
+  };
+
+  /**
+   * Full Business Backup Bundle Restore (P0-2):
+   * Restores active `crmLeads`, soft-deleted `crmTrash` (`deletedLeads`), AND `complianceLogs`!
+   * Supports `mode: "merge"` (lossless union) and `mode: "overwrite"` (creates pre-destructive snapshot first).
+   */
+  api.restoreBackupBundle = function (bundle, opts) {
+    var b = bundle || {};
+    var o = opts || {};
+    var mode = o.mode === "overwrite" ? "overwrite" : "merge";
+
+    var activeIn = (b.crmLeads || []).map(function (item) {
+      var n = ensureTimelineAndQuoteIds(item);
+      if (!item.deletedAt) {
+        delete n.deletedAt;
+        delete n.deletedAtStr;
+        delete n.deletedBy;
+        delete n.deleteReason;
+      }
+      return n;
+    });
+
+    var rawTrashIn = Array.isArray(b.crmTrash) ? b.crmTrash : (Array.isArray(b.deletedLeads) ? b.deletedLeads : []);
+    var trashIn = rawTrashIn.map(function (tItem) {
+      var rawL = (tItem && tItem.lead) ? tItem.lead : tItem;
+      if (!rawL || !rawL.company) return null;
+      var n = ensureTimelineAndQuoteIds(rawL);
+      n.deletedAt = (tItem && tItem.deletedAt) || rawL.deletedAt || Date.now();
+      n.deletedAtStr = (tItem && tItem.deletedAtStr) || rawL.deletedAtStr || new Date(n.deletedAt).toISOString().slice(0, 16).replace("T", " ");
+      n.deletedBy = (tItem && tItem.deletedBy) || rawL.deletedBy || "";
+      n.deleteReason = (tItem && tItem.deleteReason) || rawL.deleteReason || "备份恢复回收站记录";
+      return n;
+    }).filter(Boolean);
+
+    var compIn = (b.complianceLogs || []).filter(function (c) { return c && typeof c === "object"; }).map(function (c) {
+      var rec = Object.assign({}, c);
+      if (!rec.logId) rec.logId = FG_CORE.genStableId("chk");
+      if (!rec.savedAt) rec.savedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+      return rec;
+    });
+
+    if (mode === "overwrite") {
+      var preStep = o.skipSnapshot
+        ? Promise.resolve({ snapId: null })
+        : api.createSnapshot(o.reason || "覆盖恢复完整 JSON 备份前自动保护快照");
+      return preStep.then(function (snap) {
+        return runTx(["leads", "compliance_logs"], "readwrite", function (tx, setRes) {
+          var lStore = tx.objectStore("leads");
+          var cStore = tx.objectStore("compliance_logs");
+          var clL = lStore.clear();
+          clL.onsuccess = function () {
+            var seen = {};
+            for (var i = 0; i < activeIn.length; i++) {
+              seen[activeIn[i].id] = 1;
+              lStore.put(activeIn[i]);
             }
-            store.put(inc);
-            added++;
-          }
+            var trashRestored = 0;
+            for (var j = 0; j < trashIn.length; j++) {
+              var tr = trashIn[j];
+              if (!seen[tr.id]) {
+                seen[tr.id] = 1;
+                lStore.put(tr);
+                trashRestored++;
+              }
+            }
+            if (Array.isArray(b.complianceLogs)) {
+              var clC = cStore.clear();
+              clC.onsuccess = function () {
+                for (var k = 0; k < compIn.length; k++) {
+                  cStore.put(compIn[k]);
+                }
+                setRes({
+                  snapId: snap.snapId,
+                  imported: activeIn.length,
+                  trashRestored: trashRestored,
+                  complianceRestored: compIn.length
+                });
+              };
+            } else {
+              setRes({
+                snapId: snap.snapId,
+                imported: activeIn.length,
+                trashRestored: trashRestored,
+                complianceRestored: 0
+              });
+            }
+          };
         });
-        setRes({ added: added, merged: mergedCount });
+      }).then(function (res) {
+        broadcastChange("overwrite_import", res);
+        return res;
+      });
+    }
+
+    // Merge mode: union active + trash leads + compliance_logs
+    var allIncomingLeads = activeIn.concat(trashIn);
+    return runTx(["leads", "compliance_logs"], "readwrite", function (tx, setRes) {
+      var lStore = tx.objectStore("leads");
+      var cStore = tx.objectStore("compliance_logs");
+      var lReq = lStore.getAll();
+      var cReq = cStore.getAll();
+      lReq.onsuccess = function () {
+        cReq.onsuccess = function () {
+          var existingAll = (lReq.result || []).map(ensureTimelineAndQuoteIds);
+          var byId = new Map();
+          var byCompCountry = new Map();
+          existingAll.forEach(function (ex) {
+            byId.set(ex.id, ex);
+            if (!ex.deletedAt && ex.company) {
+              var ck = String(ex.company).trim().toLowerCase() + "|" + String(ex.country || "").trim().toLowerCase();
+              if (!byCompCountry.has(ck)) byCompCountry.set(ck, ex);
+            }
+          });
+
+          var added = 0, mergedCount = 0;
+          allIncomingLeads.forEach(function (inc) {
+            var target = byId.get(inc.id);
+            if (!target && !inc.deletedAt && inc.company) {
+              var ck = String(inc.company).trim().toLowerCase() + "|" + String(inc.country || "").trim().toLowerCase();
+              target = byCompCountry.get(ck) || null;
+            }
+            if (target) {
+              var merged = FG_CORE.mergeLeadRecord(target, inc);
+              byId.set(merged.id, merged);
+              lStore.put(merged);
+              mergedCount++;
+            } else {
+              byId.set(inc.id, inc);
+              if (!inc.deletedAt && inc.company) {
+                var ckNew = String(inc.company).trim().toLowerCase() + "|" + String(inc.country || "").trim().toLowerCase();
+                byCompCountry.set(ckNew, inc);
+              }
+              lStore.put(inc);
+              added++;
+            }
+          });
+
+          var existingCompIds = {};
+          (cReq.result || []).forEach(function (c) { existingCompIds[c.logId] = c; });
+          var compAdded = 0, compUpdated = 0;
+          compIn.forEach(function (c) {
+            if (existingCompIds[c.logId]) {
+              cStore.put(Object.assign({}, existingCompIds[c.logId], c));
+              compUpdated++;
+            } else {
+              cStore.put(c);
+              compAdded++;
+            }
+          });
+
+          setRes({
+            added: added,
+            merged: mergedCount,
+            complianceAdded: compAdded,
+            complianceUpdated: compUpdated
+          });
+        };
       };
     }).then(function (res) {
       broadcastChange("merge_import", res);
@@ -706,31 +1083,16 @@
     });
   };
 
-  api.overwriteImportWithSnapshot = function (incomingList, reason) {
-    var incoming = (incomingList || []).map(ensureTimelineAndQuoteIds);
-    return api.createSnapshot(reason || "覆盖恢复 JSON 前自动保护快照").then(function (snap) {
-      return runTx(["leads"], "readwrite", function (tx, setRes) {
-        var store = tx.objectStore("leads");
-        var req = store.getAll();
-        req.onsuccess = function () {
-          var all = req.result || [];
-          // Delete only active leads; keep soft-deleted trash intact or replace active cleanly
-          for (var i = 0; i < all.length; i++) {
-            if (!all[i].deletedAt) store.delete(all[i].id);
-          }
-          for (var j = 0; j < incoming.length; j++) {
-            store.put(incoming[j]);
-          }
-          setRes({ snapId: snap.snapId, imported: incoming.length });
-        };
-      });
-    }).then(function (res) {
-      broadcastChange("overwrite_import", res);
-      return res;
+  api.wipeAllForTest = function () {
+    return runTx(["leads", "snapshots", "compliance_logs"], "readwrite", function (tx, setRes) {
+      tx.objectStore("leads").clear();
+      tx.objectStore("snapshots").clear();
+      tx.objectStore("compliance_logs").clear();
+      setRes(true);
     });
   };
 
-  /* Order-Bound 6-Step Pre-Shipment Compliance Logs (T06) */
+  /* Order-Bound 6-Step Pre-Shipment Compliance Logs (T06 / P1-9) */
   api.saveComplianceLog = function (record) {
     var rec = Object.assign({}, record || {});
     if (!rec.logId) rec.logId = FG_CORE.genStableId("chk");

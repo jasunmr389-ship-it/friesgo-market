@@ -814,10 +814,10 @@ Best regards,
       </div>
 
       <div id="gmapsCfgBox" hidden style="margin-top:12px;padding:12px;border:1px dashed var(--line);border-radius:10px;background:var(--surface2)">
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">Google Places API 接入配置（优先使用带口令的团队代理；仅保存于当前浏览器本地）：</div>
+        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">Google Places API 接入配置（正式公司团队作业请统一使用方式 A 代理模式；仅保存于当前浏览器本地）：</div>
         <div class="form-grid">
           <div>
-            <label for="msProxyUrl">方式 A（推荐团队共享）：Cloudflare Worker 代理地址</label>
+            <label for="msProxyUrl">方式 A（公司正式统一模式）：Cloudflare Worker 团队代理地址</label>
             <input id="msProxyUrl" type="text" placeholder="如：https://friesgo-gmaps.xxx.workers.dev">
           </div>
           <div>
@@ -825,10 +825,11 @@ Best regards,
             <input id="msProxyPass" type="password" placeholder="填写 Worker 配置的 TEAM_PASS">
           </div>
           <div>
-            <label for="msGmapsKey">或 方式 B：直填本机 Google Maps API Key（仅测试用）</label>
-            <input id="msGmapsKey" type="password" placeholder="AIzaSy...（请勿通过网址参数分享）">
+            <label for="msGmapsKey">方式 B：个人直连 API Key（独立计费·不受团队服务端限额管控）</label>
+            <input id="msGmapsKey" type="password" placeholder="AIzaSy...（仅限个人临时自费测试，禁用于公司统一作业）">
           </div>
         </div>
+        <div id="gmapsDirectBillingWarn" style="margin-top:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,var(--med) 14%,var(--surface));border:1px solid var(--med);font-size:12px;color:var(--brown);font-weight:700">⚠️ 计费与额度边界声明：正式公司团队作业须走「方式 A：Cloudflare Worker 统一代理」（受服务端 Durable Object 月度 950 次原子硬限额保护）；若填写「方式 B：个人直连 API Key」，将直接走该 Key 所属 Google Cloud 账户<b>独立计费</b>，<b>不受团队服务端额度控制</b>！</div>
         <p class="flag-note" id="msQuotaInfo" style="margin-top:6px">本月已记录调用：0 / 950 次（700 提醒 / 900 预警 / 950 硬上限，由 Cloudflare Durable Object 原子预扣）。说明：Google Cloud 控制台仅支持按日/按分钟接口限额与账单预算告警（Budget Alerts，无原生月度 950 硬开关），请同步配置每日限额；结果仅限内部开发客户使用（Powered by Google）。</p>
       </div>
 
@@ -1060,6 +1061,7 @@ Best regards,
         </div>
         <div><label for="qcFx">核算汇率（RMB / USD）</label><input id="qcFx" type="number" value="7.15" min="3" max="20" step="0.05"></div>
         <div><label for="qcMargin">目标净利润率（%）</label><input id="qcMargin" type="number" value="18" min="0" max="80" step="1"></div>
+        <div><label for="qcMinMarginFloor">公司最低利润红线（%，舍入后校验）</label><input id="qcMinMarginFloor" type="number" value="8" min="0" max="60" step="0.5" title="在单价、总价、佣金及保费全部按实际对外精度舍入后重新核算最终净利率；若低于此红线将预警并阻断对外报价输出"></div>
         <div>
           <label for="qcDecimals">对外单价小数精度（向上保利进位）</label>
           <select id="qcDecimals">
@@ -1100,6 +1102,7 @@ Best regards,
         <div class="calc-kpi"><div class="k">买家参考含税落地估算（USD）</div><div class="v" id="qcLandedOut">—</div><div class="d" id="qcFxRiskNote">不含目的国 VAT 与当地清关杂费</div></div>
       </div>
       <div id="qcTaxDualBar" style="margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--surface2);border:1px dashed var(--line);font-size:12px;line-height:1.55;color:var(--ink)"></div>
+      <div id="qcProfitFloorWarn" hidden style="margin-top:8px;padding:8px 12px;border-radius:10px;border:1px solid var(--danger);background:color-mix(in srgb,var(--danger) 10%,var(--surface));color:var(--danger);font-size:12.5px;font-weight:700"></div>
 
       <div class="detail-box" style="margin-top:12px">
         <div class="detail-box-title">正式英文报价条款确认（逐项确认后再发给客户，未确认项默认显示 To be confirmed）</div>
@@ -1816,11 +1819,15 @@ Best regards,
     <p class="sub">每笔出运订单须独立绑定「客户 + 产品与 HS 编码 + 目的国 + 最终用户与用途 + 核查人」归档留存，严禁将上一笔低风险订单的勾选状态沿用于新订单。</p>
     <div class="card">
       <div class="detail-box" style="margin-top:0;margin-bottom:12px">
-        <div class="detail-box-title">本笔出运订单身份信息（切换客户或新建下一单时自动清空勾选）</div>
-        <div class="form-grid" style="margin-top:6px">
+        <div class="detail-box-title">本笔交易/出运订单身份与审核结论（按订单号独立留痕，6/6 勾选不自动等同于放行）</div>
+        <div class="form-grid-4" style="margin-top:6px">
           <div>
             <label for="pcBindClient">从 CRM 选择客户快速带入（可选）</label>
             <select id="pcBindClient"><option value="">— 选择已建档客户自动带入 —</option></select>
+          </div>
+          <div>
+            <label for="pcOrderRef">本单订单 / PI / 合同编号（必填）</label>
+            <input id="pcOrderRef" type="text" placeholder="如：PI-20261126-01">
           </div>
           <div>
             <label for="pcClientName">买方 / 收货人公司全称（必填）</label>
@@ -1835,12 +1842,25 @@ Best regards,
             <input id="pcProductHs" type="text" placeholder="如：铸钢法兰球阀 HS 8481.80">
           </div>
           <div>
-            <label for="pcEndUser">最终用户与终端用途（转口敏感国必填）</label>
+            <label for="pcEndUser">最终用户与具体用途（高风险/放行必填）</label>
             <input id="pcEndUser" type="text" placeholder="如：沙特市政海水淡化管网民用工程">
+          </div>
+          <div>
+            <label for="pcEvidence">核查佐证来源 / 终端声明编号</label>
+            <input id="pcEvidence" type="text" placeholder="如：CSL无命中截图 + EUS-2026-09">
           </div>
           <div>
             <label for="pcReviewer">合规核查责任人（必填）</label>
             <input id="pcReviewer" type="text" placeholder="如：李单证 / 张主管">
+          </div>
+          <div style="grid-column:1/-1">
+            <label for="pcDecision">本单出运合规审核结论（须人工显式判定，不随勾选自动变为放行）</label>
+            <select id="pcDecision">
+              <option value="pending" selected>⚪ 待风控审核（仅保存核查进度，尚未放行出运）</option>
+              <option value="approved">🟢 审核放行（6/6 全项核实无误，准予报关出运）</option>
+              <option value="rework">🟡 退回补证（缺少认证/CBAM/终端声明，补齐后复审）</option>
+              <option value="rejected">🔴 高危拦截（命中制裁/两用物项违规风险，禁止出运）</option>
+            </select>
           </div>
         </div>
       </div>
@@ -3076,18 +3096,33 @@ function updateSaveBackupStatus(justSaved){
     var daysSince = lastBackupTs ? Math.floor((Date.now() - lastBackupTs) / 86400000) : 999;
     var backupPart = "";
     if(crmLeads.length > 0 && (!lastBackupTs || daysSince >= 7)){
-      backupPart = ' · <b style="color:var(--high)">' + (lastBackupTs ? ("已 " + daysSince + " 天未导出备份") : "尚未导出 JSON 备份") + '</b>';
+      backupPart = ' · <b style="color:var(--high)">' + (lastBackupTs ? ("已 " + daysSince + " 天未触发备份导出") : "尚未导出 JSON 备份") + '</b>';
     } else if(lastBackupTs){
-      backupPart = " · 已备份(" + localDateStr(new Date(lastBackupTs)) + ")";
+      backupPart = " · 上次触发备份导出(" + localDateStr(new Date(lastBackupTs)) + ")";
     }
     el.innerHTML = savePart + backupPart;
   }
   syncCountsInToolbar();
 }
 
-function applyStoreStateToMemory(st){
+function applyStoreStateToMemory(st, opts){
   if(!st) return;
-  crmLeads = Array.isArray(st.activeLeads) ? st.activeLeads : [];
+  opts = opts || {};
+  var prevMap = Object.create(null);
+  if(Array.isArray(crmLeads)){
+    for(var i = 0; i < crmLeads.length; i++){
+      if(crmLeads[i] && crmLeads[i].id) prevMap[crmLeads[i].id] = crmLeads[i];
+    }
+  }
+  var nextActive = Array.isArray(st.activeLeads) ? st.activeLeads : [];
+  crmLeads = nextActive.map(function(nl){
+    var ex = nl && nl.id ? prevMap[nl.id] : null;
+    if(ex){
+      Object.keys(ex).forEach(function(k){ if(!(k in nl)) delete ex[k]; });
+      return Object.assign(ex, nl);
+    }
+    return nl;
+  });
   crmTrash = (st.deletedLeads || []).map(function(dl){
     return {
       deletedAt: dl.deletedAt || 0,
@@ -3105,7 +3140,7 @@ function applyStoreStateToMemory(st){
   if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
   if(typeof window.refreshPrecheckClientSelect === "function") window.refreshPrecheckClientSelect();
   if(typeof window.renderPrecheckHistory === "function") window.renderPrecheckHistory();
-  if(typeof renderTools === "function") renderTools();
+  if(!opts.skipDetailDomRender && typeof renderTools === "function") renderTools();
   if(typeof renderTrashPanel === "function") renderTrashPanel();
   if(typeof renderSnapshotPanel === "function") renderSnapshotPanel();
   if(typeof render === "function") render();
@@ -3254,6 +3289,47 @@ function saveCompareOnly(){
   updateFollowBadge();
 }
 
+function saveSingleLead(lead, opts){
+  opts = opts || {};
+  if(!lead || !lead.id) return saveLeadsLocal(opts);
+  rebuildLeadsByCountryMap();
+  updateFollowBadge();
+  if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
+  if(typeof window.refreshPrecheckClientSelect === "function") window.refreshPrecheckClientSelect();
+  if(typeof renderHomeWorkspace === "function") renderHomeWorkspace();
+
+  if(!window.FG_STORE){
+    showStorageError("FG_STORE 未加载，无法写入 IndexedDB");
+    return Promise.reject(new Error("FG_STORE missing"));
+  }
+  setSavingPendingUI();
+  var p = window.FG_STORE.putLeadMerged(lead, opts)
+    .then(function(saved){
+      if(saved && saved.deletedAt){
+        return reloadCrmFromStore().then(function(){
+          clearStorageError();
+          updateSaveBackupStatus(true);
+          return saved;
+        });
+      }
+      if(saved){
+        Object.assign(lead, saved);
+        var exInArr = findLeadById(saved.id);
+        if(exInArr && exInArr !== lead) Object.assign(exInArr, saved);
+      }
+      clearStorageError();
+      updateSaveBackupStatus(true);
+      return saved;
+    })
+    .catch(function(err){
+      showStorageError((err && err.message) ? err.message : "IndexedDB 增量写入失败");
+      throw err;
+    });
+  window._lastCrmSavePromise = p;
+  return p;
+}
+window.saveSingleLead = saveSingleLead;
+
 function saveLeadsLocal(opts){
   opts = opts || {};
   rebuildLeadsByCountryMap();
@@ -3269,9 +3345,11 @@ function saveLeadsLocal(opts){
   setSavingPendingUI();
   var p = window.FG_STORE.syncActiveLeads(crmLeads, { replaceActive: !!opts.replaceAll })
     .then(function(res){
-      clearStorageError();
-      updateSaveBackupStatus(true);
-      return res;
+      return reloadCrmFromStore().then(function(){
+        clearStorageError();
+        updateSaveBackupStatus(true);
+        return res;
+      });
     })
     .catch(function(err){
       showStorageError((err && err.message) ? err.message : "IndexedDB 事务提交失败或磁盘空间已满");
@@ -5182,19 +5260,33 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     return "$" + Number(n).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
   }
 
+  var _currentDraftQuoteId = window.FG_CORE.genStableId("qt");
+  function getQuoteDeviceTag(){
+    return (window.FG_STORE && typeof window.FG_STORE.getDeviceTag === "function")
+      ? window.FG_STORE.getDeviceTag()
+      : "LOC1";
+  }
   function getNextQuoteSeq(dateStr){
-    var k = "friesgo_qseq_" + String(dateStr || "").replace(/-/g, "");
+    var cleanD = String(dateStr || "").replace(/-/g, "").slice(0, 8);
+    var k = "friesgo_qseq_" + cleanD;
+    if(window.FG_STORE && typeof window.FG_STORE.peekNextQuoteSeq === "function"){
+      return { key: k, seq: window.FG_STORE.peekNextQuoteSeq(cleanD) };
+    }
     var cur = 1;
     try { cur = (parseInt(localStorage.getItem(k) || "0", 10) || 0) + 1; } catch(e){ cur = 1; }
     return { key: k, seq: cur };
   }
-  function commitQuoteSeq(dateStr){
-    var info = getNextQuoteSeq(dateStr);
+  function commitQuoteSeqAsync(dateStr){
+    var cleanD = String(dateStr || "").replace(/-/g, "").slice(0, 8);
+    if(window.FG_STORE && typeof window.FG_STORE.reserveNextQuoteSeq === "function"){
+      return window.FG_STORE.reserveNextQuoteSeq(cleanD);
+    }
+    var info = getNextQuoteSeq(cleanD);
     try { localStorage.setItem(info.key, String(info.seq)); } catch(e){}
-    return info.seq;
+    return Promise.resolve(info.seq);
   }
 
-  /* Customer Due Diligence Gate for Formal Quotations (Rule 3 Option 1) */
+  /* Customer Due Diligence Gate: separates Indicative Quotation vs Formal Quotation vs Hard-Lock (P1-4) */
   function evaluateQuoteDdGate(){
     var sel = document.getElementById("qcBindClient");
     var cid = sel ? sel.value : "";
@@ -5202,9 +5294,10 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(!lead){
       return {
         hardLocked: false,
+        quoteTier: "indicative",
         level: "unbound_warn",
         lead: null,
-        msg: "⚠️ 风控提醒：当前为未关联客户档案的快速测算，允许生成与复制初步报价单；但在开具正式形式发票（PI）、签署合同或收付货款前，请先建档并完成「客户背调与制裁筛查」！"
+        msg: "⚠️ 风控分级（初步参考报价 Indicative Quotation）：当前未关联已审核客户档案，允许内部试算及生成带参考声明的 Indicative Quotation；须完成建档与背调审批后方可出具 Formal Quotation 或正式 PI！"
       };
     }
     var dd = lead.ddRecord;
@@ -5213,37 +5306,41 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(dec === "blocked"){
       return {
         hardLocked: true,
+        quoteTier: "locked",
         level: "blocked",
         lead: lead,
-        msg: "⛔ 风控硬拦截（🔴 禁止交易）：客户「" + lead.company + "」背调结论为【禁止交易】（" + (dd.evidence || dd.label || "命中制裁/严重高危风险") + "）。内部成本测算仍可使用，但已锁定正式报价生成、复制、邮件发送与版本归档！"
+        msg: "⛔ 风控硬拦截（🔴 禁止交易）：客户「" + lead.company + "」背调结论为【禁止交易】（" + (dd.evidence || dd.label || "命中制裁/严重高危风险") + "）。内部成本测算仍可使用，但已全链路锁定参考/正式报价生成、复制、邮件发送与版本归档！"
       };
     }
     if(dec === "review"){
       return {
         hardLocked: true,
+        quoteTier: "locked",
         level: "review",
         lead: lead,
-        msg: "🔒 风控硬拦截（🟡 存疑待审核）：客户「" + lead.company + "」背调处于【存疑待风控/主管复核】状态。在背调结论更新为「审核通过」前，已锁定正式对外报价单生成、复制与归档！"
+        msg: "🔒 风控硬拦截（🟡 存疑待审核）：客户「" + lead.company + "」背调处于【存疑待风控/主管复核】状态。在背调结论更新为「审核通过」前，严禁绕过风控发出任何参考或正式对外报价！"
       };
     }
     if(dec === "approved" && dd.regChecked && dd.sancChecked && !(staleInfo && staleInfo.stale)){
       return {
         hardLocked: false,
+        quoteTier: "formal",
         level: "approved",
         lead: lead,
-        msg: "✅ 背调已核准：关联客户「" + lead.company + "」已通过主体存续与制裁必查（审核人：" + (dd.reviewer || "已登记") + " · " + (dd.checkedAt || "") + "）。"
+        msg: "✅ 背调已核准（准予出具 Formal Quotation）：关联客户「" + lead.company + "」已通过主体存续与制裁必查（审核人：" + (dd.reviewer || "已登记") + " · " + (dd.checkedAt || "") + "）。"
       };
     }
     var staleReason = (staleInfo && staleInfo.stale) ? ("客户主体信息已变更（" + staleInfo.reasons.join("、") + "），原背调失效；") : "该客户尚未完成背调风险审批（当前为待审核）；";
     return {
       hardLocked: false,
+      quoteTier: "indicative",
       level: "pending_warn",
       lead: lead,
-      msg: "⚠️ 背调待完善提醒：" + staleReason + "当前允许发出初步商务询价参考，但开具正式 PI / 签约前请先前往「客户背调」完成核查并登记审核结论！"
+      msg: "⚠️ 背调待完善（仅限初步参考报价 Indicative Quotation）：" + staleReason + "当前仅允许生成明确标注 Indicative Quotation 的初步参考价，完成「客户背调」审核通过后自动解锁 Formal Quotation！"
     };
   }
 
-  function renderQuoteDdGateUI(){
+  function renderQuoteDdGateUI(profitFloorBlocked){
     var gate = evaluateQuoteDdGate();
     var box = document.getElementById("qcDdGateBanner");
     if(box){
@@ -5263,20 +5360,31 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       }
       box.textContent = gate.msg;
     }
+    var showBtn = document.getElementById("btnShowRfq");
+    var copyFullBtn = document.getElementById("btnCopyRfqFull");
+    if(showBtn){
+      showBtn.textContent = gate.quoteTier === "formal" ? "生成正式英文报价单 (Formal)" : "生成初步参考报价单 (Indicative)";
+    }
+    if(copyFullBtn){
+      copyFullBtn.textContent = gate.quoteTier === "formal" ? "复制正式英文报价邮件" : "复制初步参考报价邮件";
+    }
+    var shouldDisableOut = !!gate.hardLocked || !!profitFloorBlocked;
     ["btnShowRfq","btnCopyQuote","btnCopyRfqFull","btnSaveQuoteVersion"].forEach(function(id){
       var b = document.getElementById(id);
-      if(b) b.disabled = !!gate.hardLocked;
+      if(b) b.disabled = shouldDisableOut;
     });
-    if(gate.hardLocked){
+    if(shouldDisableOut){
       var w = document.getElementById("rfqPreviewWrap");
       if(w) w.hidden = true;
       var ml = document.getElementById("btnRfqMailto");
       if(ml) ml.removeAttribute("href");
     }
+    if(_lastQuoteState) _lastQuoteState.quoteTier = gate.quoteTier;
     return gate;
   }
   window.refreshQuoteDdGate = function(){
-    renderQuoteDdGateUI();
+    var pfBlocked = !!(_lastQuoteState && _lastQuoteState.belowProfitFloor);
+    renderQuoteDdGateUI(pfBlocked);
     if(typeof updateFormalRfq === "function") updateFormalRfq();
   };
 
@@ -5298,19 +5406,21 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
 
   function updateCalc(){
     syncTaxModeUI();
-    var gate = renderQuoteDdGateUI();
     var taxMode = ((document.getElementById("qcTaxMode")||{}).value) || "small_exempt";
     var vatPctVal = (document.getElementById("qcVatPct")||{}).value;
     var rebPctVal = (document.getElementById("qcRebate")||{}).value;
     var exExtraVal = (document.getElementById("qcExTaxExtraPct")||{}).value;
     var decOpt = ((document.getElementById("qcDecimals")||{}).value) || "auto";
     var commBasis = ((document.getElementById("qcCommBasis")||{}).value) || "cif_keep_amt";
+    var minFloorVal = (document.getElementById("qcMinMarginFloor")||{}).value;
 
     var q = window.FG_CORE.computeQuote({
+      quoteId: _currentDraftQuoteId,
       priceMode: qcPriceMode,
       taxMode: taxMode,
       commBasis: commBasis,
       decimals: decOpt,
+      minMarginFloorPct: minFloorVal === undefined ? 8 : minFloorVal,
       rawFac: document.getElementById("qcFactoryRmb").value,
       qty: document.getElementById("qcQty").value,
       vatPct: vatPctVal === undefined ? 13 : vatPctVal,
@@ -5331,11 +5441,13 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
 
     var errBox = document.getElementById("qcValidationErr");
     var precBox = document.getElementById("qcPrecisionWarn");
+    var pfBox = document.getElementById("qcProfitFloorWarn");
     var facHint = document.getElementById("qcFacTotalHint");
 
     if(!q.ok){
+      var gateBad = renderQuoteDdGateUI(true);
       // P0 BUG-09: Synchronously purge BOTH local and global quote state + RFQ preview!
-      _lastQuoteState = {ok:false, errs:q.errs};
+      _lastQuoteState = {ok:false, errs:q.errs, quoteTier: gateBad.quoteTier};
       window._lastQuoteState = _lastQuoteState;
       _lastCutState = null;
       if(errBox){
@@ -5343,6 +5455,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
         errBox.textContent = "参数校验未通过，已暂停计算并清空历史报价缓存：" + q.errs.join("；") + "。";
       }
       if(precBox){ precBox.hidden = true; precBox.textContent = ""; }
+      if(pfBox){ pfBox.hidden = true; pfBox.textContent = ""; }
       if(facHint) facHint.textContent = "请修正无效输入项";
       var rfqW = document.getElementById("rfqPreviewWrap");
       if(rfqW) rfqW.hidden = true;
@@ -5357,6 +5470,8 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       if(typeof updateFormalRfq === "function") updateFormalRfq();
       return;
     }
+
+    var gate = renderQuoteDdGateUI(q.belowProfitFloor);
     if(errBox){ errBox.hidden = true; errBox.textContent = ""; }
     if(precBox){
       if(q.precisionNote){
@@ -5365,6 +5480,24 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       } else {
         precBox.hidden = true;
         precBox.textContent = "";
+      }
+    }
+    if(pfBox){
+      if(q.belowProfitFloor){
+        pfBox.hidden = false;
+        pfBox.style.borderColor = "var(--danger)";
+        pfBox.style.background = "color-mix(in srgb,var(--danger) 10%,var(--surface))";
+        pfBox.style.color = "var(--danger)";
+        pfBox.textContent = q.profitFloorMsg;
+      } else if(q.conservativeNegativeWarn){
+        pfBox.hidden = false;
+        pfBox.style.borderColor = "var(--med)";
+        pfBox.style.background = "color-mix(in srgb,var(--med) 14%,var(--surface))";
+        pfBox.style.color = "var(--brown)";
+        pfBox.textContent = q.profitFloorMsg;
+      } else {
+        pfBox.hidden = true;
+        pfBox.textContent = "";
       }
     }
 
@@ -5384,15 +5517,23 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     var qDate = localDateStr();
     var nextVerNum = (gate.lead && Array.isArray(gate.lead.quotes)) ? (gate.lead.quotes.length + 1) : 1;
     var seqInfo = getNextQuoteSeq(qDate);
+    var devTag = getQuoteDeviceTag();
     var refNo = window.FG_CORE.formatQuoteRef({
       dateStr: qDate,
       clientName: gate.lead ? gate.lead.company : qcSel.value,
+      deviceTag: devTag,
       seq: seqInfo.seq,
       version: nextVerNum
     });
 
     _lastQuoteState = {
       ok: true,
+      quoteId: q.quoteId,
+      quoteTier: gate.quoteTier,
+      deviceTag: devTag,
+      belowProfitFloor: q.belowProfitFloor,
+      minMarginFloorPct: q.minMarginFloorPct,
+      profitFloorMsg: q.profitFloorMsg,
       refNo: refNo,
       country: qcSel.value,
       prod: document.getElementById("qcProdName").value.trim() || "Industrial Equipment",
@@ -5543,6 +5684,10 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       var errTxt = (s && s.errs && s.errs.length) ? s.errs.join("; ") : "Invalid quotation parameters";
       return {ok:false, error:errTxt, sub:"", body:""};
     }
+    if(s.belowProfitFloor){
+      return {ok:false, error:s.profitFloorMsg || "折后实际利润率低于公司最低利润底线，已阻断对外报价生成", sub:"", body:""};
+    }
+    var isFormal = gate.quoteTier === "formal";
     var c = s.country, prod = s.prod, port = s.port;
     var pod = s.destPort ? (s.destPort + ", " + c) : (c + " (Destination Port: To be confirmed)");
     var qDate = localDateStr();
@@ -5558,14 +5703,25 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       : ("Estimated as of " + qDate + " (est. freight USD " + s.freightUsd.toFixed(2) + " + 110% marine insurance USD " + s.insUsd.toFixed(2) + ", subject to carrier rate at booking)");
     var coLine = hasChinaFta(c) ? ("\n- Origin Certificate: Preferential C/O (Form E / RCEP / FTA) subject to final 6-10 digit HS code verification for " + c) : "";
     var dutyDisclaimer = "\n- Import Duty & Local Taxes: Excluded (any tariff figures discussed are indicative reference estimates only; buyer's customs broker to confirm exact HS tariff)";
-    var refNo = s.refNo || window.FG_CORE.formatQuoteRef({dateStr: qDate, clientName: c, seq: 1, version: 1});
+    var refNo = s.refNo || window.FG_CORE.formatQuoteRef({dateStr: qDate, clientName: c, deviceTag: getQuoteDeviceTag(), seq: 1, version: 1});
     var sig = window.getRepSignature ? window.getRepSignature() : "FriesGo Global Export Team";
+    var subLine = isFormal
+      ? ("Formal Quotation for " + prod + " — FriesGo Global | Ref: " + refNo)
+      : ("Indicative Quotation (For Reference Only) for " + prod + " — FriesGo Global | Ref: " + refNo);
+    var introLine = isFormal
+      ? ("Thank you for your inquiry regarding " + prod + ". Please find our formal quotation details below (Ref: " + refNo + " | Date: " + qDate + "):\n\n")
+      : ("Thank you for your inquiry regarding " + prod + ". Please find our Indicative Quotation (Preliminary Reference Only — Non-Binding & Subject to Buyer KYC / Compliance Approval) below (Ref: " + refNo + " | Date: " + qDate + "):\n\n");
+    var closingLine = isFormal
+      ? "Please confirm your exact destination port, technical specification, and preferred terms so we can issue the formal Proforma Invoice (PI).\n\n"
+      : "IMPORTANT NOTICE: This is an Indicative Quotation provided solely for preliminary budgetary reference and does not constitute a binding commercial offer. Official quotation and Proforma Invoice (PI) issuance are subject to final technical specification confirmation and buyer compliance approval.\n\n";
     return {
       ok: true,
+      quoteTier: gate.quoteTier,
       refNo: refNo,
-      sub: "Formal Quotation for " + prod + " — FriesGo Global | Ref: " + refNo,
-      body: "Dear Procurement Team,\n\nThank you for your inquiry regarding " + prod + ". Please find our formal quotation details below (Ref: " + refNo + " | Date: " + qDate + "):\n\n"
+      sub: subLine,
+      body: "Dear Procurement Team,\n\n" + introLine
         + "1. PRODUCT & PRICING (USD, Unit Price precision: " + s.decimals + " decimals; Total = Unit Price x Qty)\n"
+        + "- Quotation Status: " + (isFormal ? "Official / Approved Buyer" : "Indicative Reference Only (Non-Binding)") + "\n"
         + "- Item Description: " + prod + "\n"
         + "- Quoted Quantity: " + s.qty + " " + s.unitPlural + "\n"
         + "- FOB " + port + " (China): " + s.fobUnitEn + " | Total: " + s.fobStr + "\n"
@@ -5581,7 +5737,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
         + "4. QUALITY & DOCUMENTATION\n"
         + "- Inspection Standard: " + inspTerms + "\n"
         + "- Technical Docs: " + docTerms + "\n\n"
-        + "Please confirm your exact destination port, technical specification, and preferred terms so we can issue the formal Proforma Invoice (PI).\n\n"
+        + closingLine
         + "Best regards,\n" + sig
     };
   }
@@ -5590,7 +5746,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     var out = document.getElementById("rfqEmailOut");
     var ml = document.getElementById("btnRfqMailto");
     if(!r.ok){
-      if(out) out.textContent = "无法生成正式报价单：" + r.error;
+      if(out) out.textContent = "无法生成对外报价单：" + r.error;
       if(ml) ml.removeAttribute("href");
       return;
     }
@@ -5605,11 +5761,14 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
   }
   var bindSelEl = document.getElementById("qcBindClient");
   if(bindSelEl){
-    bindSelEl.addEventListener("change", updateCalc);
+    bindSelEl.addEventListener("change", function(){
+      _currentDraftQuoteId = window.FG_CORE.genStableId("qt");
+      updateCalc();
+    });
   }
   [
     "qcProdName","qcFactoryRmb","qcQty","qcUnitName","qcTaxMode","qcVatPct","qcRebate","qcExTaxExtraPct",
-    "qcDecimals","qcCommBasis","qcFx","qcMargin","qcLocalRmb","qcFreightUsd","qcInsPct","qcBankUsd",
+    "qcDecimals","qcCommBasis","qcFx","qcMargin","qcMinMarginFloor","qcLocalRmb","qcFreightUsd","qcInsPct","qcBankUsd",
     "qcCommPct","qcDutyPct","qcLeadDays","qcValidDays","qcPort","qcDestPort","qcFreightNote",
     "qcCutPct","qcPayTerms","qcInspTerms","qcDocTerms","qcIncludeCtn"
   ].forEach(function(id){
@@ -5621,6 +5780,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     btnCutPitch.addEventListener("click", function(){
       var gate = evaluateQuoteDdGate();
       if(gate.hardLocked){ showToast(gate.msg); return; }
+      if(_lastQuoteState && _lastQuoteState.belowProfitFloor){ showToast(_lastQuoteState.profitFloorMsg); return; }
       var s = _lastCutState;
       if(!s || !s.rc || !s.rc.ok){ showToast("当前参数无效或砍价已跌破成本底线，无法生成谈判回复"); return; }
       var dec = s.decimals || 2;
@@ -5637,24 +5797,32 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(gate.hardLocked){ showToast(gate.msg); return; }
     var s = _lastQuoteState;
     if(!s || !s.ok){ showToast("请先修正报价参数（数量、工厂价与汇率须大于 0 且税率合法）"); return; }
-    commitQuoteSeq(localDateStr());
+    if(s.belowProfitFloor){ showToast(s.profitFloorMsg); return; }
+    commitQuoteSeqAsync(localDateStr()).then(function(){ updateCalc(); });
+    var isFormal = gate.quoteTier === "formal";
     var coLine = hasChinaFta(s.country) ? "\n• Origin Certificate: Preferential C/O subject to HS code verification" : "";
     var sig = window.getRepSignature ? window.getRepSignature() : "FriesGo Global Export Team";
-    var txt = "Quotation Summary — FriesGo Global (Ref: " + s.refNo + ")\n"
+    var hdr = isFormal
+      ? ("Formal Quotation Summary — FriesGo Global (Ref: " + s.refNo + ")")
+      : ("Indicative Quotation Summary (For Reference Only / Non-Binding) — FriesGo Global (Ref: " + s.refNo + ")");
+    var tail = isFormal
+      ? "Please share your destination port & detailed specs for a formal Proforma Invoice (PI)."
+      : "Note: Preliminary Indicative Quotation for reference only; binding offer subject to buyer KYC/compliance approval.";
+    var txt = hdr + "\n"
       + "• Product: " + s.prod + " (Qty: " + s.qty + " " + s.unitPlural + ")\n"
       + "• Destination: " + s.country + "\n"
       + "• FOB " + s.port + ": " + s.fobStr + " (" + s.fobUnitEn + ")\n"
       + "• Estimated CIF " + (s.destPort || s.country) + ": " + s.cifStr + " (" + s.cifUnitEn + ")" + coLine + "\n"
       + "• Validity: " + s.validDays + " days | Duty/Taxes excluded | Payment & Packing: To be confirmed\n"
-      + "Please share your destination port & detailed specs for a formal Proforma Invoice (PI).\n\n" + sig;
-    copyTxt(txt, "英文报价摘要");
+      + tail + "\n\n" + sig;
+    copyTxt(txt, isFormal ? "正式英文报价摘要" : "初步参考报价摘要 (Indicative)");
   });
   document.getElementById("btnShowRfq").addEventListener("click", function(){
     var r = buildFormalRfq();
     var w = document.getElementById("rfqPreviewWrap");
     if(!r.ok){
       w.hidden = true;
-      showToast("无法生成正式报价单：" + r.error);
+      showToast("无法生成对外报价单：" + r.error);
       return;
     }
     w.hidden = !w.hidden;
@@ -5663,8 +5831,8 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
   document.getElementById("btnCopyRfqFull").addEventListener("click", function(){
     var r = buildFormalRfq();
     if(!r.ok){ showToast("无法复制：" + r.error); return; }
-    commitQuoteSeq(localDateStr());
-    copyTxt("Subject: "+r.sub+"\n\n"+r.body, "正式英文报价邮件");
+    commitQuoteSeqAsync(localDateStr()).then(function(){ updateCalc(); });
+    copyTxt("Subject: "+r.sub+"\n\n"+r.body, r.quoteTier === "formal" ? "正式英文报价邮件 (Formal)" : "初步参考报价邮件 (Indicative)");
   });
   syncCountryDuty();
 
@@ -5688,7 +5856,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     });
     sel.innerHTML = opts;
     if(prev && slice.some(function(l){ return l.id === prev; })) sel.value = prev;
-    renderQuoteDdGateUI();
+    renderQuoteDdGateUI(_lastQuoteState && _lastQuoteState.belowProfitFloor);
   };
   window.refreshQuoteClientSelect();
 
@@ -5705,6 +5873,10 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
         showToast("无法归档：当前报价参数无效，请先修正错误项");
         return;
       }
+      if(s.belowProfitFloor){
+        showToast("无法归档：" + s.profitFloorMsg);
+        return;
+      }
       var sel = document.getElementById("qcBindClient");
       var cid = sel ? sel.value : "";
       var lead = cid ? findLeadById(cid) : null;
@@ -5713,81 +5885,92 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
         if(sel) sel.focus();
         return;
       }
-      if(!Array.isArray(lead.quotes)) lead.quotes = [];
-      var verNum = lead.quotes.length + 1;
-      var ver = "V" + verNum;
       var qDate = localDateStr();
-      var seqUsed = commitQuoteSeq(qDate);
-      var refNo = window.FG_CORE.formatQuoteRef({
-        dateStr: qDate,
-        clientName: lead.company,
-        seq: seqUsed,
-        version: verNum
-      });
-      var snap = {
-        quoteId: window.FG_CORE.genStableId("qt"),
-        refNo: refNo,
-        ver: ver,
-        savedAt: localDateTimeStr(),
-        date: qDate,
-        prod: s.prod,
-        qty: s.qty,
-        priceMode: s.priceMode || "unit",
-        taxMode: s.taxMode || "small_exempt",
-        vatPct: s.vatPct,
-        exTaxExtraPct: s.exTaxExtraPct || 0,
-        decimalsOpt: s.decimalsOpt || "auto",
-        decimals: s.decimals || 2,
-        commBasis: s.commBasis || "cif_keep_amt",
-        rawFac: s.rawFac,
-        unitName: s.unitName || "units",
-        unitSingular: s.unitSingular,
-        unitPlural: s.unitPlural,
-        country: s.country,
-        port: s.port,
-        destPort: s.destPort || "",
-        freightNote: s.freightNote || "",
-        rebPct: s.rebPct,
-        fx: s.fx,
-        marginPct: s.marginPct,
-        locRmb: s.locRmb,
-        costRmb: s.costRmb,
-        fobProfitRmb: s.fobProfitRmb,
-        fobProfitConservativeRmb: s.fobProfitConservativeRmb,
-        fobProfitWithRebateRmb: s.fobProfitWithRebateRmb,
-        cifProfitRmb: s.cifProfitRmb,
-        freightUsd: s.freightUsd,
-        insPct: s.insPct,
-        insUsd: s.insUsd,
-        bankUsd: s.bankUsd,
-        commPct: s.commPct,
-        dutyPct: s.dutyPct,
-        unitFobUsd: s.unitFobUsd,
-        fobUsd: s.fobUsd,
-        unitCifUsd: s.unitCifUsd,
-        cifUsd: s.cifUsd,
-        fobStr: s.fobStr,
-        cifStr: s.cifStr,
-        validDays: s.validDays,
-        lead: s.lead,
-        payTerms: s.payTerms || "",
-        owner: lead.owner || defaultOwner || ""
-      };
-      lead.quotes.unshift(snap);
-      appendTimelineEntry(lead, {
-        channel: "报价归档",
-        result: "归档报价 " + ver + " (" + refNo + ")：" + s.prod + " (" + s.qty + " " + s.unitPlural + ") FOB " + s.fobStr + " / CIF " + s.cifStr + "（汇率 " + s.fx + "，税务模式：" + s.taxMode + "）"
-      });
-      saveLeadsLocal();
-      updateCalc();
-      if(typeof renderTools === "function") renderTools();
-      if(typeof render === "function") render();
-      showToast("已为「" + lead.company + "」归档报价 " + ver + "（" + refNo + "）", {
-        label: "查看报价版本",
-        onClick: function(){
-          navigateTo("client-list");
-          if(typeof window.openClientDetail === "function") window.openClientDetail(lead.id, "quote");
-        }
+      var snapState = Object.assign({}, s);
+      var draftQid = _currentDraftQuoteId || window.FG_CORE.genStableId("qt");
+      _currentDraftQuoteId = window.FG_CORE.genStableId("qt");
+      commitQuoteSeqAsync(qDate).then(function(seqUsed){
+        var curLead = findLeadById(cid) || lead;
+        if(!Array.isArray(curLead.quotes)) curLead.quotes = [];
+        var verNum = curLead.quotes.length + 1;
+        var ver = "V" + verNum;
+        var refNo = window.FG_CORE.formatQuoteRef({
+          dateStr: qDate,
+          clientName: curLead.company,
+          deviceTag: getQuoteDeviceTag(),
+          seq: seqUsed,
+          version: verNum
+        });
+        var tierLabel = gate.quoteTier === "formal" ? "Formal" : "Indicative";
+        var snap = {
+          quoteId: draftQid,
+          refNo: refNo,
+          ver: ver,
+          quoteTier: gate.quoteTier,
+          savedAt: localDateTimeStr(),
+          date: qDate,
+          prod: snapState.prod,
+          qty: snapState.qty,
+          priceMode: snapState.priceMode || "unit",
+          taxMode: snapState.taxMode || "small_exempt",
+          vatPct: snapState.vatPct,
+          exTaxExtraPct: snapState.exTaxExtraPct || 0,
+          decimalsOpt: snapState.decimalsOpt || "auto",
+          decimals: snapState.decimals || 2,
+          commBasis: snapState.commBasis || "cif_keep_amt",
+          rawFac: snapState.rawFac,
+          unitName: snapState.unitName || "units",
+          unitSingular: snapState.unitSingular,
+          unitPlural: snapState.unitPlural,
+          country: snapState.country,
+          port: snapState.port,
+          destPort: snapState.destPort || "",
+          freightNote: snapState.freightNote || "",
+          rebPct: snapState.rebPct,
+          fx: snapState.fx,
+          marginPct: snapState.marginPct,
+          minMarginFloorPct: snapState.minMarginFloorPct,
+          actualMarginPct: snapState.actualMarginPct,
+          locRmb: snapState.locRmb,
+          costRmb: snapState.costRmb,
+          fobProfitRmb: snapState.fobProfitRmb,
+          fobProfitConservativeRmb: snapState.fobProfitConservativeRmb,
+          fobProfitWithRebateRmb: snapState.fobProfitWithRebateRmb,
+          cifProfitRmb: snapState.cifProfitRmb,
+          freightUsd: snapState.freightUsd,
+          insPct: snapState.insPct,
+          insUsd: snapState.insUsd,
+          bankUsd: snapState.bankUsd,
+          commPct: snapState.commPct,
+          dutyPct: snapState.dutyPct,
+          unitFobUsd: snapState.unitFobUsd,
+          fobUsd: snapState.fobUsd,
+          unitCifUsd: snapState.unitCifUsd,
+          cifUsd: snapState.cifUsd,
+          fobStr: snapState.fobStr,
+          cifStr: snapState.cifStr,
+          validDays: snapState.validDays,
+          lead: snapState.lead,
+          payTerms: snapState.payTerms || "",
+          owner: curLead.owner || defaultOwner || ""
+        };
+        curLead.quotes.unshift(snap);
+        appendTimelineEntry(curLead, {
+          channel: "报价归档",
+          result: "归档 " + tierLabel + " 报价 " + ver + " (" + refNo + ")：" + snapState.prod + " (" + snapState.qty + " " + snapState.unitPlural + ") FOB " + snapState.fobStr + " / CIF " + snapState.cifStr + "（汇率 " + snapState.fx + "，折后利润率 " + Number(snapState.actualMarginPct || 0).toFixed(2) + "%）"
+        });
+        return saveSingleLead(curLead).then(function(){
+          updateCalc();
+          if(typeof renderTools === "function") renderTools();
+          if(typeof render === "function") render();
+          showToast("已为「" + curLead.company + "」归档 " + tierLabel + " 报价 " + ver + "（" + refNo + "）", {
+            label: "查看报价版本",
+            onClick: function(){
+              navigateTo("client-list");
+              if(typeof window.openClientDetail === "function") window.openClientDetail(curLead.id, "quote");
+            }
+          });
+        });
       });
     });
   }
@@ -8116,8 +8299,22 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
     if(prev && slice.some(function(l){ return l.id === prev; })) pcBindEl.value = prev;
   };
 
+  var pcDecEl = document.getElementById("pcDecision");
+  var DEC_LABELS = {
+    pending: "⚪ 待风控审核（未放行）",
+    approved: "🟢 审核放行",
+    rework: "🟡 退回补证",
+    rejected: "🔴 高危拦截（禁止出运）"
+  };
+  function isHighRiskPrecheckCountry(c){
+    if(!c) return false;
+    if(typeof COMP === "object" && COMP && COMP[c]) return true;
+    return /Russia|Iran|Belarus|Syria|North Korea|Cuba|United Arab Emirates|UAE|Turkey|Kazakhstan|Kyrgyzstan|Armenia|Uzbekistan|Serbia|Hong Kong/i.test(c);
+  }
+
   function resetChecklistBoxes(){
     allCbs.forEach(function(cb){ cb.checked = false; });
+    if(pcDecEl) pcDecEl.value = "pending";
     updateChk();
   }
 
@@ -8125,7 +8322,10 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
     pcBindEl.addEventListener("change", function(){
       var cid = pcBindEl.value;
       var l = cid ? findLeadById(cid) : null;
-      // Switching to a new client/order ALWAYS resets checkmarks so previous safe order checks never leak!
+      // Switching client/order ALWAYS resets orderRef, evidence, endUser, decision, and checkmarks!
+      ["pcOrderRef","pcEndUser","pcEvidence"].forEach(function(id){
+        var el = document.getElementById(id); if(el) el.value = "";
+      });
       resetChecklistBoxes();
       if(l){
         var nmEl = document.getElementById("pcClientName");
@@ -8133,9 +8333,10 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
         var revEl = document.getElementById("pcReviewer");
         if(nmEl) nmEl.value = l.company || "";
         if(pcCountryEl && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(pcCountryEl, l.country || "Saudi Arabia", false);
-        if(hsEl && !hsEl.value && l.product) hsEl.value = l.product;
+        if(hsEl && l.product) hsEl.value = l.product;
         if(revEl && !revEl.value) revEl.value = l.owner || defaultOwner || "";
       }
+      updateChk();
     });
   }
 
@@ -8145,29 +8346,48 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
       var row = cb.closest(".chk-row");
       if(cb.checked){ done++; if(row) row.classList.add("done"); } else { if(row) row.classList.remove("done"); }
     });
-    document.getElementById("chkProgress").textContent = done===allCbs.length
-      ? ("🎉 当前订单已核查完成（" + done + " / " + allCbs.length + " 项）— 请点击「保存本单合规归档」留存台账")
-      : ("当前订单核查进度：" + done + " / " + allCbs.length + " 项（每笔订单独立核查，严禁跨单沿用）");
+    var dec = (pcDecEl && pcDecEl.value) || "pending";
+    var decTxt = DEC_LABELS[dec] || DEC_LABELS.pending;
+    var ctry = pcCountryEl ? pcCountryEl.value : "";
+    var hrHint = isHighRiskPrecheckCountry(ctry) ? " ｜ ⚠️ 高风险/转口关注国：必须填写最终用户用途及佐证编号" : "";
+    if(done === allCbs.length){
+      document.getElementById("chkProgress").textContent = dec === "approved"
+        ? ("🟢 核查勾选完成度：" + done + " / " + allCbs.length + " 项 ｜ 审核结论：" + decTxt + " — 请核实订单号、最终用途与佐证完整后点击「保存本单合规归档」" + hrHint)
+        : ("📋 当前订单核查勾选进度：" + done + " / " + allCbs.length + " 项已勾选 ｜ 当前审核结论：" + decTxt + "（6/6 勾选不直接等同于放行，须人工显式选择结论后归档）" + hrHint);
+    } else {
+      document.getElementById("chkProgress").textContent = "当前订单核查勾选进度：" + done + " / " + allCbs.length + " 项 ｜ 当前审核结论：" + decTxt + "（按订单号独立建档，严禁跨单沿用）" + hrHint;
+    }
   }
   box.addEventListener("change", updateChk);
+  if(pcDecEl) pcDecEl.addEventListener("change", updateChk);
+  if(pcCountryEl) pcCountryEl.addEventListener("change", updateChk);
 
   document.getElementById("btnResetChk").addEventListener("click", function(){
     if(pcBindEl) pcBindEl.value = "";
-    ["pcClientName","pcProductHs","pcEndUser"].forEach(function(id){
+    ["pcOrderRef","pcClientName","pcProductHs","pcEndUser","pcEvidence"].forEach(function(id){
       var el = document.getElementById(id); if(el) el.value = "";
     });
     resetChecklistBoxes();
-    showToast("已开启新订单合规自查（上一单勾选已清空）");
+    showToast("已开启新订单合规自查（上一单订单号、结论与勾选已清空）");
   });
 
   var btnSaveOrderChk = document.getElementById("btnSavePrecheckOrder");
   if(btnSaveOrderChk){
     btnSaveOrderChk.addEventListener("click", function(){
+      var orderRef = ((document.getElementById("pcOrderRef")||{}).value || "").trim();
       var clientName = ((document.getElementById("pcClientName")||{}).value || "").trim();
       var productHs = ((document.getElementById("pcProductHs")||{}).value || "").trim();
       var endUser = ((document.getElementById("pcEndUser")||{}).value || "").trim();
+      var evidence = ((document.getElementById("pcEvidence")||{}).value || "").trim();
       var reviewer = ((document.getElementById("pcReviewer")||{}).value || defaultOwner || "").trim();
+      var decision = (pcDecEl && pcDecEl.value) || "pending";
       var country = pcCountryEl ? pcCountryEl.value : "";
+      if(!orderRef){
+        showToast("请先填写本单「订单 / PI / 合同编号」（用于区分同一客户的不同交易订单）");
+        var ordEl = document.getElementById("pcOrderRef");
+        if(ordEl) ordEl.focus();
+        return;
+      }
       if(!clientName || !productHs){
         showToast("请先填写本单「客户名称」与「产品及 HS 编码」后再归档合规记录");
         var focusEl = !clientName ? document.getElementById("pcClientName") : document.getElementById("pcProductHs");
@@ -8175,7 +8395,7 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
         return;
       }
       if(!reviewer){
-        showToast("请填写「核查责任人」姓名以完成合规留痕");
+        showToast("请填写「合规核查责任人」姓名以完成合规留痕");
         var revF = document.getElementById("pcReviewer");
         if(revF) revF.focus();
         return;
@@ -8187,35 +8407,58 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
         checks.push(c);
         if(c) done++;
       });
+      var highRisk = isHighRiskPrecheckCountry(country);
+      if(decision === "approved"){
+        if(done < allCbs.length){
+          showToast("合规阻断：尚未完成全部 6/6 项核查（当前 " + done + "/6），不得将审核结论设为「审核放行」！");
+          return;
+        }
+        if(!endUser || !evidence){
+          showToast("合规阻断：设为「审核放行」前，必须完整填写「最终用户与具体用途」及「核查佐证来源 / 终端声明编号」！");
+          var fApp = !endUser ? document.getElementById("pcEndUser") : document.getElementById("pcEvidence");
+          if(fApp) fApp.focus();
+          return;
+        }
+      }
+      if(highRisk && decision !== "rejected" && (!endUser || !evidence)){
+        showToast("高风险交易阻断：目的国「" + (CN[country]||country) + "」涉制裁/转口/救济高风险，必须确认并填写「最终用户用途」与「佐证编号」（若拦截请选高危拦截）！");
+        var fHr = !endUser ? document.getElementById("pcEndUser") : document.getElementById("pcEvidence");
+        if(fHr) fHr.focus();
+        return;
+      }
       var rec = {
         logId: window.FG_CORE.genStableId("chk"),
+        orderRef: orderRef,
         savedAt: localDateTimeStr(),
         clientId: pcBindEl ? pcBindEl.value : "",
         clientName: clientName,
         country: country,
+        highRiskCountry: highRisk,
         productHs: productHs,
-        endUserPurpose: endUser || "未填（高风险转口地请补签书面 End-User 声明）",
+        endUserPurpose: endUser || "待补（尚未放行）",
+        evidence: evidence || "待补佐证",
         reviewer: reviewer,
+        decision: decision,
         checks: checks,
         doneCount: done,
         totalCount: allCbs.length,
-        allPassed: done === allCbs.length
+        checksComplete: done === allCbs.length,
+        allPassed: decision === "approved" && done === allCbs.length
       };
       if(window.FG_STORE){
         window.FG_STORE.saveComplianceLog(rec).then(function(){
-          // Also append to bound CRM client timeline if selected
           var boundLead = rec.clientId ? findLeadById(rec.clientId) : null;
           if(boundLead){
             appendTimelineEntry(boundLead, {
-              channel: "发货前合规自查",
+              channel: "发货前合规台账",
               owner: reviewer,
-              result: "完成订单出运前合规核查（" + done + "/" + allCbs.length + " 项）：产品/HS「" + productHs + "」→ 目的国「" + (CN[country]||country) + "」｜最终用途：" + rec.endUserPurpose
+              result: "订单 [" + orderRef + "] 合规归档｜结论：" + (DEC_LABELS[decision] || decision) + "（核查完成度 " + done + "/" + allCbs.length + " 项）：产品/HS「" + productHs + "」→ 目的国「" + (CN[country]||country) + "」｜最终用途：" + rec.endUserPurpose + "｜佐证：" + rec.evidence
             });
-            saveLeadsLocal();
+            return saveSingleLead(boundLead).then(function(){ return reloadCrmFromStore(); });
           }
           return reloadCrmFromStore();
         }).then(function(){
-          showToast("已归档本单发货前合规记录（" + clientName + " · " + done + "/6 项）");
+          showToast("已归档订单 [" + orderRef + "] 合规台账（" + (DEC_LABELS[decision] || decision) + " · " + done + "/6 项）");
         }).catch(function(err){
           showStorageError(err && err.message ? err.message : "合规记录保存失败");
         });
@@ -8228,16 +8471,23 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
     if(!hBox) return;
     var logs = complianceLogs || [];
     if(!logs.length){
-      hBox.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">尚无已归档的订单发货前合规核查台账。每笔出运订单请在上方填写客户、产品 HS 编码与最终用途后保存留痕。</div>';
+      hBox.innerHTML = '<div style="font-size:12.5px;color:var(--muted)">尚无已归档的订单发货前合规核查台账。每笔出运订单请在上方填写订单号、客户、产品 HS 编码、最终用途与佐证来源，并显式判定审核结论后保存留痕。</div>';
       return;
     }
-    hBox.innerHTML = logs.slice(0, 30).map(function(lg){
-      var badge = lg.allPassed
-        ? '<span class="mx-ok">✅ 6/6 全项核查通过</span>'
-        : ('<span class="mx-warn">⚠️ 已查 ' + Number(lg.doneCount||0) + '/6 项（未完备）</span>');
+    hBox.innerHTML = logs.slice(0, 50).map(function(lg){
+      var dec = lg.decision || (lg.allPassed ? "approved" : "pending");
+      var decBadge = dec === "approved"
+        ? '<span class="mx-ok">🟢 审核放行</span>'
+        : (dec === "rejected"
+          ? '<span class="mx-bad">🔴 高危拦截</span>'
+          : (dec === "rework"
+            ? '<span class="mx-warn">🟡 退回补证</span>'
+            : '<span class="meta-pill" style="padding:1px 7px">⚪ 待风控审核</span>'));
+      var progBadge = '<span class="meta-pill" style="padding:1px 7px">勾选 ' + Number(lg.doneCount||0) + '/' + Number(lg.totalCount||6) + '</span>';
+      var ordTxt = lg.orderRef ? ('<span class="action-tag" style="margin-left:0;margin-right:6px">订单 ' + esc(lg.orderRef) + '</span>') : '';
       return '<div class="due-item" style="padding:8px 10px;margin-top:6px;align-items:flex-start">'
-        + '<div><b>'+esc(lg.clientName)+'</b> · <span class="meta-pill" style="padding:1px 7px">'+esc(CN[lg.country]||lg.country||"")+'</span> '+badge
-        + '<div class="src-ok" style="margin-top:3px">产品/HS：<b>'+esc(lg.productHs)+'</b> ｜ 最终用途：'+esc(lg.endUserPurpose||"—")+' ｜ 核查人：'+esc(lg.reviewer||"—")+' ｜ 时间：'+esc(lg.savedAt||"")+'</div></div>'
+        + '<div>' + ordTxt + '<b>'+esc(lg.clientName)+'</b> · <span class="meta-pill" style="padding:1px 7px">'+esc(CN[lg.country]||lg.country||"")+'</span> '+decBadge+' '+progBadge
+        + '<div class="src-ok" style="margin-top:3px">产品/HS：<b>'+esc(lg.productHs)+'</b> ｜ 最终用途：'+esc(lg.endUserPurpose||"—")+' ｜ 佐证：'+esc(lg.evidence||"—")+' ｜ 核查人：'+esc(lg.reviewer||"—")+' ｜ 时间：'+esc(lg.savedAt||"")+'</div></div>'
         + '<button type="button" class="pill" data-del-pclog="'+esc(lg.logId)+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">删除</button>'
         + '</div>';
     }).join("");
@@ -8312,7 +8562,7 @@ window.addCustomerToCrm = function(p){
     if(note && (existing.note||"").indexOf(note) < 0) existing.note = existing.note ? (existing.note + "； " + note) : note;
     existing.updated = today;
     existing.updatedAt = Date.now();
-    saveLeadsLocal();
+    saveSingleLead(existing);
     if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
     if(typeof window.refreshPrecheckClientSelect === "function") window.refreshPrecheckClientSelect();
     renderTools(); render();
@@ -8343,7 +8593,7 @@ window.addCustomerToCrm = function(p){
     updatedAt: Date.now()
   });
   crmLeads.unshift(lead);
-  saveLeadsLocal();
+  saveSingleLead(lead, { allowResurrect: true });
   if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
   if(typeof window.refreshPrecheckClientSelect === "function") window.refreshPrecheckClientSelect();
   renderTools(); render();
@@ -8802,7 +9052,7 @@ if(cdPanel){
       if(!res){ showToast("请先填写本次联系结果"); var rEl = document.getElementById("cdTlResult"); if(rEl) rEl.focus(); return; }
       if(nxtD) l.nextDate = nxtD;
       appendTimelineEntry(l, {channel:ch, result:res, nextAction:nxtA, nextDate:nxtD});
-      saveLeadsLocal(); renderTools(); render();
+      saveSingleLead(l); renderTools(); render();
       showToast("已追加跟进记录到「" + l.company + "」时间线");
       return;
     }
@@ -8833,7 +9083,7 @@ if(cdPanel){
     l[field] = e.target.value;
     l.updated = localDateStr();
     l.updatedAt = Date.now();
-    saveLeadsLocal();
+    saveSingleLead(l);
     if(e.type === "change"){
       var stInfo = isDdRecordStale(l);
       if(stInfo && stInfo.stale && /^(company|website|email|country)$/.test(field)){
@@ -8895,7 +9145,7 @@ function renderSnapshotPanel(){
   if(sc) sc.textContent = String((crmSnapshots || []).length);
   if(!box || box.hidden) return;
   var header = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
-    + '<b style="font-size:13px;color:var(--brown)">本地事务保护快照（清空/覆盖前自动生成，支持一键无损回滚）</b>'
+    + '<b style="font-size:13px;color:var(--brown)">本地事务保护快照（含有效客户、回收站与合规台账，支持一键无损回滚）</b>'
     + '<button type="button" class="pill primary" data-snap-create="1" style="min-height:26px;padding:2px 10px;font-size:11.5px">＋ 立即创建手动快照</button>'
     + '</div>';
   if(!crmSnapshots || !crmSnapshots.length){
@@ -8904,7 +9154,7 @@ function renderSnapshotPanel(){
   }
   box.innerHTML = header + crmSnapshots.map(function(sn){
     return '<div class="due-item" style="padding:7px 10px;margin-top:6px">'
-      + '<div><b>'+esc(sn.reason||"保护快照")+'</b> <span class="src-ok">· 创建时间：'+esc(sn.createdAtStr||"")+' · 有效客户 '+Number(sn.activeCount||0)+' 条 / 回收站 '+Number(sn.deletedCount||0)+' 条</span></div>'
+      + '<div><b>'+esc(sn.reason||"保护快照")+'</b> <span class="src-ok">· 创建时间：'+esc(sn.createdAtStr||"")+' · 有效客户 '+Number(sn.activeCount||0)+' 条 / 回收站 '+Number(sn.deletedCount||0)+' 条 / 合规台账 '+Number(sn.complianceCount||0)+' 条</span></div>'
       + '<div style="display:flex;gap:6px"><button type="button" class="pill good-btn" data-snap-restore="'+esc(sn.snapId)+'" style="min-height:26px;padding:2px 10px;font-size:11.5px">↺ 一键回滚到此快照</button></div>'
       + '</div>';
   }).join("");
@@ -8975,11 +9225,11 @@ if(snapBoxEl){
   snapBoxEl.addEventListener("click", function(e){
     var bCreate = e.target.closest("button[data-snap-create]");
     if(bCreate){
-      window.FG_STORE.createSnapshot("手动备份快照（" + crmLeads.length + " 条客户）").then(function(){
+      window.FG_STORE.createSnapshot("手动备份快照（" + crmLeads.length + " 条客户 / " + complianceLogs.length + " 条合规）").then(function(){
         return reloadCrmFromStore();
       }).then(function(){
         updateSaveBackupStatus(true);
-        showToast("已创建本地事务快照");
+        showToast("已创建本地事务快照（含客户、回收站与合规台账）");
       }).catch(function(err){
         showStorageError(err && err.message ? err.message : "创建快照失败");
       });
@@ -8997,7 +9247,7 @@ if(snapBoxEl){
         return reloadCrmFromStore().then(function(){ return res; });
       }).then(function(res){
         updateSaveBackupStatus(true);
-        showToast("已成功回滚至快照：恢复有效客户 " + res.restoredActive + " 条");
+        showToast("已成功回滚至快照：恢复有效客户 " + res.restoredActive + " 条 / 回收站 " + Number(res.restoredTrash || 0) + " 条 / 合规台账 " + Number(res.restoredCompliance || 0) + " 条");
       }).catch(function(err){
         showStorageError(err && err.message ? err.message : "快照回滚失败");
       });
@@ -9034,7 +9284,7 @@ function exportFiltered(){
     ].join(","));
   });
   downloadFile("friesgo-国家筛选表.csv", "\ufeff"+lines.join("\n"), "text/csv;charset=utf-8");
-  showToast("已导出 "+rows.length+" 个国家（CSV）");
+  showToast("已触发 "+rows.length+" 个国家 CSV 下载（请在浏览器下载栏确认保存）");
 }
 function exportFollow(){
   if(!crmLeads.length){ showToast("客户列表为空，请先建档或导入客户"); return; }
@@ -9049,7 +9299,7 @@ function exportFollow(){
     ].join(","));
   });
   downloadFile("friesgo-客户跟进-"+localDateStr()+".csv", "\ufeff"+lines.join("\n"), "text/csv;charset=utf-8");
-  showToast("已导出 "+crmLeads.length+" 条客户跟进记录（CSV）");
+  showToast("已触发 "+crmLeads.length+" 条客户跟进 CSV 下载（请在浏览器下载栏确认保存）");
 }
 document.getElementById("btnExport").addEventListener("click", exportFiltered);
 document.getElementById("btnExportTop").addEventListener("click", exportFiltered);
@@ -9086,12 +9336,109 @@ document.getElementById("btnClearFollow").addEventListener("click", function(){
     });
   }
 });
+
+function parseBackupBundleObject(obj){
+  if(!obj || typeof obj !== "object") throw new Error("无效 JSON 备份对象");
+  var hasModern = Array.isArray(obj.crmLeads) || Array.isArray(obj.crmTrash) || Array.isArray(obj.complianceLogs);
+  var hasLegacyFollow = !!(obj.followMap && typeof obj.followMap === "object");
+  if(!hasModern && !hasLegacyFollow){
+    throw new Error("备份中未包含有效的 crmLeads / crmTrash / complianceLogs / followMap 业务字段");
+  }
+  var incomingActive = [];
+  if(Array.isArray(obj.crmLeads)){
+    incomingActive = obj.crmLeads.filter(function(x){ return x && typeof x === "object" && typeof x.company === "string" && x.company.trim(); }).map(function(x){
+      return window.FG_CORE.normalizeLeadForStore({
+        id: typeof x.id === "string" && x.id ? x.id : makeLeadId(),
+        company: x.company.trim(),
+        country: String(x.country || "Vietnam"),
+        leadType: x.leadType === "渠道代理" ? "渠道代理" : "客户",
+        contact: String(x.contact || ""),
+        email: String(x.email || ""),
+        phone: String(x.phone || ""),
+        website: String(x.website || ""),
+        product: String(x.product || ""),
+        stage: String(x.stage || "重点跟进"),
+        nextDate: String(x.nextDate || ""),
+        owner: String(x.owner || defaultOwner || ""),
+        source: String(x.source || "备份恢复"),
+        note: String(x.note || ""),
+        ddRecord: (x.ddRecord && typeof x.ddRecord === "object") ? x.ddRecord : null,
+        timeline: Array.isArray(x.timeline) ? x.timeline : [],
+        quotes: Array.isArray(x.quotes) ? x.quotes : [],
+        createdAt: x.createdAt || new Date().toISOString(),
+        updated: String(x.updated || localDateStr()),
+        updatedAt: x.updatedAt || Date.now(),
+        _rev: x._rev || 1
+      });
+    });
+  } else if(hasLegacyFollow){
+    incomingActive = Object.keys(obj.followMap).map(function(c){
+      var f = obj.followMap[c] || {};
+      return window.FG_CORE.normalizeLeadForStore({
+        id: makeLeadId(), company: (CN[c]||c)+" 市场跟进（备份恢复）", country: c, leadType: "客户",
+        contact:"", email:"", phone:"", website:"", product:"",
+        stage: f.status || "重点跟进", nextDate: f.nextDate || "",
+        owner: f.owner || defaultOwner, source: "备份恢复", note: f.note || "", ddRecord: null, timeline: [], quotes: [], updated: f.updated || localDateStr(), updatedAt: Date.now()
+      });
+    });
+  }
+  var incomingTrash = Array.isArray(obj.crmTrash) ? obj.crmTrash : (Array.isArray(obj.deletedLeads) ? obj.deletedLeads : []);
+  var incomingComp = Array.isArray(obj.complianceLogs) ? obj.complianceLogs : [];
+  return {
+    crmLeads: incomingActive,
+    crmTrash: incomingTrash,
+    complianceLogs: incomingComp
+  };
+}
+
+window.buildFullBackupPayload = function(){
+  return {
+    schemaVersion: 2,
+    version: 5,
+    exportedAt: localDateTimeStr(),
+    deviceTag: (window.FG_STORE && typeof window.FG_STORE.getDeviceTag === "function") ? window.FG_STORE.getDeviceTag() : "",
+    compareList: Array.isArray(compareList) ? compareList.slice(0, 4) : [],
+    defaultOwner: defaultOwner || "",
+    crmLeads: Array.isArray(crmLeads) ? crmLeads : [],
+    crmTrash: Array.isArray(crmTrash) ? crmTrash : [],
+    complianceLogs: Array.isArray(complianceLogs) ? complianceLogs : []
+  };
+};
+
+window.restoreFullBackupPayload = function(obj, opts){
+  opts = opts || {};
+  var mode = opts.mode === "overwrite" ? "overwrite" : "merge";
+  var parsed = parseBackupBundleObject(obj);
+  if(Array.isArray(obj.compareList)){
+    compareList = obj.compareList.filter(function(c){ return DATA.some(function(d){ return d.country === c; }); }).slice(0, 4);
+    saveCompareOnly();
+  }
+  if(typeof obj.defaultOwner === "string"){
+    defaultOwner = obj.defaultOwner;
+    if(defOwnerEl) defOwnerEl.value = defaultOwner;
+    saveOwnerOnly();
+  }
+  setSavingPendingUI();
+  return window.FG_STORE.restoreBackupBundle(parsed, {
+    mode: mode,
+    reason: opts.reason || ("覆盖恢复完整备份前自动保护快照（原客户 " + crmLeads.length + " 条 / 回收站 " + crmTrash.length + " 条 / 合规 " + complianceLogs.length + " 条）")
+  }).then(function(res){
+    if(mode === "overwrite") selectedClientId = null;
+    return reloadCrmFromStore().then(function(){
+      clearStorageError();
+      updateSaveBackupStatus(true);
+      return res;
+    });
+  });
+};
+
 document.getElementById("btnBackupJson").addEventListener("click", function(){
-  downloadFile("friesgo-crm-backup-"+localDateStr()+".json", JSON.stringify({schemaVersion:1, version:4, exportedAt:localDateTimeStr(), compareList:compareList, crmLeads:crmLeads, complianceLogs:complianceLogs, defaultOwner:defaultOwner}, null, 2), "application/json");
+  var payload = window.buildFullBackupPayload();
+  downloadFile("friesgo-full-backup-"+localDateStr()+".json", JSON.stringify(payload, null, 2), "application/json");
   lastBackupTs = Date.now();
   try { localStorage.setItem("friesgo_last_backup", String(lastBackupTs)); } catch(e){}
   updateSaveBackupStatus(false);
-  showToast("已下载 JSON 备份（含 " + crmLeads.length + " 条客户档案、时间线、报价版本及合规台账）");
+  showToast("已触发完整业务 JSON 备份下载（有效客户 " + payload.crmLeads.length + " 条 / 回收站 " + payload.crmTrash.length + " 条 / 合规台账 " + payload.complianceLogs.length + " 条）——请在浏览器下载栏确认外部文件已安全落盘！");
 });
 document.getElementById("btnRestoreJson").addEventListener("click", function(){ document.getElementById("restoreFile").click(); });
 document.getElementById("restoreFile").addEventListener("change", function(e){
@@ -9100,73 +9447,22 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
   rd.onload = function(){
     try {
       var obj = JSON.parse(rd.result);
-      if(!obj || typeof obj !== "object") throw new Error("无效 JSON 对象");
-      var incoming = null;
-      if(Array.isArray(obj.crmLeads)){
-        incoming = obj.crmLeads.filter(function(x){ return x && typeof x === "object" && typeof x.company === "string" && x.company.trim(); }).map(function(x){
-          return window.FG_CORE.normalizeLeadForStore({
-            id: typeof x.id === "string" && x.id ? x.id : makeLeadId(),
-            company: x.company.trim(),
-            country: String(x.country || "Vietnam"),
-            leadType: x.leadType === "渠道代理" ? "渠道代理" : "客户",
-            contact: String(x.contact || ""),
-            email: String(x.email || ""),
-            phone: String(x.phone || ""),
-            website: String(x.website || ""),
-            product: String(x.product || ""),
-            stage: String(x.stage || "重点跟进"),
-            nextDate: String(x.nextDate || ""),
-            owner: String(x.owner || defaultOwner || ""),
-            source: String(x.source || "备份恢复"),
-            note: String(x.note || ""),
-            ddRecord: (x.ddRecord && typeof x.ddRecord === "object") ? x.ddRecord : null,
-            timeline: Array.isArray(x.timeline) ? x.timeline : [],
-            quotes: Array.isArray(x.quotes) ? x.quotes : [],
-            updated: String(x.updated || localDateStr()),
-            updatedAt: x.updatedAt || Date.now()
-          });
-        });
-      } else if(obj.followMap && typeof obj.followMap === "object"){
-        incoming = Object.keys(obj.followMap).map(function(c){
-          var f = obj.followMap[c] || {};
-          return window.FG_CORE.normalizeLeadForStore({
-            id: makeLeadId(), company: (CN[c]||c)+" 市场跟进（备份恢复）", country: c, leadType: "客户",
-            contact:"", email:"", phone:"", website:"", product:"",
-            stage: f.status || "重点跟进", nextDate: f.nextDate || "",
-            owner: f.owner || defaultOwner, source: "备份恢复", note: f.note || "", ddRecord: null, timeline: [], quotes: [], updated: f.updated || localDateStr(), updatedAt: Date.now()
-          });
-        });
-      } else {
-        throw new Error("备份中未包含有效的 crmLeads 或 followMap 字段");
-      }
-      var previewMsg = "检测到有效备份：共 " + incoming.length + " 条客户档案（当前本地已有 " + crmLeads.length + " 条）。\n\n• 点「确定」将执行【无损智能合并】（按稳定 ID 合并跟进时间线 tlId 与报价版本 quoteId，绝不丢失历史记录）；\n• 点「取消」可选择【创建保护快照后完全覆盖】或放弃。";
+      var parsed = parseBackupBundleObject(obj);
+      var previewMsg = "检测到完整业务备份：有效客户 " + parsed.crmLeads.length + " 条、回收站 " + parsed.crmTrash.length + " 条、合规台账 " + parsed.complianceLogs.length + " 条。\n\n• 点「确定」将执行【无损智能合并】（合并有效客户、软删除回收站、跟进时间线、报价版本及合规台账）；\n• 点「取消」可选择【创建保护快照后全量覆盖】或放弃。";
       var doMerge = confirm(previewMsg);
-      if(Array.isArray(obj.compareList)){ compareList = obj.compareList.slice(0,4); saveCompareOnly(); }
-      if(typeof obj.defaultOwner==="string"){ defaultOwner=obj.defaultOwner; if(defOwnerEl) defOwnerEl.value=defaultOwner; saveOwnerOnly(); }
-
-      setSavingPendingUI();
       if(doMerge){
-        window.FG_STORE.mergeImportLeads(incoming).then(function(res){
-          return reloadCrmFromStore().then(function(){ return res; });
-        }).then(function(res){
-          clearStorageError();
-          updateSaveBackupStatus(true);
-          showToast("无损合并完成：新增 " + res.added + " 条，深度合并 " + res.merged + " 条（当前共 " + crmLeads.length + " 条）");
+        window.restoreFullBackupPayload(obj, { mode: "merge" }).then(function(res){
+          showToast("无损合并完成：新增客户 " + res.added + " 条 / 合并 " + res.merged + " 条 / 回收站 +" + Number(res.trashRestored || 0) + " 条 / 合规台账 +" + Number(res.complianceRestored || 0) + " 条");
         }).catch(function(err){
           showStorageError(err && err.message ? err.message : "合并导入失败");
         });
       } else {
-        if(!confirm("是否先自动生成【本地保护快照】，再将当前列表替换为备份中的 " + incoming.length + " 条客户？点「取消」将放弃本次恢复。")){
+        if(!confirm("是否先自动生成【本地保护快照】，再以备份中的完整数据（客户 " + parsed.crmLeads.length + " / 回收站 " + parsed.crmTrash.length + " / 合规 " + parsed.complianceLogs.length + "）全量覆盖当前工作区？点「取消」放弃恢复。")){
           updateSaveBackupStatus(false);
           return;
         }
-        window.FG_STORE.overwriteImportWithSnapshot(incoming, "覆盖恢复 JSON 前自动保护快照（原 " + crmLeads.length + " 条）").then(function(res){
-          selectedClientId = null;
-          return reloadCrmFromStore().then(function(){ return res; });
-        }).then(function(res){
-          clearStorageError();
-          updateSaveBackupStatus(true);
-          showToast("已覆盖恢复 " + res.imported + " 条客户档案（旧数据已存入「快照回滚」）");
+        window.restoreFullBackupPayload(obj, { mode: "overwrite" }).then(function(res){
+          showToast("已全量恢复：有效客户 " + res.imported + " 条 / 回收站 " + Number(res.trashRestored || 0) + " 条 / 合规台账 " + Number(res.complianceRestored || 0) + " 条（旧状态已存入快照回滚）");
         }).catch(function(err){
           showStorageError("保护快照未完成，已中止覆盖恢复：" + (err && err.message ? err.message : ""));
         });
