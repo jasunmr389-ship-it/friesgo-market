@@ -107,7 +107,7 @@ async function connectCdpTarget(wsUrl) {
       "--no-first-run",
       "--no-default-browser-check",
       "--window-size=1440,900",
-      baseUrl
+      "about:blank"
     ],
     { stdio: "ignore" }
   );
@@ -118,21 +118,23 @@ async function connectCdpTarget(wsUrl) {
     for (let i = 0; i < 40; i++) {
       try {
         const list = await fetchJson(`http://127.0.0.1:${cdpPort}/json/list`);
-        targets = list.filter((t) => t.type === "page" && t.url.startsWith(baseUrl));
+        targets = list.filter((t) => t.type === "page");
         if (targets.length) break;
       } catch (_) {}
       await new Promise((r) => setTimeout(r, 150));
     }
     assert.ok(targets && targets.length > 0, "Headless Chrome page opened");
     cdp = await connectCdpTarget(targets[0].webSocketDebuggerUrl);
+    await cdp.send("Page.navigate", { url: baseUrl });
 
-    await cdp.evalJs(`(async () => {
-      for (let i = 0; i < 40; i++) {
-        if (window.FG_CORE && window.navigateTo && document.getElementById("globalProdProfile")) break;
-        await new Promise((r) => setTimeout(r, 100));
-      }
-      if (window._fgStoreReadyPromise) await window._fgStoreReadyPromise;
-    })()`);
+    for (let attempt = 0; attempt < 40; attempt++) {
+      try {
+        const ready = await cdp.evalJs(`Boolean(location.href.startsWith(${JSON.stringify(baseUrl)}) && window.FG_CORE && window.navigateTo && document.getElementById("globalProdProfile"))`);
+        if (ready) break;
+      } catch (_) {}
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await cdp.evalJs(`window._fgStoreReadyPromise || Promise.resolve()`);
 
     // 1. P2B-1: Global Product Profile selector syncs across 5 modules
     const profSync = await cdp.evalJs(`(() => {
