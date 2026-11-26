@@ -1003,47 +1003,88 @@ Best regards,
   <!-- FOB / CIF & Landed Cost Quote Calculator + Formal RFQ Email Generator -->
   <section class="block" id="quote-calc">
     <h2>成本与报价计算</h2>
-    <p class="sub">按「单件工厂价 × 数量」或「整单总价」核算出口退税、港杂、银行费、佣金与 FOB/CIF 报价；支持砍价保利反推与纯英文正式报价单。</p>
+    <p class="sub">采用定点数精算引擎：默认按<b>小规模纳税人免税不退税 / 未确认退税保守模式</b>核定保底售价，同步并列展示「不计退税保底净利」与「预计退税后净利」；支持 2–6 位智能保利单价精度与 CIF 佣金双模式。<b>最终税务与退税规则须经财务人员确认。</b></p>
     <div class="card">
       <div class="pills" style="margin:0 0 10px" id="qcModePills">
-        <button class="pill" type="button" data-qcmode="unit" aria-pressed="true">按单件工厂价 × 数量算（推荐）</button>
+        <button class="pill primary" type="button" data-qcmode="unit" aria-pressed="true">按单件工厂价 × 数量算（推荐）</button>
         <button class="pill" type="button" data-qcmode="total" aria-pressed="false">按整单工厂总价算</button>
         <span class="flag-note" id="qcFacTotalHint" style="margin:0 0 0 auto;font-weight:700;color:var(--brown)"></span>
       </div>
 
+      <div id="qcDdGateBanner" style="margin-bottom:10px;padding:9px 12px;border-radius:10px;border:1px solid var(--med);font-size:12.5px;font-weight:700"></div>
       <div id="qcValidationErr" class="storage-warn-banner" hidden></div>
+      <div id="qcPrecisionWarn" hidden style="margin-bottom:10px;padding:8px 12px;border-radius:10px;background:var(--orange-soft);border:1px solid var(--line);font-size:12.5px;color:var(--brown);font-weight:700"></div>
 
       <div class="form-grid-4">
-        <div><label for="qcCountry">目的国（自动带入参考关税）</label><select id="qcCountry"></select></div>
+        <div><label for="qcCountry">目的国（自动带入参考估算关税）</label><select id="qcCountry"></select></div>
         <div><label for="qcProdName">报价品名（英文，用于正式报价）</label><input id="qcProdName" type="text" value="Industrial Valves & Water Pumps"></div>
-        <div><label for="qcFactoryRmb" id="qcFacLabel">工厂含税单价（RMB / 件）</label><input id="qcFactoryRmb" type="number" value="1000" min="0" step="10"></div>
+        <div><label for="qcFactoryRmb" id="qcFacLabel">实付采购单价（RMB·小规模不退税）</label><input id="qcFactoryRmb" type="number" value="1000" min="0" step="10"></div>
         <div><label for="qcQty">数量（须大于 0）</label><input id="qcQty" type="number" value="100" min="1" step="1"></div>
         <div>
           <label for="qcUnitName">计量单位（正式报价用）</label>
           <select id="qcUnitName">
             <option value="units" selected>units（台/件）</option>
-            <option value="pcs">pcs（个/支）</option>
+            <option value="pcs">pcs（个/支/紧固件）</option>
             <option value="sets">sets（套）</option>
             <option value="tons">MT（公吨）</option>
-            <option value="meters">meters（米）</option>
+            <option value="meters">meters（米/线缆）</option>
           </select>
         </div>
         <div>
-          <label for="qcRebate">出口退税率（%）</label>
-          <select id="qcRebate">
-            <option value="13" selected>13%（多数机电/泵阀/机械）</option>
-            <option value="9">9%（部分金属/农机类）</option>
-            <option value="0">0%（不退税 / 买单出口）</option>
+          <label for="qcTaxMode">税务与出口退税模式（须经财务确认）</label>
+          <select id="qcTaxMode">
+            <option value="small_exempt" selected>小规模纳税人自营 · 免税不退税（默认保底）</option>
+            <option value="vat_unconfirmed">含税采购 · 退税资格待确认（按0退税定保底价）</option>
+            <option value="vat_rebate">一般纳税人专票 · 已确认退税资格（按净成本）</option>
+            <option value="ex_tax">工厂不含税价 · 无退税（可填开票/代理税点）</option>
           </select>
         </div>
-        <div><label for="qcFx">核算汇率（RMB / USD）</label><input id="qcFx" type="number" value="7.15" min="1" step="0.05"></div>
-        <div><label for="qcMargin">目标净毛利率（%）</label><input id="qcMargin" type="number" value="18" min="0" max="80" step="1"></div>
+        <div>
+          <label for="qcVatPct">采购发票增值税率（%）</label>
+          <select id="qcVatPct">
+            <option value="13" selected>13%（一般纳税人制造业专票）</option>
+            <option value="9">9%（部分金属/农机/运输类）</option>
+            <option value="6">6%（技术/现代服务类）</option>
+            <option value="3">3%（小规模征收率）</option>
+            <option value="1">1%（小规模优惠征收率）</option>
+            <option value="0">0%（免税/无税率）</option>
+          </select>
+        </div>
+        <div>
+          <label for="qcRebate">预计/核定出口退税率（%，≤发票税率）</label>
+          <input id="qcRebate" type="number" value="13" min="0" max="17" step="1" title="保守模式下仅用于对比展示预计退税后利润，不扣减保底售价；仅在「已确认退税资格」模式下计入净成本">
+        </div>
+        <div id="qcExTaxExtraWrap" hidden>
+          <label for="qcExTaxExtraPct">不含税附加税费/合规代办费率（%）</label>
+          <input id="qcExTaxExtraPct" type="number" value="0" min="0" max="30" step="0.5">
+        </div>
+        <div><label for="qcFx">核算汇率（RMB / USD）</label><input id="qcFx" type="number" value="7.15" min="3" max="20" step="0.05"></div>
+        <div><label for="qcMargin">目标净利润率（%）</label><input id="qcMargin" type="number" value="18" min="0" max="80" step="1"></div>
+        <div>
+          <label for="qcDecimals">对外单价小数精度（向上保利进位）</label>
+          <select id="qcDecimals">
+            <option value="auto" selected>Auto 智能保利精度（&lt;$0.1五位 / &lt;$1四位 / ≥$1两位）</option>
+            <option value="2">固定 2 位小数（常规大件设备）</option>
+            <option value="3">固定 3 位小数</option>
+            <option value="4">固定 4 位小数（管件/电缆/耗材）</option>
+            <option value="5">固定 5 位小数（微型紧固件/垫片）</option>
+            <option value="6">固定 6 位小数（超低单价标准件）</option>
+          </select>
+        </div>
+        <div>
+          <label for="qcCommBasis">佣金与 CIF 定价模式</label>
+          <select id="qcCommBasis">
+            <option value="cif_keep_amt" selected>模式 A（默认）：CIF 含佣且保目标利润额不减</option>
+            <option value="cif_keep_pct">模式 B（可选）：CIF 含佣且保 CIF 总额目标利润率</option>
+            <option value="fob">仅按 FOB 离岸货值计佣（运保费实报实销）</option>
+          </select>
+        </div>
         <div><label for="qcLocalRmb">国内港杂/报关/拖车费（RMB）</label><input id="qcLocalRmb" type="number" value="3500" min="0" step="500"></div>
         <div><label for="qcFreightUsd">国际海/空运费（USD）</label><input id="qcFreightUsd" type="number" value="1800" min="0" step="100"></div>
         <div><label for="qcInsPct">CIF 货运保险费率（%，1.1× 加成）</label><input id="qcInsPct" type="number" value="0.3" min="0" max="5" step="0.1"></div>
         <div><label for="qcBankUsd">银行收汇 / L/C / 审单杂费（USD）</label><input id="qcBankUsd" type="number" value="60" min="0" step="10"></div>
         <div><label for="qcCommPct">海外代理佣金 / 中信保费率（%）</label><input id="qcCommPct" type="number" value="0" min="0" max="25" step="0.5"></div>
-        <div><label for="qcDutyPct">目的国参考进口关税（%，可改）</label><input id="qcDutyPct" type="number" value="0" min="0" max="100" step="0.5"></div>
+        <div><label for="qcDutyPct">目的国参考估算关税（%，须查 HS 核实）</label><input id="qcDutyPct" type="number" value="0" min="0" max="100" step="0.5"></div>
         <div><label for="qcLeadDays">生产交期（天）</label><input id="qcLeadDays" type="number" value="20" min="1" step="1"></div>
         <div><label for="qcValidDays">报价有效期（天）</label><input id="qcValidDays" type="number" value="15" min="3" max="60" step="1"></div>
         <div><label for="qcPort">中国装运港（POL）</label><input id="qcPort" type="text" value="Ningbo / Shanghai"></div>
@@ -1053,11 +1094,12 @@ Best regards,
       <div id="qcFtaNote" style="margin-top:10px;font-size:12.5px;padding:8px 10px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)"></div>
 
       <div class="calc-out">
-        <div class="calc-kpi"><div class="k">FOB 美元总价 / 单价</div><div class="v hi" id="qcFobOut">—</div><div class="d" id="qcFobUnit">—</div></div>
-        <div class="calc-kpi"><div class="k">CIF 美元总价 / 单价（含 1.1× 保险）</div><div class="v" id="qcCifOut">—</div><div class="d" id="qcCifUnit">—</div></div>
-        <div class="calc-kpi"><div class="k">本单预估净毛利（RMB）</div><div class="v ok" id="qcProfitOut">—</div><div class="d" id="qcCostOut">—</div></div>
-        <div class="calc-kpi"><div class="k">买家估算含关税落地价（USD）</div><div class="v" id="qcLandedOut">—</div><div class="d" id="qcFxRiskNote">不含目的国 VAT 与当地清关杂费</div></div>
+        <div class="calc-kpi"><div class="k">FOB 美元总价 / 单价 &amp; 实得利润</div><div class="v hi" id="qcFobOut">—</div><div class="d" id="qcFobUnit">—</div></div>
+        <div class="calc-kpi"><div class="k">CIF 美元总价 / 单价 &amp; 实得利润</div><div class="v" id="qcCifOut">—</div><div class="d" id="qcCifUnit">—</div></div>
+        <div class="calc-kpi"><div class="k">保守不计退税净利 vs 预计退税后</div><div class="v ok" id="qcProfitOut">—</div><div class="d" id="qcCostOut">—</div></div>
+        <div class="calc-kpi"><div class="k">买家参考含税落地估算（USD）</div><div class="v" id="qcLandedOut">—</div><div class="d" id="qcFxRiskNote">不含目的国 VAT 与当地清关杂费</div></div>
       </div>
+      <div id="qcTaxDualBar" style="margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--surface2);border:1px dashed var(--line);font-size:12px;line-height:1.55;color:var(--ink)"></div>
 
       <div class="detail-box" style="margin-top:12px">
         <div class="detail-box-title">正式英文报价条款确认（逐项确认后再发给客户，未确认项默认显示 To be confirmed）</div>
@@ -1116,7 +1158,7 @@ Best regards,
       <div class="pills" style="margin-top:12px">
         <button class="pill primary" id="btnShowRfq" type="button">生成正式英文报价单</button>
         <button class="pill" id="btnCopyQuote" type="button">复制简版报价（发 WhatsApp）</button>
-        <select id="qcBindClient" aria-label="选择客户归档报价" style="min-height:36px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-size:12.5px;max-width:100%"><option value="">选择客户以归档报价版本…</option></select>
+        <select id="qcBindClient" aria-label="选择客户归档报价" style="min-height:36px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-size:12.5px;max-width:100%"><option value="">选择客户以关联背调状态 / 归档报价版本…</option></select>
         <button class="pill" id="btnSaveQuoteVersion" type="button">归档报价版本（V1/V2）</button>
       </div>
       <div id="rfqPreviewWrap" hidden style="margin-top:10px">
@@ -1132,14 +1174,14 @@ Best regards,
   <!-- Multi-SKU Container Load Optimizer -->
   <section class="block" id="container-calc">
     <h2>装柜与拼柜试算</h2>
-    <p class="sub">按木箱/托盘实装容积、欧美航线限重及门框内径（防超尺寸 OOG）核算推荐柜型；如需写入正式报价单，请在「成本与报价计算」中手动勾选带入。</p>
+    <p class="sub">每一行默认为<b>独立不可拆分的单件包装单元</b>（如设备可分箱装运，请按实际分箱后尺寸拆分为多行录入）；自动区分超长平柜（40'GP）与超高高柜（40'HQ）、硬拦截单件超航线限重、支持不可叠放占底面积与不可旋转门宽校核。<b>最终配载方案须经货代/船司装箱打尺确认。</b></p>
     <div class="card">
       <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
         <div>
           <label for="ctnRouteLimit">目的航线限重标准</label>
           <select id="ctnRouteLimit">
-            <option value="std" selected>常规海运（东南亚/中东/拉美/非洲：20'GP/40'HQ 限重 26 吨）</option>
-            <option value="useu">🇺🇸🇪🇺 欧美内陆公路严控限重（20'GP ≤ 19 吨 · 40'HQ ≤ 22 吨）</option>
+            <option value="std" selected>常规海运（东南亚/中东/拉美/非洲：单柜限重 26 吨）</option>
+            <option value="useu">🇺🇸🇪🇺 欧美内陆公路严控限重（20'GP ≤ 19 吨 · 40'GP/HQ ≤ 22 吨）</option>
           </select>
         </div>
         <div>
@@ -1152,7 +1194,7 @@ Best regards,
       </div>
       <div class="mini-scroll">
         <table>
-          <thead><tr><th>品名</th><th>长 (cm)</th><th>宽 (cm)</th><th>高 (cm)</th><th>单箱毛重 (kg)</th><th>箱数</th><th>小计 CBM / 吨</th><th>操作</th></tr></thead>
+          <thead><tr><th>品名</th><th>长 (cm)</th><th>宽 (cm)</th><th>高 (cm)</th><th>单件毛重 (kg)</th><th>件数（整件）</th><th>码放约束</th><th>小计 CBM / 吨</th><th>操作</th></tr></thead>
           <tbody id="ctnTbody"></tbody>
         </table>
       </div>
@@ -1166,7 +1208,7 @@ Best regards,
         <div class="calc-kpi"><div class="k">总装箱体积（CBM）</div><div class="v hi" id="ctnCbmOut">—</div><div class="d" id="ctnVolNote">木箱实装：20'GP ≈ 24.5 · 40'HQ ≈ 60 CBM</div></div>
         <div class="calc-kpi"><div class="k">总毛重（公吨）</div><div class="v" id="ctnWtOut">—</div><div class="d" id="ctnWtNote">当前航线限重 26 吨/柜</div></div>
         <div class="calc-kpi"><div class="k">智能推荐装柜方案</div><div class="v ok" id="ctnRecOut">—</div><div class="d" id="ctnDensityOut">—</div></div>
-        <div class="calc-kpi"><div class="k">重货 / 泡货配载提示</div><div class="v" id="ctnTypeOut" style="font-size:15px">—</div><div class="d" id="ctnWarnOut">—</div></div>
+        <div class="calc-kpi"><div class="k">重货 / 泡货 / 底面积提示</div><div class="v" id="ctnTypeOut" style="font-size:15px">—</div><div class="d" id="ctnWarnOut">—</div></div>
       </div>
     </div>
   </section>
@@ -4910,7 +4952,7 @@ window.FG_GEO = (function(){
 })();
 
 /* ===== Outreach Tab: 6-Channel Lead Finder + Quote Calculator + Multilingual Email Generator ===== */
-(function(){
+window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
   var lfSel = document.getElementById("lfCountry");
   var emSel = document.getElementById("emCountry");
   var qcSel = document.getElementById("qcCountry");
@@ -4993,201 +5035,370 @@ window.FG_GEO = (function(){
     "United States":"Los Angeles / Houston", "Canada":"Vancouver", "South Korea":"Busan", "Japan":"Tokyo / Yokohama"
   };
 
+  var qcDutyManuallyVerified = false;
   function syncCountryDuty(){
     var c = qcSel.value;
     var meta = COUNTRY_META[c];
     var det = DETAILS[c];
     var duty = meta ? meta.tariffPct : (hasChinaFta(c) ? 0 : 8);
+    qcDutyManuallyVerified = false;
     document.getElementById("qcDutyPct").value = duty;
     var dpEl = document.getElementById("qcDestPort");
     if(dpEl) dpEl.value = MAJOR_PORTS_EN[c] || "";
     var note = document.getElementById("qcFtaNote");
     if(hasChinaFta(c)){
-      note.innerHTML = '🆓 <b>'+esc(CN[c]||c)+'享对华自贸协定：</b>'+esc(det?det.fta:"已生效 FTA")+'（办原产地证多可享 0% 优惠关税，报价前核实 MacMap）';
+      note.innerHTML = '🆓 <b>'+esc(CN[c]||c)+'享对华自贸协定：</b>'+esc(det?det.fta:"已生效 FTA")+'（办原产地证多可享 0% 优惠关税；<span style="color:var(--med);font-weight:700">当前关税为未核实参考估算值，正式报价须按 6–10 位 HS 编码查 ITC MacMap 与清关行确认</span>）';
     } else if(det){
-      note.innerHTML = '📌 <b>'+esc(CN[c]||c)+'参考关税：</b>'+esc(det.tariff.slice(0,55))+'…（当前按 '+duty+'% 试算，可手动改）';
+      note.innerHTML = '📌 <b>'+esc(CN[c]||c)+'参考关税（未核实估算）：</b>'+esc(det.tariff.slice(0,55))+'…（当前按 '+duty+'% 参考试算，<span style="color:var(--med);font-weight:700">非海关最终裁定税率，请按具体 HS 编码在 MacMap 核实后修改</span>）';
     } else {
-      note.innerHTML = '📌 未录入该国明细关税，当前按 '+duty+'% 参考试算（正式报价请查 ITC MacMap）。';
+      note.innerHTML = '📌 未录入该国明细关税，当前按 '+duty+'% 参考估算（<span style="color:var(--med);font-weight:700">未经 HS 编码核实，正式报价请查 ITC MacMap</span>）。';
     }
     updateCalc();
   }
-  var _lastQuoteState = null;
+  var _lastQuoteState = {ok: false, errs: ["尚未初始化"]};
+  window._lastQuoteState = _lastQuoteState;
+  var _lastCutState = null;
 
   function fmtUsd2(n){
     return "$" + Number(n).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
   }
 
-  function validateQuoteInputs(){
-    var errs = [];
-    var rawFac = parseFloat(document.getElementById("qcFactoryRmb").value);
-    var qty = parseFloat(document.getElementById("qcQty").value);
-    var reb = parseFloat(document.getElementById("qcRebate").value);
-    var fx = parseFloat(document.getElementById("qcFx").value);
-    var mgn = parseFloat(document.getElementById("qcMargin").value);
-    var loc = parseFloat(document.getElementById("qcLocalRmb").value);
-    var frt = parseFloat(document.getElementById("qcFreightUsd").value);
-    var insPct = parseFloat((document.getElementById("qcInsPct")||{}).value);
-    var bankUsd = parseFloat((document.getElementById("qcBankUsd")||{}).value);
-    var commPct = parseFloat((document.getElementById("qcCommPct")||{}).value);
-    var duty = parseFloat(document.getElementById("qcDutyPct").value);
-    var lead = parseFloat(document.getElementById("qcLeadDays").value);
-    var validDays = parseFloat((document.getElementById("qcValidDays")||{}).value);
-    var cutCust = parseFloat((document.getElementById("qcCutPct")||{}).value);
+  function getNextQuoteSeq(dateStr){
+    var k = "friesgo_qseq_" + String(dateStr || "").replace(/-/g, "");
+    var cur = 1;
+    try { cur = (parseInt(localStorage.getItem(k) || "0", 10) || 0) + 1; } catch(e){ cur = 1; }
+    return { key: k, seq: cur };
+  }
+  function commitQuoteSeq(dateStr){
+    var info = getNextQuoteSeq(dateStr);
+    try { localStorage.setItem(info.key, String(info.seq)); } catch(e){}
+    return info.seq;
+  }
 
-    if(!isFinite(qty) || qty <= 0) errs.push("数量必须为大于 0 的有效正数");
-    if(!isFinite(rawFac) || rawFac <= 0) errs.push("工厂含税价必须大于 0");
-    if(!isFinite(fx) || fx <= 0) errs.push("核算汇率必须大于 0");
-    if(!isFinite(mgn) || mgn < 0 || mgn >= 95) errs.push("目标净毛利率须在 0%–95% 之间");
-    if(!isFinite(commPct) || commPct < 0 || commPct >= 95) errs.push("代理佣金/保费率无效");
-    if(isFinite(mgn) && isFinite(commPct) && (mgn + commPct) >= 95) errs.push("毛利率与佣金率合计不能 ≥ 95%");
-    if(!isFinite(loc) || loc < 0) errs.push("国内港杂费不能为负数");
-    if(!isFinite(frt) || frt < 0) errs.push("国际运费不能为负数");
-    if(!isFinite(insPct) || insPct < 0 || insPct > 10) errs.push("保险费率须在 0%–10% 之间");
-    if(!isFinite(bankUsd) || bankUsd < 0) errs.push("银行杂费不能为负数");
-    if(!isFinite(duty) || duty < 0 || duty > 300) errs.push("参考进口关税不能为负数");
-    if(!isFinite(lead) || lead <= 0) errs.push("生产交期须大于 0 天");
-    if(!isFinite(validDays) || validDays <= 0) errs.push("报价有效期须大于 0 天");
-
+  /* Customer Due Diligence Gate for Formal Quotations (Rule 3 Option 1) */
+  function evaluateQuoteDdGate(){
+    var sel = document.getElementById("qcBindClient");
+    var cid = sel ? sel.value : "";
+    var lead = (cid && typeof findLeadById === "function") ? findLeadById(cid) : null;
+    if(!lead){
+      return {
+        hardLocked: false,
+        level: "unbound_warn",
+        lead: null,
+        msg: "⚠️ 风控提醒：当前为未关联客户档案的快速测算，允许生成与复制初步报价单；但在开具正式形式发票（PI）、签署合同或收付货款前，请先建档并完成「客户背调与制裁筛查」！"
+      };
+    }
+    var dd = lead.ddRecord;
+    var staleInfo = (typeof isDdRecordStale === "function") ? isDdRecordStale(lead) : {stale: false};
+    var dec = dd && dd.decision ? dd.decision : "pending";
+    if(dec === "blocked"){
+      return {
+        hardLocked: true,
+        level: "blocked",
+        lead: lead,
+        msg: "⛔ 风控硬拦截（🔴 禁止交易）：客户「" + lead.company + "」背调结论为【禁止交易】（" + (dd.evidence || dd.label || "命中制裁/严重高危风险") + "）。内部成本测算仍可使用，但已锁定正式报价生成、复制、邮件发送与版本归档！"
+      };
+    }
+    if(dec === "review"){
+      return {
+        hardLocked: true,
+        level: "review",
+        lead: lead,
+        msg: "🔒 风控硬拦截（🟡 存疑待审核）：客户「" + lead.company + "」背调处于【存疑待风控/主管复核】状态。在背调结论更新为「审核通过」前，已锁定正式对外报价单生成、复制与归档！"
+      };
+    }
+    if(dec === "approved" && dd.regChecked && dd.sancChecked && !(staleInfo && staleInfo.stale)){
+      return {
+        hardLocked: false,
+        level: "approved",
+        lead: lead,
+        msg: "✅ 背调已核准：关联客户「" + lead.company + "」已通过主体存续与制裁必查（审核人：" + (dd.reviewer || "已登记") + " · " + (dd.checkedAt || "") + "）。"
+      };
+    }
+    var staleReason = (staleInfo && staleInfo.stale) ? ("客户主体信息已变更（" + staleInfo.reasons.join("、") + "），原背调失效；") : "该客户尚未完成背调风险审批（当前为待审核）；";
     return {
-      ok: errs.length === 0,
-      errs: errs,
-      rawFac: rawFac, qty: qty,
-      reb: (isFinite(reb) ? reb : 0) / 100,
-      fx: fx,
-      mgn: (isFinite(mgn) ? mgn : 0) / 100,
-      loc: isFinite(loc) ? loc : 0,
-      frt: isFinite(frt) ? frt : 0,
-      insPct: (isFinite(insPct) ? insPct : 0) / 100,
-      bankUsd: isFinite(bankUsd) ? bankUsd : 0,
-      commPct: (isFinite(commPct) ? commPct : 0) / 100,
-      duty: (isFinite(duty) ? duty : 0) / 100,
-      lead: Math.round(isFinite(lead) ? lead : 20),
-      validDays: Math.round(isFinite(validDays) ? validDays : 15),
-      cutCust: Math.min(50, Math.max(1, isFinite(cutCust) ? cutCust : 5))
+      hardLocked: false,
+      level: "pending_warn",
+      lead: lead,
+      msg: "⚠️ 背调待完善提醒：" + staleReason + "当前允许发出初步商务询价参考，但开具正式 PI / 签约前请先前往「客户背调」完成核查并登记审核结论！"
     };
   }
 
+  function renderQuoteDdGateUI(){
+    var gate = evaluateQuoteDdGate();
+    var box = document.getElementById("qcDdGateBanner");
+    if(box){
+      box.hidden = false;
+      if(gate.hardLocked){
+        box.style.background = "color-mix(in srgb, var(--danger) 12%, var(--surface))";
+        box.style.borderColor = "var(--danger)";
+        box.style.color = "var(--danger)";
+      } else if(gate.level === "approved"){
+        box.style.background = "color-mix(in srgb, var(--good) 10%, var(--surface))";
+        box.style.borderColor = "var(--good)";
+        box.style.color = "var(--good)";
+      } else {
+        box.style.background = "color-mix(in srgb, var(--med) 14%, var(--surface))";
+        box.style.borderColor = "var(--med)";
+        box.style.color = "var(--brown)";
+      }
+      box.textContent = gate.msg;
+    }
+    ["btnShowRfq","btnCopyQuote","btnCopyRfqFull","btnSaveQuoteVersion"].forEach(function(id){
+      var b = document.getElementById(id);
+      if(b) b.disabled = !!gate.hardLocked;
+    });
+    if(gate.hardLocked){
+      var w = document.getElementById("rfqPreviewWrap");
+      if(w) w.hidden = true;
+      var ml = document.getElementById("btnRfqMailto");
+      if(ml) ml.removeAttribute("href");
+    }
+    return gate;
+  }
+  window.refreshQuoteDdGate = function(){
+    renderQuoteDdGateUI();
+    if(typeof updateFormalRfq === "function") updateFormalRfq();
+  };
+
+  function syncTaxModeUI(){
+    var tm = ((document.getElementById("qcTaxMode")||{}).value) || "small_exempt";
+    var exWrap = document.getElementById("qcExTaxExtraWrap");
+    if(exWrap) exWrap.hidden = (tm !== "ex_tax");
+    var fl = document.getElementById("qcFacLabel");
+    if(fl){
+      if(tm === "ex_tax"){
+        fl.textContent = (qcPriceMode === "total") ? "工厂不含税采购总价（RMB）" : "工厂不含税单价（RMB / 件）";
+      } else if(tm === "small_exempt"){
+        fl.textContent = (qcPriceMode === "total") ? "实付采购总价（RMB·小规模免税不退税）" : "实付采购单价（RMB·小规模不退税）";
+      } else {
+        fl.textContent = (qcPriceMode === "total") ? "工厂含税采购总价（RMB）" : "工厂含税单价（RMB / 件）";
+      }
+    }
+  }
+
   function updateCalc(){
-    var v = validateQuoteInputs();
+    syncTaxModeUI();
+    var gate = renderQuoteDdGateUI();
+    var taxMode = ((document.getElementById("qcTaxMode")||{}).value) || "small_exempt";
+    var vatPctVal = (document.getElementById("qcVatPct")||{}).value;
+    var rebPctVal = (document.getElementById("qcRebate")||{}).value;
+    var exExtraVal = (document.getElementById("qcExTaxExtraPct")||{}).value;
+    var decOpt = ((document.getElementById("qcDecimals")||{}).value) || "auto";
+    var commBasis = ((document.getElementById("qcCommBasis")||{}).value) || "cif_keep_amt";
+
+    var q = window.FG_CORE.computeQuote({
+      priceMode: qcPriceMode,
+      taxMode: taxMode,
+      commBasis: commBasis,
+      decimals: decOpt,
+      rawFac: document.getElementById("qcFactoryRmb").value,
+      qty: document.getElementById("qcQty").value,
+      vatPct: vatPctVal === undefined ? 13 : vatPctVal,
+      rebPct: rebPctVal === undefined ? 13 : rebPctVal,
+      exTaxExtraPct: exExtraVal === undefined ? 0 : exExtraVal,
+      fx: document.getElementById("qcFx").value,
+      marginPct: document.getElementById("qcMargin").value,
+      commPct: (document.getElementById("qcCommPct")||{}).value,
+      locRmb: document.getElementById("qcLocalRmb").value,
+      freightUsd: document.getElementById("qcFreightUsd").value,
+      insPct: (document.getElementById("qcInsPct")||{}).value,
+      bankUsd: (document.getElementById("qcBankUsd")||{}).value,
+      dutyPct: document.getElementById("qcDutyPct").value,
+      lead: document.getElementById("qcLeadDays").value,
+      validDays: (document.getElementById("qcValidDays")||{}).value,
+      cutCust: (document.getElementById("qcCutPct")||{}).value
+    });
+
     var errBox = document.getElementById("qcValidationErr");
+    var precBox = document.getElementById("qcPrecisionWarn");
     var facHint = document.getElementById("qcFacTotalHint");
-    if(!v.ok){
-      _lastQuoteState = {ok:false, errs:v.errs};
+
+    if(!q.ok){
+      // P0 BUG-09: Synchronously purge BOTH local and global quote state + RFQ preview!
+      _lastQuoteState = {ok:false, errs:q.errs};
+      window._lastQuoteState = _lastQuoteState;
       _lastCutState = null;
-      if(errBox){ errBox.hidden = false; errBox.textContent = "参数校验未通过，已暂停计算与正式报价生成：" + v.errs.join("；") + "。"; }
+      if(errBox){
+        errBox.hidden = false;
+        errBox.textContent = "参数校验未通过，已暂停计算并清空历史报价缓存：" + q.errs.join("；") + "。";
+      }
+      if(precBox){ precBox.hidden = true; precBox.textContent = ""; }
       if(facHint) facHint.textContent = "请修正无效输入项";
+      var rfqW = document.getElementById("rfqPreviewWrap");
+      if(rfqW) rfqW.hidden = true;
       ["qcFobOut","qcCifOut","qcProfitOut","qcLandedOut","qcBeUnit","qcCut3","qcCutCust","qcCut10"].forEach(function(id){
         var el = document.getElementById(id); if(el) el.textContent = "—";
       });
       ["qcFobUnit","qcCifUnit","qcCostOut","qcCut3Sub","qcCutCustSub","qcCut10Sub"].forEach(function(id){
         var el = document.getElementById(id); if(el) el.textContent = "输入无效，已暂停计算";
       });
+      var dualBar = document.getElementById("qcTaxDualBar");
+      if(dualBar) dualBar.textContent = "请修正上方红色报错参数后恢复双口径利润精算。";
       if(typeof updateFormalRfq === "function") updateFormalRfq();
       return;
     }
-    if(errBox) errBox.hidden = true;
+    if(errBox){ errBox.hidden = true; errBox.textContent = ""; }
+    if(precBox){
+      if(q.precisionNote){
+        precBox.hidden = false;
+        precBox.textContent = "💡 精度提示：" + q.precisionNote;
+      } else {
+        precBox.hidden = true;
+        precBox.textContent = "";
+      }
+    }
 
-    var rawFac = v.rawFac, qty = v.qty, reb = v.reb, fx = v.fx, mgn = v.mgn;
-    var loc = v.loc, frt = v.frt, insPct = v.insPct, bankUsd = v.bankUsd, commPct = v.commPct, duty = v.duty, cutCust = v.cutCust;
-    var fac = (qcPriceMode === "unit") ? (rawFac * qty) : rawFac;
+    var rawFac = parseFloat(document.getElementById("qcFactoryRmb").value);
     var unitName = ((document.getElementById("qcUnitName")||{}).value || "units").trim();
     var unitSingular = unitName === "tons" ? "MT" : (unitName === "units" ? "unit" : (unitName === "sets" ? "set" : (unitName === "pcs" ? "pc" : "meter")));
     var unitPlural = unitName === "tons" ? "MT" : unitName;
 
     if(facHint){
       facHint.textContent = (qcPriceMode === "unit")
-        ? ("采购含税总价：¥" + fac.toLocaleString("zh-CN", {maximumFractionDigits:2}) + "（单价 ¥" + rawFac + " × " + qty + " " + unitPlural + "）")
-        : ("折合含税单价：¥" + (fac/qty).toFixed(2) + " / " + unitSingular);
+        ? ("实付采购总额：¥" + q.payableProcRmb.toLocaleString("zh-CN", {maximumFractionDigits:2}) + "（单价 ¥" + rawFac + " × " + q.qty + " " + unitPlural + (q.taxMode === "ex_tax" && q.exTaxExtraPct > 0 ? ("，含附加税费 +" + q.exTaxExtraPct + "%") : "") + "）")
+        : ("折合实付采购单价：¥" + (q.payableProcRmb / q.qty).toFixed(4).replace(/\.?0+$/, "") + " / " + unitSingular);
     }
 
-    var netCostRmb = fac - (fac / 1.13) * reb;
-    var fixedCostRmb = loc + bankUsd * fx;
-    var totalCostRmb = netCostRmb + fixedCostRmb;
-    var denom = Math.max(0.05, 1 - mgn - commPct);
-    var fobUsdRaw = (totalCostRmb / fx) / denom;
-    var unitFobUsd = Math.round((fobUsdRaw / qty) * 100) / 100;
-    var fobUsd = Math.round(unitFobUsd * qty * 100) / 100;
-
-    var commRmb = fobUsd * commPct * fx;
-    var cifDenom = Math.max(0.5, 1 - 1.1 * insPct);
-    var cifUsdRaw = (fobUsd + frt) / cifDenom;
-    var unitCifUsd = Math.round((cifUsdRaw / qty) * 100) / 100;
-    var cifUsd = Math.round(unitCifUsd * qty * 100) / 100;
-    var insUsd = Math.max(0, Math.round((cifUsd - fobUsd - frt) * 100) / 100);
-
-    var profitRmb = fobUsd * fx - totalCostRmb - commRmb;
-    var landedUsd = Math.round(cifUsd * (1 + duty) * 100) / 100;
-    var unitVarCostRmb = netCostRmb / qty;
-    var breakEvenUnitUsd = ((totalCostRmb / fx) / Math.max(0.1, 1 - commPct)) / qty;
-    var fxDropLoss = Math.round(fobUsd * (fx * 0.03));
     var destPort = ((document.getElementById("qcDestPort")||{}).value || "").trim();
     var freightNote = ((document.getElementById("qcFreightNote")||{}).value || "").trim();
+    var qDate = localDateStr();
+    var nextVerNum = (gate.lead && Array.isArray(gate.lead.quotes)) ? (gate.lead.quotes.length + 1) : 1;
+    var seqInfo = getNextQuoteSeq(qDate);
+    var refNo = window.FG_CORE.formatQuoteRef({
+      dateStr: qDate,
+      clientName: gate.lead ? gate.lead.company : qcSel.value,
+      seq: seqInfo.seq,
+      version: nextVerNum
+    });
 
     _lastQuoteState = {
       ok: true,
+      refNo: refNo,
       country: qcSel.value,
       prod: document.getElementById("qcProdName").value.trim() || "Industrial Equipment",
       port: document.getElementById("qcPort").value.trim() || "Ningbo / Shanghai",
       destPort: destPort,
       freightNote: freightNote,
       priceMode: qcPriceMode,
+      taxMode: q.taxMode,
+      commBasis: q.commBasis,
+      decimalsOpt: decOpt,
+      decimals: q.decimals,
+      cifDecimals: q.cifDecimals,
       rawFac: rawFac,
+      vatPct: q.vatPct,
+      exTaxExtraPct: q.exTaxExtraPct,
       unitName: unitName,
       unitSingular: unitSingular,
       unitPlural: unitPlural,
-      qty: qty,
-      rebPct: Math.round(reb * 1000) / 10,
-      fx: fx,
-      marginPct: Math.round(mgn * 1000) / 10,
-      locRmb: loc,
-      costRmb: Math.round(totalCostRmb + commRmb),
-      freightUsd: frt,
-      insPct: Math.round(insPct * 10000) / 100,
-      insUsd: insUsd,
-      bankUsd: bankUsd,
-      commPct: Math.round(commPct * 1000) / 10,
-      dutyPct: Math.round(duty * 1000) / 10,
-      lead: v.lead,
-      validDays: v.validDays,
+      qty: q.qty,
+      rebPct: q.rebPct,
+      fx: q.fx,
+      marginPct: q.marginPct,
+      locRmb: parseFloat(document.getElementById("qcLocalRmb").value) || 0,
+      costRmb: Math.round(q.pricingTotalCostRmb + q.fobCommRmb),
+      conservativeCostRmb: Math.round(q.conservativeCostRmb + q.fobCommRmb),
+      freightUsd: q.freightUsd,
+      insPct: q.insPct,
+      insUsd: q.insUsd,
+      bankUsd: parseFloat((document.getElementById("qcBankUsd")||{}).value) || 0,
+      commPct: q.commPct,
+      fobCommUsd: q.fobCommUsd,
+      cifCommUsd: q.cifCommUsd,
+      dutyPct: q.dutyPct,
+      dutyVerified: qcDutyManuallyVerified,
+      lead: q.lead,
+      validDays: q.validDays,
       payTerms: (document.getElementById("qcPayTerms") && document.getElementById("qcPayTerms").value) || "",
-      fobUsd: fobUsd,
-      unitFobUsd: unitFobUsd,
-      cifUsd: cifUsd,
-      unitCifUsd: unitCifUsd,
-      fobStr: fmtUsd2(fobUsd),
-      fobUnitEn: fmtUsd2(unitFobUsd) + " / " + unitSingular,
-      cifStr: fmtUsd2(cifUsd),
-      cifUnitEn: fmtUsd2(unitCifUsd) + " / " + unitSingular
+      fobUsd: q.fobUsd,
+      unitFobUsd: q.unitFobUsd,
+      unitFobStr: q.unitFobStr,
+      cifUsd: q.cifUsd,
+      unitCifUsd: q.unitCifUsd,
+      unitCifStr: q.unitCifStr,
+      fobProfitRmb: q.fobProfitRmb,
+      fobMarginPct: q.fobMarginPct,
+      fobProfitConservativeRmb: q.fobProfitConservativeRmb,
+      fobMarginConservativePct: q.fobMarginConservativePct,
+      fobProfitWithRebateRmb: q.fobProfitWithRebateRmb,
+      fobMarginWithRebatePct: q.fobMarginWithRebatePct,
+      cifProfitRmb: q.cifProfitRmb,
+      cifMarginPct: q.cifMarginPct,
+      cifProfitConservativeRmb: q.cifProfitConservativeRmb,
+      cifMarginConservativePct: q.cifMarginConservativePct,
+      cifProfitWithRebateRmb: q.cifProfitWithRebateRmb,
+      cifMarginWithRebatePct: q.cifMarginWithRebatePct,
+      fobStr: q.fobStr,
+      fobUnitEn: q.unitFobStr + " / " + unitSingular,
+      cifStr: q.cifStr,
+      cifUnitEn: q.unitCifStr + " / " + unitSingular
     };
     window._lastQuoteState = _lastQuoteState;
 
-    document.getElementById("qcFobOut").textContent = _lastQuoteState.fobStr;
-    document.getElementById("qcFobUnit").textContent = "单价 " + fmtUsd2(unitFobUsd) + " / " + unitSingular + " × " + qty + (commPct>0 ? ("（含佣金/保费 "+(commPct*100).toFixed(1)+"%）") : "（精确到分，单价×数量=总价）");
-    document.getElementById("qcCifOut").textContent = _lastQuoteState.cifStr;
-    document.getElementById("qcCifUnit").textContent = "单价 " + fmtUsd2(unitCifUsd) + "（运费 $" + frt.toFixed(2) + " + 1.1×保险 $" + insUsd.toFixed(2) + "）";
-    document.getElementById("qcProfitOut").textContent = "¥" + profitRmb.toLocaleString("zh-CN", {maximumFractionDigits:0});
-    document.getElementById("qcCostOut").textContent = "退税后总成本 ¥" + Math.round(totalCostRmb + commRmb).toLocaleString("zh-CN") + (bankUsd>0 ? ("（含银行费 $" + bankUsd + "）") : "");
-    document.getElementById("qcLandedOut").textContent = fmtUsd2(landedUsd);
-    var fxRiskEl = document.getElementById("qcFxRiskNote");
-    if(fxRiskEl) fxRiskEl.textContent = "汇率若跌 3%（至 " + (fx*0.97).toFixed(2) + "）本单少赚 ¥" + fxDropLoss.toLocaleString("zh-CN");
+    document.getElementById("qcFobOut").textContent = q.fobStr;
+    document.getElementById("qcFobUnit").textContent = "单价 " + q.unitFobStr + " / " + unitSingular + " × " + q.qty
+      + (q.commPct > 0 ? (" ｜ FOB佣金 $" + q.fobCommUsd.toFixed(2)) : "")
+      + " ｜ FOB实得净利 ¥" + Math.round(q.fobProfitRmb).toLocaleString("zh-CN") + " (" + q.fobMarginPct.toFixed(2) + "%)";
 
+    document.getElementById("qcCifOut").textContent = q.cifStr;
+    document.getElementById("qcCifUnit").textContent = "单价 " + q.unitCifStr + "（运费 $" + q.freightUsd.toFixed(2) + " + 保费 $" + q.insUsd.toFixed(2)
+      + (q.commPct > 0 ? (" + CIF佣金 $" + q.cifCommUsd.toFixed(2)) : "")
+      + "）｜ CIF实得净利 ¥" + Math.round(q.cifProfitRmb).toLocaleString("zh-CN") + " (" + q.cifMarginPct.toFixed(2) + "%)";
+
+    document.getElementById("qcProfitOut").textContent = "¥" + Math.round(q.fobProfitConservativeRmb).toLocaleString("zh-CN") + "（保底 " + q.fobMarginConservativePct.toFixed(1) + "%）";
+    var rebDiffTxt = q.taxMode === "ex_tax"
+      ? "不含税采购无出口退税（成本 ¥" + Math.round(q.conservativeCostRmb + q.fobCommRmb).toLocaleString("zh-CN") + "）"
+      : ("若享 " + q.rebPct + "% 专票退税：预计净利 ¥" + Math.round(q.fobProfitWithRebateRmb).toLocaleString("zh-CN") + "（" + q.fobMarginWithRebatePct.toFixed(1) + "%，含预估退税 ¥" + Math.round(q.potentialRebateRmb).toLocaleString("zh-CN") + "）");
+    document.getElementById("qcCostOut").textContent = rebDiffTxt;
+
+    var dualBar = document.getElementById("qcTaxDualBar");
+    if(dualBar){
+      var modeTag = q.taxMode === "small_exempt"
+        ? "【当前定价基准：小规模纳税人免税不退税 · 按0退税保底定价】"
+        : (q.taxMode === "vat_unconfirmed"
+            ? "【当前定价基准：退税资格待确认 · 保守按0退税保底定价】"
+            : (q.taxMode === "vat_rebate"
+                ? "【当前定价基准：已确认一般纳税人专票退税 · 按扣退税净成本定价】"
+                : "【当前定价基准：工厂不含税采购 · 无退税】"));
+      var cifBasisTag = q.commPct > 0
+        ? (q.commBasis === "cif_keep_amt"
+            ? " ｜ CIF佣金模式A：保FOB目标利润额不缩水"
+            : (q.commBasis === "cif_keep_pct"
+                ? " ｜ CIF佣金模式B：保CIF总额目标利润率"
+                : " ｜ 佣金仅按FOB离岸货值结算"))
+        : "";
+      dualBar.innerHTML = '<b>' + esc(modeTag + cifBasisTag) + '</b> ｜ 保守不计退税净利：<b>FOB ¥' + Math.round(q.fobProfitConservativeRmb).toLocaleString("zh-CN") + ' (' + q.fobMarginConservativePct.toFixed(2) + '%) / CIF ¥' + Math.round(q.cifProfitConservativeRmb).toLocaleString("zh-CN") + ' (' + q.cifMarginConservativePct.toFixed(2) + '%)</b>'
+        + (q.taxMode !== "ex_tax" ? (' ｜ 预计退税后净利（参考）：<b>FOB ¥' + Math.round(q.fobProfitWithRebateRmb).toLocaleString("zh-CN") + ' (' + q.fobMarginWithRebatePct.toFixed(2) + '%) / CIF ¥' + Math.round(q.cifProfitWithRebateRmb).toLocaleString("zh-CN") + ' (' + q.cifMarginWithRebatePct.toFixed(2) + '%)</b>') : '')
+        + ' <span class="src-ok">（最终税务与退税规则须经财务人员确认 · 报价单号预览：' + esc(refNo) + '）</span>';
+    }
+
+    document.getElementById("qcLandedOut").textContent = q.landedStr;
+    var fxRiskEl = document.getElementById("qcFxRiskNote");
+    if(fxRiskEl){
+      fxRiskEl.textContent = (qcDutyManuallyVerified ? "已手动核对关税率" : ("含 " + q.dutyPct + "% 未核实参考关税（请查 MacMap）"))
+        + " · 汇率若跌 3%（至 " + (q.fx * 0.97).toFixed(2) + "）少赚 ¥" + q.fxDropLossRmb.toLocaleString("zh-CN");
+    }
+
+    var commRatio = q.commPct / 100;
+    function fmtU(val){ return "$" + Number(val).toFixed(q.decimals); }
     function evalCut(pct){
       var d = pct / 100;
-      var newUnitUsd = unitFobUsd * (1 - d);
-      var cmRmb = newUnitUsd * (1 - commPct) * fx - unitVarCostRmb;
-      if(profitRmb <= 0) return {ok:false, txt:"当前毛利≤0", sub:"请先设正毛利率", qty:null, newUnit:newUnitUsd};
-      if(cmRmb <= 0.0001) return {ok:false, txt:"跌破成本线", sub:"单价 $"+newUnitUsd.toFixed(2)+" 越卖越亏", qty:null, newUnit:newUnitUsd};
-      var reqQty = Math.ceil((profitRmb + fixedCostRmb) / cmRmb);
-      var addPct = Math.round((reqQty / qty - 1) * 100);
-      var sameQtyLoss = Math.round((unitFobUsd * d * (1 - commPct) * qty) * fx);
-      return {ok:true, txt:reqQty.toLocaleString()+" "+unitPlural+" (+"+addPct+"%)", sub:"新单价 $"+newUnitUsd.toFixed(2)+" · 不加量少赚 ¥"+sameQtyLoss.toLocaleString(), qty:reqQty, addPct:addPct, newUnit:newUnitUsd};
+      var newUnitUsd = q.unitFobUsd * (1 - d);
+      var cmRmb = newUnitUsd * (1 - commRatio) * q.fx - q.unitVarCostRmb;
+      if(q.fobProfitRmb <= 0) return {ok:false, txt:"当前毛利≤0", sub:"请先设正毛利率", qty:null, newUnit:newUnitUsd};
+      if(cmRmb <= 0.000001) return {ok:false, txt:"跌破成本线", sub:"单价 " + fmtU(newUnitUsd) + " 越卖越亏", qty:null, newUnit:newUnitUsd};
+      var reqQty = Math.ceil((q.fobProfitRmb + q.fixedCostRmb) / cmRmb);
+      var addPct = Math.round((reqQty / q.qty - 1) * 100);
+      var sameQtyLoss = Math.round((q.unitFobUsd * d * (1 - commRatio) * q.qty) * q.fx);
+      return {ok:true, txt:reqQty.toLocaleString()+" "+unitPlural+" (+"+addPct+"%)", sub:"新单价 "+fmtU(newUnitUsd)+" · 不加量少赚 ¥"+sameQtyLoss.toLocaleString(), qty:reqQty, addPct:addPct, newUnit:newUnitUsd};
     }
     var beEl = document.getElementById("qcBeUnit");
     if(beEl){
-      beEl.textContent = "$" + breakEvenUnitUsd.toFixed(2) + " / " + unitSingular;
-      document.getElementById("qcBeNote").textContent = "变动成本 $" + (unitVarCostRmb/fx).toFixed(2) + " + 摊固定费 $" + ((fixedCostRmb/qty)/fx).toFixed(2);
-      document.getElementById("qcCutCustLbl").textContent = cutCust;
-      var r3 = evalCut(3), rc = evalCut(cutCust), r10 = evalCut(10);
+      beEl.textContent = q.breakEvenUnitStr + " / " + unitSingular;
+      document.getElementById("qcBeNote").textContent = "变动单件 $" + (q.unitVarCostRmb / q.fx).toFixed(q.decimals) + " + 摊固定费 $" + ((q.fixedCostRmb / q.qty) / q.fx).toFixed(q.decimals);
+      document.getElementById("qcCutCustLbl").textContent = q.cutCust;
+      var r3 = evalCut(3), rc = evalCut(q.cutCust), r10 = evalCut(10);
       [
         ["qcCut3", "qcCut3Sub", r3],
         ["qcCutCust", "qcCutCustSub", rc],
@@ -5198,11 +5409,16 @@ window.FG_GEO = (function(){
         vEl.style.color = res.ok ? "" : "var(--danger)";
         sEl.textContent = res.sub;
       });
-      _lastCutState = {qty:qty, unitFobUsd:unitFobUsd, cutCust:cutCust, rc:rc, port:_lastQuoteState.port, prod:_lastQuoteState.prod};
+      _lastCutState = {qty:q.qty, unitFobUsd:q.unitFobUsd, decimals:q.decimals, cutCust:q.cutCust, rc:rc, port:_lastQuoteState.port, prod:_lastQuoteState.prod};
     }
     if(typeof updateFormalRfq === "function") updateFormalRfq();
   }
+
   function buildFormalRfq(){
+    var gate = evaluateQuoteDdGate();
+    if(gate.hardLocked){
+      return {ok:false, error:gate.msg, sub:"", body:""};
+    }
     var s = _lastQuoteState;
     if(!s || !s.ok){
       var errTxt = (s && s.errs && s.errs.length) ? s.errs.join("; ") : "Invalid quotation parameters";
@@ -5221,14 +5437,16 @@ window.FG_GEO = (function(){
     var frtBasis = s.freightNote
       ? (s.freightNote + " (quoted date: " + qDate + ", est. freight USD " + s.freightUsd.toFixed(2) + " + 110% insurance USD " + s.insUsd.toFixed(2) + ")")
       : ("Estimated as of " + qDate + " (est. freight USD " + s.freightUsd.toFixed(2) + " + 110% marine insurance USD " + s.insUsd.toFixed(2) + ", subject to carrier rate at booking)");
-    var coLine = hasChinaFta(c) ? ("\n- Origin Certificate: Preferential C/O (Form E / RCEP / FTA) subject to final HS code verification for " + c) : "";
-    var refNo = "RFQ-" + qDate.replace(/-/g,"");
+    var coLine = hasChinaFta(c) ? ("\n- Origin Certificate: Preferential C/O (Form E / RCEP / FTA) subject to final 6-10 digit HS code verification for " + c) : "";
+    var dutyDisclaimer = "\n- Import Duty & Local Taxes: Excluded (any tariff figures discussed are indicative reference estimates only; buyer's customs broker to confirm exact HS tariff)";
+    var refNo = s.refNo || window.FG_CORE.formatQuoteRef({dateStr: qDate, clientName: c, seq: 1, version: 1});
     var sig = window.getRepSignature ? window.getRepSignature() : "FriesGo Global Export Team";
     return {
       ok: true,
+      refNo: refNo,
       sub: "Formal Quotation for " + prod + " — FriesGo Global | Ref: " + refNo,
-      body: "Dear Procurement Team,\n\nThank you for your inquiry regarding " + prod + ". Please find our formal quotation details below (Date: " + qDate + "):\n\n"
-        + "1. PRODUCT & PRICING (USD, rounded to $0.01/" + s.unitSingular + "; Total = Unit Price x Qty)\n"
+      body: "Dear Procurement Team,\n\nThank you for your inquiry regarding " + prod + ". Please find our formal quotation details below (Ref: " + refNo + " | Date: " + qDate + "):\n\n"
+        + "1. PRODUCT & PRICING (USD, Unit Price precision: " + s.decimals + " decimals; Total = Unit Price x Qty)\n"
         + "- Item Description: " + prod + "\n"
         + "- Quoted Quantity: " + s.qty + " " + s.unitPlural + "\n"
         + "- FOB " + port + " (China): " + s.fobUnitEn + " | Total: " + s.fobStr + "\n"
@@ -5240,7 +5458,7 @@ window.FG_GEO = (function(){
         + "3. COMMERCIAL TERMS\n"
         + "- Incoterms (2020): FOB " + port + " / CIF " + pod + "\n"
         + "- Payment Terms: " + payTerms + "\n"
-        + "- Quotation Validity: " + s.validDays + " days from " + qDate + coLine + "\n\n"
+        + "- Quotation Validity: " + s.validDays + " days from " + qDate + coLine + dutyDisclaimer + "\n\n"
         + "4. QUALITY & DOCUMENTATION\n"
         + "- Inspection Standard: " + inspTerms + "\n"
         + "- Technical Docs: " + docTerms + "\n\n"
@@ -5253,7 +5471,7 @@ window.FG_GEO = (function(){
     var out = document.getElementById("rfqEmailOut");
     var ml = document.getElementById("btnRfqMailto");
     if(!r.ok){
-      if(out) out.textContent = "无法生成正式报价单：" + r.error + "。请先修正上方输入数值（例如数量必须大于 0）。";
+      if(out) out.textContent = "无法生成正式报价单：" + r.error;
       if(ml) ml.removeAttribute("href");
       return;
     }
@@ -5262,34 +5480,53 @@ window.FG_GEO = (function(){
   }
   window.refreshFormalRfq = updateFormalRfq;
   qcSel.addEventListener("change", syncCountryDuty);
-  ["qcProdName","qcFactoryRmb","qcQty","qcUnitName","qcRebate","qcFx","qcMargin","qcLocalRmb","qcFreightUsd","qcInsPct","qcBankUsd","qcCommPct","qcDutyPct","qcLeadDays","qcValidDays","qcPort","qcDestPort","qcFreightNote","qcCutPct","qcPayTerms","qcInspTerms","qcDocTerms","qcIncludeCtn"].forEach(function(id){
+  var dutyInpEl = document.getElementById("qcDutyPct");
+  if(dutyInpEl){
+    dutyInpEl.addEventListener("input", function(e){ if(e.isTrusted) qcDutyManuallyVerified = true; });
+  }
+  var bindSelEl = document.getElementById("qcBindClient");
+  if(bindSelEl){
+    bindSelEl.addEventListener("change", updateCalc);
+  }
+  [
+    "qcProdName","qcFactoryRmb","qcQty","qcUnitName","qcTaxMode","qcVatPct","qcRebate","qcExTaxExtraPct",
+    "qcDecimals","qcCommBasis","qcFx","qcMargin","qcLocalRmb","qcFreightUsd","qcInsPct","qcBankUsd",
+    "qcCommPct","qcDutyPct","qcLeadDays","qcValidDays","qcPort","qcDestPort","qcFreightNote",
+    "qcCutPct","qcPayTerms","qcInspTerms","qcDocTerms","qcIncludeCtn"
+  ].forEach(function(id){
     var el = document.getElementById(id);
     if(el){ el.addEventListener("input", updateCalc); el.addEventListener("change", updateCalc); }
   });
   var btnCutPitch = document.getElementById("btnCopyCutPitch");
   if(btnCutPitch){
     btnCutPitch.addEventListener("click", function(){
+      var gate = evaluateQuoteDdGate();
+      if(gate.hardLocked){ showToast(gate.msg); return; }
       var s = _lastCutState;
       if(!s || !s.rc || !s.rc.ok){ showToast("当前参数无效或砍价已跌破成本底线，无法生成谈判回复"); return; }
+      var dec = s.decimals || 2;
       var sig = window.getRepSignature ? window.getRepSignature() : "FriesGo Global Export Team";
       var txt = "Thank you for sharing your target budget for " + s.prod + ".\n\n"
-        + "Our quoted FOB " + s.port + " price of $" + s.unitFobUsd.toFixed(2) + "/unit is tightly calculated for " + s.qty + " units using full-spec certified materials. "
-        + "While we cannot reduce the price on the original trial quantity without compromising quality, we can support your " + s.cutCust + "% price target at $" + s.rc.newUnit.toFixed(2) + "/unit if we consolidate the order volume to " + s.rc.qty + " units (one batch production & shared export handling).\n\n"
-        + "Please let us know whether you prefer to proceed with " + s.qty + " units at $" + s.unitFobUsd.toFixed(2) + " or lock the volume tier of " + s.rc.qty + " units at $" + s.rc.newUnit.toFixed(2) + ".\n\nBest regards,\n" + sig;
+        + "Our quoted FOB " + s.port + " price of $" + s.unitFobUsd.toFixed(dec) + "/unit is tightly calculated for " + s.qty + " units using full-spec certified materials. "
+        + "While we cannot reduce the price on the original trial quantity without compromising quality, we can support your " + s.cutCust + "% price target at $" + s.rc.newUnit.toFixed(dec) + "/unit if we consolidate the order volume to " + s.rc.qty + " units (one batch production & shared export handling).\n\n"
+        + "Please let us know whether you prefer to proceed with " + s.qty + " units at $" + s.unitFobUsd.toFixed(dec) + " or lock the volume tier of " + s.rc.qty + " units at $" + s.rc.newUnit.toFixed(dec) + ".\n\nBest regards,\n" + sig;
       copyTxt(txt, "「降价换起订量 MOQ」英文谈判回复");
     });
   }
   document.getElementById("btnCopyQuote").addEventListener("click", function(){
+    var gate = evaluateQuoteDdGate();
+    if(gate.hardLocked){ showToast(gate.msg); return; }
     var s = _lastQuoteState;
-    if(!s || !s.ok){ showToast("请先修正报价参数（数量、工厂价与汇率须大于 0）"); return; }
+    if(!s || !s.ok){ showToast("请先修正报价参数（数量、工厂价与汇率须大于 0 且税率合法）"); return; }
+    commitQuoteSeq(localDateStr());
     var coLine = hasChinaFta(s.country) ? "\n• Origin Certificate: Preferential C/O subject to HS code verification" : "";
     var sig = window.getRepSignature ? window.getRepSignature() : "FriesGo Global Export Team";
-    var txt = "Quotation Summary — FriesGo Global\n"
-      + "• Product: " + s.prod + " (Qty: " + s.qty + " units/sets)\n"
+    var txt = "Quotation Summary — FriesGo Global (Ref: " + s.refNo + ")\n"
+      + "• Product: " + s.prod + " (Qty: " + s.qty + " " + s.unitPlural + ")\n"
       + "• Destination: " + s.country + "\n"
       + "• FOB " + s.port + ": " + s.fobStr + " (" + s.fobUnitEn + ")\n"
-      + "• Estimated CIF " + s.country + ": " + s.cifStr + " (" + s.cifUnitEn + ")" + coLine + "\n"
-      + "• Validity: " + s.validDays + " days | Payment & Packing: To be confirmed\n"
+      + "• Estimated CIF " + (s.destPort || s.country) + ": " + s.cifStr + " (" + s.cifUnitEn + ")" + coLine + "\n"
+      + "• Validity: " + s.validDays + " days | Duty/Taxes excluded | Payment & Packing: To be confirmed\n"
       + "Please share your destination port & detailed specs for a formal Proforma Invoice (PI).\n\n" + sig;
     copyTxt(txt, "英文报价摘要");
   });
@@ -5306,7 +5543,8 @@ window.FG_GEO = (function(){
   });
   document.getElementById("btnCopyRfqFull").addEventListener("click", function(){
     var r = buildFormalRfq();
-    if(!r.ok){ showToast("无法复制：报价参数未通过校验（" + r.error + "）"); return; }
+    if(!r.ok){ showToast("无法复制：" + r.error); return; }
+    commitQuoteSeq(localDateStr());
     copyTxt("Subject: "+r.sub+"\n\n"+r.body, "正式英文报价邮件");
   });
   syncCountryDuty();
@@ -5315,18 +5553,28 @@ window.FG_GEO = (function(){
     var sel = document.getElementById("qcBindClient");
     if(!sel) return;
     var prev = sel.value;
-    var opts = '<option value="">— 选择客户以保存报价版本 —</option>';
+    var opts = '<option value="">— 选择客户以关联背调状态 / 归档报价版本 —</option>';
     (crmLeads || []).forEach(function(l){
-      opts += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')</option>';
+      var ddTag = "";
+      if(l.ddRecord && l.ddRecord.decision === "blocked") ddTag = " [🔴禁止交易]";
+      else if(l.ddRecord && l.ddRecord.decision === "review") ddTag = " [🟡存疑待审]";
+      else if(l.ddRecord && l.ddRecord.decision === "approved") ddTag = " [🟢背调通过]";
+      opts += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')'+ddTag+'</option>';
     });
     sel.innerHTML = opts;
     if(prev && (crmLeads || []).some(function(l){ return l.id === prev; })) sel.value = prev;
+    renderQuoteDdGateUI();
   };
   window.refreshQuoteClientSelect();
 
   var btnSaveQv = document.getElementById("btnSaveQuoteVersion");
   if(btnSaveQv){
     btnSaveQv.addEventListener("click", function(){
+      var gate = evaluateQuoteDdGate();
+      if(gate.hardLocked){
+        showToast(gate.msg);
+        return;
+      }
       var s = _lastQuoteState;
       if(!s || !s.ok){
         showToast("无法归档：当前报价参数无效，请先修正错误项");
@@ -5341,15 +5589,31 @@ window.FG_GEO = (function(){
         return;
       }
       if(!Array.isArray(lead.quotes)) lead.quotes = [];
-      var ver = "V" + (lead.quotes.length + 1);
+      var verNum = lead.quotes.length + 1;
+      var ver = "V" + verNum;
       var qDate = localDateStr();
+      var seqUsed = commitQuoteSeq(qDate);
+      var refNo = window.FG_CORE.formatQuoteRef({
+        dateStr: qDate,
+        clientName: lead.company,
+        seq: seqUsed,
+        version: verNum
+      });
       var snap = {
+        quoteId: window.FG_CORE.genStableId("qt"),
+        refNo: refNo,
         ver: ver,
         savedAt: localDateTimeStr(),
         date: qDate,
         prod: s.prod,
         qty: s.qty,
         priceMode: s.priceMode || "unit",
+        taxMode: s.taxMode || "small_exempt",
+        vatPct: s.vatPct,
+        exTaxExtraPct: s.exTaxExtraPct || 0,
+        decimalsOpt: s.decimalsOpt || "auto",
+        decimals: s.decimals || 2,
+        commBasis: s.commBasis || "cif_keep_amt",
         rawFac: s.rawFac,
         unitName: s.unitName || "units",
         unitSingular: s.unitSingular,
@@ -5363,6 +5627,10 @@ window.FG_GEO = (function(){
         marginPct: s.marginPct,
         locRmb: s.locRmb,
         costRmb: s.costRmb,
+        fobProfitRmb: s.fobProfitRmb,
+        fobProfitConservativeRmb: s.fobProfitConservativeRmb,
+        fobProfitWithRebateRmb: s.fobProfitWithRebateRmb,
+        cifProfitRmb: s.cifProfitRmb,
         freightUsd: s.freightUsd,
         insPct: s.insPct,
         insUsd: s.insUsd,
@@ -5383,12 +5651,13 @@ window.FG_GEO = (function(){
       lead.quotes.unshift(snap);
       appendTimelineEntry(lead, {
         channel: "报价归档",
-        result: "归档报价 " + ver + "：" + s.prod + " (" + s.qty + " " + s.unitPlural + ") FOB " + s.fobStr + " / CIF " + s.cifStr + "（汇率 " + s.fx + "，有效期 " + s.validDays + " 天）"
+        result: "归档报价 " + ver + " (" + refNo + ")：" + s.prod + " (" + s.qty + " " + s.unitPlural + ") FOB " + s.fobStr + " / CIF " + s.cifStr + "（汇率 " + s.fx + "，税务模式：" + s.taxMode + "）"
       });
       saveLeadsLocal();
+      updateCalc();
       if(typeof renderTools === "function") renderTools();
       if(typeof render === "function") render();
-      showToast("已为「" + lead.company + "」归档报价 " + ver, {
+      showToast("已为「" + lead.company + "」归档报价 " + ver + "（" + refNo + "）", {
         label: "查看报价版本",
         onClick: function(){
           navigateTo("client-list");
@@ -5405,14 +5674,12 @@ window.FG_GEO = (function(){
     syncCountryDuty();
     if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
     var cSel = document.getElementById("qcBindClient");
-    if(cSel && clientId) cSel.value = clientId;
+    if(cSel) cSel.value = clientId || "";
     if(quoteSnap && typeof quoteSnap === "object"){
       if(quoteSnap.priceMode && quoteSnap.priceMode !== qcPriceMode && modePills){
         qcPriceMode = quoteSnap.priceMode;
         var facEl = document.getElementById("qcFactoryRmb");
         if(facEl) facEl.step = (qcPriceMode === "total") ? "1000" : "10";
-        var fl = document.getElementById("qcFacLabel");
-        if(fl) fl.textContent = (qcPriceMode === "total") ? "工厂含税采购总价（RMB）" : "工厂含税单价（RMB / 件）";
         modePills.querySelectorAll("button[data-qcmode]").forEach(function(x){
           var on = x.getAttribute("data-qcmode") === qcPriceMode;
           x.setAttribute("aria-pressed", on ? "true" : "false");
@@ -5421,6 +5688,11 @@ window.FG_GEO = (function(){
       }
       var setVal = function(id, val){ var el = document.getElementById(id); if(el && val != null && val !== "") el.value = val; };
       setVal("qcProdName", quoteSnap.prod);
+      if(quoteSnap.taxMode) setVal("qcTaxMode", quoteSnap.taxMode);
+      if(quoteSnap.vatPct != null) setVal("qcVatPct", quoteSnap.vatPct);
+      if(quoteSnap.exTaxExtraPct != null) setVal("qcExTaxExtraPct", quoteSnap.exTaxExtraPct);
+      if(quoteSnap.decimalsOpt) setVal("qcDecimals", quoteSnap.decimalsOpt);
+      if(quoteSnap.commBasis) setVal("qcCommBasis", quoteSnap.commBasis);
       if(quoteSnap.rawFac != null) setVal("qcFactoryRmb", quoteSnap.rawFac);
       setVal("qcQty", quoteSnap.qty);
       setVal("qcUnitName", quoteSnap.unitName);
@@ -5441,9 +5713,10 @@ window.FG_GEO = (function(){
       setVal("qcValidDays", quoteSnap.validDays);
       if(quoteSnap.payTerms) setVal("qcPayTerms", quoteSnap.payTerms);
       updateCalc();
-      showToast("已载入历史报价版本 " + (quoteSnap.ver || "") + "（" + (quoteSnap.date || "") + "）");
+      showToast("已载入历史报价版本 " + (quoteSnap.ver || "") + "（" + (quoteSnap.refNo || quoteSnap.date || "") + "）");
       return;
     }
+    updateCalc();
     showToast("已载入「"+(CN[country]||country)+"」参考关税到成本与报价计算");
   };
 
@@ -5920,7 +6193,7 @@ window.FG_GEO = (function(){
     var b = e.target.closest("button[data-bundle-em]");
     if(b) loadIntoEmailGen(b.getAttribute("data-bundle-em"), b.getAttribute("data-bundle-lang"), b.getAttribute("data-bundle-prod"));
   });
-})();
+});
 
 /* ===== Email Guesser + Live SPF/DMARC Check + Container Calculator + Objection Playbook + HS6 Ref ===== */
 window.FG_CORE.safeInit("EmailSpfCtn", function(){
@@ -6030,37 +6303,23 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
       });
   });
 
-  /* 3. Multi-SKU Container Load Calculator (Usable Crate CBM, Route Weight Limit & OOG Door Check) */
+  /* 3. Multi-SKU Container Load Calculator (Indivisible Package Units, 40GP vs 40HQ, Overweight Hard-Block, noStack/noRotate) */
   var DEFAULT_CTN = [
-    {name:"工业阀门（木箱）", l:110, w:90, h:85, kg:420, qty:24},
-    {name:"离心水泵（托盘）", l:120, w:100, h:95, kg:310, qty:18}
+    {name:"工业阀门（木箱）", l:110, w:90, h:85, kg:420, qty:24, noStack:false, noRotate:false},
+    {name:"离心水泵（托盘）", l:120, w:100, h:95, kg:310, qty:18, noStack:false, noRotate:false}
   ];
   var ctnRows = DEFAULT_CTN.map(function(x){ return Object.assign({}, x); });
   try {
     var savedCtn = JSON.parse(localStorage.getItem("friesgo_ctn") || "null");
-    if(Array.isArray(savedCtn) && savedCtn.length) ctnRows = savedCtn;
+    if(Array.isArray(savedCtn) && savedCtn.length){
+      ctnRows = savedCtn.map(function(x){
+        return Object.assign({noStack:false, noRotate:false}, x);
+      });
+    }
   } catch(e){}
   function saveCtn(){ try { localStorage.setItem("friesgo_ctn", JSON.stringify(ctnRows)); } catch(e){} }
   function validateCtnRow(r, idx){
-    var errs = [];
-    var l = Number(r.l), w = Number(r.w), h = Number(r.h), kg = Number(r.kg), qty = Number(r.qty);
-    if(!isFinite(l) || l <= 0) errs.push("长须>0");
-    if(!isFinite(w) || w <= 0) errs.push("宽须>0");
-    if(!isFinite(h) || h <= 0) errs.push("高须>0");
-    if(!isFinite(kg) || kg <= 0) errs.push("单重须>0");
-    if(!isFinite(qty) || qty <= 0 || Math.floor(qty) !== qty) errs.push("箱数须为正整数");
-    return {
-      ok: errs.length === 0,
-      errs: errs,
-      badFields: {
-        l: !isFinite(l) || l <= 0,
-        w: !isFinite(w) || w <= 0,
-        h: !isFinite(h) || h <= 0,
-        kg: !isFinite(kg) || kg <= 0,
-        qty: !isFinite(qty) || qty <= 0 || Math.floor(qty) !== qty
-      },
-      msg: errs.length ? ("第 " + (idx+1) + " 行「" + (r.name || "未命名") + "」：" + errs.join("、")) : ""
-    };
+    return window.FG_CORE.validateContainerRow(r, idx);
   }
   function drawCtn(){
     var tb = document.getElementById("ctnTbody");
@@ -6070,140 +6329,118 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
       var ton = vr.ok ? (r.kg*r.qty)/1000 : 0;
       var subTxt = vr.ok ? (cbm.toFixed(2)+' CBM / '+ton.toFixed(2)+' t') : '<span style="color:var(--danger);font-weight:700">输入无效</span>';
       return '<tr>'
-        + '<td><input type="text" data-ci="'+i+'" data-ck="name" value="'+esc(r.name)+'" style="width:130px;min-height:32px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
-        + '<td><input type="number" data-ci="'+i+'" data-ck="l" value="'+r.l+'" min="1" style="width:66px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.l?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
-        + '<td><input type="number" data-ci="'+i+'" data-ck="w" value="'+r.w+'" min="1" style="width:66px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.w?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
-        + '<td><input type="number" data-ci="'+i+'" data-ck="h" value="'+r.h+'" min="1" style="width:66px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.h?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
-        + '<td><input type="number" data-ci="'+i+'" data-ck="kg" value="'+r.kg+'" min="1" style="width:74px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.kg?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
-        + '<td><input type="number" data-ci="'+i+'" data-ck="qty" value="'+r.qty+'" min="1" step="1" style="width:64px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.qty?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
-        + '<td class="num">'+subTxt+'</td>'
+        + '<td><input type="text" data-ci="'+i+'" data-ck="name" value="'+esc(r.name)+'" style="width:124px;min-height:32px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
+        + '<td><input type="number" data-ci="'+i+'" data-ck="l" value="'+r.l+'" min="1" style="width:62px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.l?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
+        + '<td><input type="number" data-ci="'+i+'" data-ck="w" value="'+r.w+'" min="1" style="width:62px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.w?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
+        + '<td><input type="number" data-ci="'+i+'" data-ck="h" value="'+r.h+'" min="1" style="width:62px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.h?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
+        + '<td><input type="number" data-ci="'+i+'" data-ck="kg" value="'+r.kg+'" min="1" style="width:72px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.kg?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
+        + '<td><input type="number" data-ci="'+i+'" data-ck="qty" value="'+r.qty+'" min="1" step="1" style="width:60px;min-height:32px;padding:3px 6px;border:1px solid '+(vr.badFields.qty?'var(--danger)':'var(--line)')+';border-radius:6px;background:var(--surface);color:var(--ink)"></td>'
+        + '<td style="white-space:nowrap;font-size:11.5px">'
+        + '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:6px;cursor:pointer" title="顶部不可压货，按集装箱底面积（20GP≈13m² / 40尺≈27m²）校核"><input type="checkbox" data-ci="'+i+'" data-ck="noStack"'+(r.noStack?' checked':'')+'>不可叠放</label>'
+        + '<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="必须按长×宽方向直推入柜，宽边不得超过柜门净宽 234cm"><input type="checkbox" data-ci="'+i+'" data-ck="noRotate"'+(r.noRotate?' checked':'')+'>不可旋转</label>'
+        + '</td>'
+        + '<td class="num" data-ctn-sub="'+i+'">'+subTxt+'</td>'
         + '<td><button type="button" class="pill" data-cdel="'+i+'" style="min-height:30px;padding:2px 8px;font-size:12px">删</button></td></tr>';
     }).join("");
     calcCtnTotals();
   }
   function calcCtnTotals(){
     var routeMode = (document.getElementById("ctnRouteLimit")||{}).value || "std";
-    var packMode = (document.getElementById("ctnPackMode")||{}).value || "crate";
-    var cap20Vol = packMode === "crate" ? 24.5 : 28;
-    var cap40GpVol = packMode === "crate" ? 52 : 58;
-    var cap40HqVol = packMode === "crate" ? 60 : 67;
-    var maxWt20 = routeMode === "useu" ? 19 : 26;
-    var maxWt40 = routeMode === "useu" ? 22 : 26;
+    var rawPackMode = (document.getElementById("ctnPackMode")||{}).value || "crate";
+    var packMode = rawPackMode === "crate" ? "crate" : "carton";
+    var res = window.FG_CORE.computeContainerLoad(ctnRows, {routeMode: routeMode, packMode: packMode});
 
-    var valErrs = [];
-    ctnRows.forEach(function(r, idx){
-      var vr = validateCtnRow(r, idx);
-      if(!vr.ok) valErrs.push(vr.msg);
-    });
     var valBox = document.getElementById("ctnValWarn");
     var oogBox = document.getElementById("ctnOogWarn");
-    if(valErrs.length){
-      if(valBox){ valBox.hidden = false; valBox.textContent = "参数校验未通过，已停止装柜核算且不会带入正式报价：" + valErrs.join("；") + "。"; }
-      if(oogBox) oogBox.hidden = true;
+    if(!res.ok){
+      if(valBox){
+        valBox.hidden = false;
+        valBox.textContent = "参数校验未通过，已停止装柜核算且不会带入正式报价：" + res.valErrs.join("；") + "。";
+      }
+      if(oogBox){
+        oogBox.hidden = true;
+        oogBox.textContent = "";
+      }
       document.getElementById("ctnCbmOut").textContent = "—";
       document.getElementById("ctnWtOut").textContent = "—";
       document.getElementById("ctnRecOut").textContent = "输入无效，已停止推荐";
-      document.getElementById("ctnDensityOut").textContent = "请修正标红字段（箱数须为正整数，尺寸与单重须 > 0）";
+      document.getElementById("ctnDensityOut").textContent = "请修正标红字段（件数须为正整数，尺寸与单件毛重须 > 0）";
       document.getElementById("ctnTypeOut").textContent = "参数异常";
       document.getElementById("ctnWarnOut").textContent = "修正后自动恢复核算";
       window._ctnSummaryEn = "";
       if(typeof window.refreshFormalRfq === "function") window.refreshFormalRfq();
       return;
     }
-    if(valBox) valBox.hidden = true;
+    if(valBox){
+      valBox.hidden = true;
+      valBox.textContent = "";
+    }
 
-    var totCbm = 0, totKg = 0, totQty = 0;
-    var oogMsgs = [], need40HqByDim = false, isSpecialOog = false;
-    ctnRows.forEach(function(r){
-      totCbm += (r.l*r.w*r.h/1000000)*r.qty;
-      totKg += r.kg*r.qty;
-      totQty += r.qty;
-      var dims = [r.l, r.w].sort(function(a,b){ return b-a; });
-      var maxLen = dims[0], minWid = dims[1], hh = r.h;
-      if(minWid > 234 || hh > 258 || maxLen > 1202){
-        isSpecialOog = true;
-        oogMsgs.push("「"+(r.name||"货物")+"」("+r.l+"×"+r.w+"×"+r.h+"cm) 超出标准普柜门宽(234cm)/40HQ门高(258cm)/内长(1202cm)，必须用开顶柜(OT)或框架柜(FR)！");
-      } else if(hh > 228 || maxLen > 589){
-        need40HqByDim = true;
-        oogMsgs.push("「"+(r.name||"货物")+"」("+r.l+"×"+r.w+"×"+r.h+"cm) 超出 20'GP 门高(228cm)或内长(589cm)，不可装 20'GP，须改 40'HQ 高柜！");
-      }
-    });
+    var allAlerts = (res.oogMsgs || []).concat(res.pointLoadMsgs || []);
     if(oogBox){
-      if(oogMsgs.length){ oogBox.hidden = false; oogBox.innerHTML = "🚨 <b>单箱超尺寸（OOG）校核预警：</b>" + oogMsgs.map(esc).join(" ｜ "); }
-      else oogBox.hidden = true;
-    }
-
-    var totTon = totKg / 1000;
-    var dens = totCbm > 0 ? (totKg / totCbm) : 0;
-    var rec = "—", recEn = "To be confirmed";
-    if(totCbm <= 0){ rec = "请添加货物"; recEn = "To be confirmed"; }
-    else if(isSpecialOog){ rec = "⚠️ 超尺特种柜（OT 开顶 / FR 框架）"; recEn = "OOG Open-Top (OT) / Flat-Rack (FR) Container"; }
-    else if(!need40HqByDim && totCbm <= 13 && totTon <= 13){ rec = "LCL 拼箱（或凑单拼 20'GP）"; recEn = "LCL consolidation (or combine to 1 x 20'GP)"; }
-    else if(!need40HqByDim && totCbm <= cap20Vol && totTon <= maxWt20){ rec = "1 × 20'GP 小柜"; recEn = "1 x 20'GP"; }
-    else if(!need40HqByDim && totCbm <= cap40GpVol && totTon <= maxWt40){ rec = "1 × 40'GP 平柜"; recEn = "1 x 40'GP"; }
-    else if(totCbm <= cap40HqVol && totTon <= maxWt40){ rec = "1 × 40'HQ 高柜"; recEn = "1 x 40'HQ"; }
-    else {
-      var byVol40 = Math.ceil(totCbm / cap40HqVol), byWt20 = Math.ceil(totTon / maxWt20), byWt40 = Math.ceil(totTon / maxWt40);
-      if(need40HqByDim){
-        var nHq = Math.max(byVol40, byWt40);
-        rec = nHq + " × 40'HQ 高柜（含尺寸/限重校核）";
-        recEn = nHq + " x 40'HQ (dimension & weight checked)";
-      } else if(byWt20 > byVol40 && maxWt20 >= 19){
-        rec = byWt20 + " × 20'GP（按航线限重核算）";
-        recEn = byWt20 + " x 20'GP (route weight limit checked)";
+      if(allAlerts.length){
+        oogBox.hidden = false;
+        oogBox.innerHTML = "🚨 <b>单件尺寸 / 单柜超重 / 柜底载荷校核预警：</b>" + allAlerts.map(esc).join(" ｜ ");
       } else {
-        var nHq2 = Math.max(byVol40, byWt40);
-        rec = nHq2 + " × 40'HQ（按实装容积/限重）";
-        recEn = nHq2 + " x 40'HQ";
+        oogBox.hidden = true;
+        oogBox.textContent = "";
       }
     }
-    var tp = totCbm <= 0 ? "— 待录入货物" : "🟢 黄金配重（体积重量均衡）", warn = totCbm <= 0 ? "请点击「➕ 增加一个拼柜品名」录入箱规" : "实装容积与航线限重均安全";
-    if(isSpecialOog){ tp = "🔴 超尺特种柜预警（OOG）"; warn = "普通干柜门框塞不下，发货前务必向货代核价开顶柜/框架柜！"; }
-    else if(dens > (routeMode==="useu"?780:950)){ tp = "🟠 重货预警（先达航线限重）"; warn = "密度 "+Math.round(dens)+" kg/CBM（"+(routeMode==="useu"?"欧美限重严格，20'GP≤19t":"20'GP≤26t")+"），切勿硬塞 40HQ，建议 20'GP 或混装轻泡品！"; }
-    else if(dens > 0 && dens < 300){ tp = "🔵 泡货提示（先满实装体积）"; warn = "密度 "+Math.round(dens)+" kg/CBM，优先选 40'HQ 高柜（实装约 "+cap40HqVol+" CBM）摊薄海运费"; }
 
     var volNoteEl = document.getElementById("ctnVolNote"), wtNoteEl = document.getElementById("ctnWtNote");
-    if(volNoteEl) volNoteEl.textContent = (packMode==="crate" ? "木箱/托盘实装：20'GP≈24.5 · 40'HQ≈60 CBM" : "散装极限：20'GP≈28 · 40'HQ≈67 CBM");
-    if(wtNoteEl) wtNoteEl.textContent = (routeMode==="useu" ? "欧美公路严控：20'GP≤19t · 40'HQ≤22t" : "常规海运限重：26 吨/柜");
+    if(volNoteEl) volNoteEl.textContent = (packMode==="crate" ? "木箱/托盘实装：20'GP≈24.5 · 40'GP≈52 · 40'HQ≈60 CBM" : "纸箱/散装：20'GP≈28 · 40'GP≈58 · 40'HQ≈67 CBM") + (res.noStackAreaM2 > 0 ? (" · 不可叠占底 " + res.noStackAreaM2.toFixed(1) + "m²") : "");
+    if(wtNoteEl) wtNoteEl.textContent = (routeMode==="useu" ? "欧美公路严控：20'GP≤19t · 40'柜≤22t（单件严禁超限）" : "常规海运限重：26 吨/柜（单件严禁超限）");
 
-    document.getElementById("ctnCbmOut").textContent = totCbm.toFixed(2) + " CBM";
-    document.getElementById("ctnWtOut").textContent = totTon.toFixed(2) + " 吨";
-    document.getElementById("ctnRecOut").textContent = rec;
-    document.getElementById("ctnDensityOut").textContent = "共 "+totQty+" 箱 · 平均密度 "+Math.round(dens)+" kg/CBM";
-    document.getElementById("ctnTypeOut").textContent = tp;
-    document.getElementById("ctnWarnOut").textContent = warn;
-    window._ctnSummaryEn = totCbm > 0 ? (totQty + " cases, approx. " + totCbm.toFixed(2) + " CBM / " + totTon.toFixed(2) + " MT (Recommended: " + recEn + ")") : "";
+    document.getElementById("ctnCbmOut").textContent = res.totCbm.toFixed(2) + " CBM";
+    document.getElementById("ctnWtOut").textContent = res.totTon.toFixed(2) + " 吨";
+    document.getElementById("ctnRecOut").textContent = res.rec;
+    document.getElementById("ctnDensityOut").textContent = "共 " + res.totQty + " 件独立包装 · 平均密度 " + Math.round(res.dens) + " kg/CBM";
+    document.getElementById("ctnTypeOut").textContent = res.tp;
+    document.getElementById("ctnWarnOut").textContent = res.warn;
+    window._ctnSummaryEn = res.summaryEn;
     if(typeof window.refreshFormalRfq === "function") window.refreshFormalRfq();
   }
   ["ctnRouteLimit","ctnPackMode"].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.addEventListener("change", calcCtnTotals);
   });
-  document.getElementById("ctnTbody").addEventListener("input", function(e){
+  function onCtnRowInput(e){
     var i = e.target.getAttribute("data-ci"), k = e.target.getAttribute("data-ck");
     if(i==null || !k) return;
+    if(k === "noStack" || k === "noRotate"){
+      ctnRows[+i][k] = !!e.target.checked;
+      saveCtn();
+      calcCtnTotals();
+      return;
+    }
     var numVal = parseFloat(e.target.value);
     ctnRows[+i][k] = k==="name" ? e.target.value : (isNaN(numVal) ? NaN : numVal);
     var r = ctnRows[+i], vr = validateCtnRow(r, +i);
     if(k !== "name") e.target.style.borderColor = vr.badFields[k] ? "var(--danger)" : "var(--line)";
     var tr = e.target.closest("tr");
-    if(tr && tr.children[6]){
+    var subCell = tr ? tr.querySelector("[data-ctn-sub]") : null;
+    if(subCell){
       if(vr.ok){
         var cbm=(r.l*r.w*r.h/1000000)*r.qty, ton=(r.kg*r.qty)/1000;
-        tr.children[6].textContent = cbm.toFixed(2)+" CBM / "+ton.toFixed(2)+" t";
+        subCell.textContent = cbm.toFixed(2)+" CBM / "+ton.toFixed(2)+" t";
       } else {
-        tr.children[6].innerHTML = '<span style="color:var(--danger);font-weight:700">输入无效</span>';
+        subCell.innerHTML = '<span style="color:var(--danger);font-weight:700">输入无效</span>';
       }
     }
     if(vr.ok) saveCtn();
     calcCtnTotals();
+  }
+  document.getElementById("ctnTbody").addEventListener("input", onCtnRowInput);
+  document.getElementById("ctnTbody").addEventListener("change", function(e){
+    var k = e.target.getAttribute("data-ck");
+    if(k === "noStack" || k === "noRotate") onCtnRowInput(e);
   });
   document.getElementById("ctnTbody").addEventListener("click", function(e){
     var d = e.target.closest("[data-cdel]"); if(!d) return;
     ctnRows.splice(+d.getAttribute("data-cdel"), 1); saveCtn(); drawCtn();
   });
   document.getElementById("btnAddCtnRow").addEventListener("click", function(){
-    ctnRows.push({name:"配套管件/电缆", l:100, w:80, h:80, kg:180, qty:10}); saveCtn(); drawCtn();
+    ctnRows.push({name:"配套管件/电缆", l:100, w:80, h:80, kg:180, qty:10, noStack:false, noRotate:false}); saveCtn(); drawCtn();
   });
   document.getElementById("btnResetCtn").addEventListener("click", function(){
     ctnRows = DEFAULT_CTN.map(function(x){ return Object.assign({}, x); }); saveCtn(); drawCtn();
