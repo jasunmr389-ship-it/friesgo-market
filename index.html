@@ -4086,7 +4086,9 @@ function detailExtra(d){
     + '<div class="detail-box-title">🚀 立即对该国采取行动（搜客 · 报价 · 开发信 · 建客户卡）</div>'
     + '<div class="pills" style="margin:0 0 8px">'
     + (ACTION_COUNTRIES[c] ? '<button class="pill primary" data-open-action="'+esc(c)+'">🎯 查看该国获客行动卡</button>' : '')
-    + '<button class="pill primary" data-load-radar="'+esc(c)+'">⚡ 扫该国商机</button>'
+    + '<button class="pill primary" data-load-map="'+esc(c)+'">🗺️ 站内地图找客</button>'
+    + '<button class="pill primary" data-load-live="'+esc(c)+'">📡 看该国实时标讯</button>'
+    + '<button class="pill" data-load-radar="'+esc(c)+'">🏗️ 查新建厂/扩招</button>'
     + '<button class="pill primary" data-load-em="'+esc(c)+'" data-lang="'+(ACTION_COUNTRIES[c]||guessLang(c))+'">✉️ 生成开发信</button>'
     + '<button class="pill good-btn" data-load-calc="'+esc(c)+'">🧮 算该国报价</button>'
     + '<button class="pill" data-load-dd="'+esc(c)+'">🕵️ 背调该国客户</button>'
@@ -4252,6 +4254,33 @@ document.getElementById("tbody").addEventListener("click", function(e){
       window.addCustomerToCrm({company:comp.trim(), country:cAdd, stage:stg, nextDate:dt, note:nt.trim(), source:"选市场快捷建档"});
       if(box.querySelector(".inline-crm-comp")) box.querySelector(".inline-crm-comp").value = "";
       if(box.querySelector(".inline-crm-note")) box.querySelector(".inline-crm-note").value = "";
+    }
+    return;
+  }
+  var bMap = e.target.closest("button[data-load-map]");
+  if(bMap && typeof window.loadIntoMapScraper === "function"){
+    var cMap = bMap.getAttribute("data-load-map");
+    var inlineKw = (bMap.closest(".detail-box") && bMap.closest(".detail-box").querySelector(".inline-prod-input") || {}).value || "industrial valve pump steel structure distributor";
+    window.loadIntoMapScraper(cMap, inlineKw.trim() || "industrial valve pump steel structure distributor");
+    return;
+  }
+  var bLive = e.target.closest("button[data-load-live]");
+  if(bLive){
+    var cLive = bLive.getAttribute("data-load-live");
+    navigateTo("radar-live");
+    var allBtn = document.querySelector("#rfCatPills button[data-rfcat='all']");
+    if(allBtn) allBtn.click();
+    var rfInp = document.getElementById("rfSearch");
+    if(rfInp){
+      var cnKey = CN[cLive] || cLive;
+      rfInp.value = cnKey;
+      rfInp.dispatchEvent(new Event("input"));
+      var shownCnt = (document.getElementById("radarFeedGrid")._shown || []).length;
+      if(!shownCnt && cLive){
+        rfInp.value = cLive.replace(/\s*\([^)]*\)/g, "");
+        rfInp.dispatchEvent(new Event("input"));
+      }
+      showToast("已按「" + cnKey + "」筛选今日实时标讯与动态");
     }
     return;
   }
@@ -4626,19 +4655,267 @@ window.getRepSignature = function(){
   fetchLiveRates(false);
 })();
 
+/* ===== Unified Overseas Country Grouping, Quick-Search, Hub Cities & Cross-Jump Guard ===== */
+window.FG_GEO = (function(){
+  var EXTRA_CN = {
+    "Cameroon":"喀麦隆","Democratic Republic of the Congo":"刚果（金）","Solomon Islands":"所罗门群岛",
+    "Vanuatu":"瓦努阿图","Burundi":"布隆迪","Guinea-Bissau":"几内亚比绍","Tuvalu":"图瓦卢",
+    "West Bank and Gaza":"巴勒斯坦地区","Cote d'Ivoire":"科特迪瓦","Zambia":"赞比亚","Zimbabwe":"津巴布韦",
+    "Sudan":"苏丹","South Sudan":"南苏丹","Somalia":"索马里","Djibouti":"吉布提","Chad":"乍得",
+    "Gabon":"加蓬","Guinea":"几内亚","Sierra Leone":"塞拉利昂","Benin":"贝宁","Eswatini":"斯威士兰",
+    "Tajikistan":"塔吉克斯坦","Turkmenistan":"土库曼斯坦"
+  };
+  Object.keys(EXTRA_CN).forEach(function(k){ if(!CN[k]) CN[k] = EXTRA_CN[k]; });
+
+  var HUB_CITIES = {
+    "United States":"Houston","Canada":"Toronto","Mexico":"Monterrey","Brazil":"Sao Paulo",
+    "Argentina":"Buenos Aires","Chile":"Santiago","Colombia":"Bogota","Peru":"Lima",
+    "Ecuador":"Guayaquil","Guatemala":"Guatemala City","Costa Rica":"San Jose","Panama":"Panama City",
+    "Dominican Republic":"Santo Domingo","Uruguay":"Montevideo","Honduras":"San Pedro Sula",
+    "El Salvador":"San Salvador","Nicaragua":"Managua","Guyana":"Georgetown","Jamaica":"Kingston",
+    "Trinidad and Tobago":"Port of Spain","Bahamas":"Nassau","Suriname":"Paramaribo","Barbados":"Bridgetown",
+    "Belize":"Belize City","Bermuda":"Hamilton","Antigua and Barbuda":"St. John's","Grenada":"St. George's",
+    "Cayman Islands":"George Town","Montserrat":"Brades",
+    "Vietnam":"Ho Chi Minh City","Indonesia":"Jakarta","Thailand":"Bangkok","Malaysia":"Kuala Lumpur",
+    "Singapore":"Jurong","Philippines":"Manila","Cambodia":"Phnom Penh","Myanmar":"Yangon",
+    "Brunei":"Bandar Seri Begawan","India":"Pune","Pakistan":"Karachi","Bangladesh":"Dhaka",
+    "Sri Lanka":"Colombo","Maldives":"Male",
+    "Saudi Arabia":"Dammam","United Arab Emirates":"Dubai","Qatar":"Doha","Kuwait":"Kuwait City",
+    "Iraq":"Baghdad","Oman":"Muscat","Bahrain":"Manama","Jordan":"Amman","Lebanon":"Beirut",
+    "Israel":"Haifa","Iran":"Tehran","Yemen":"Aden","West Bank and Gaza":"Ramallah",
+    "Turkey (Türkiye)":"Istanbul","Egypt":"Cairo","Morocco":"Casablanca","Algeria":"Algiers","Tunisia":"Tunis",
+    "South Africa":"Johannesburg","Nigeria":"Lagos","Kenya":"Nairobi","Angola":"Luanda",
+    "Tanzania":"Dar es Salaam","Ethiopia":"Addis Ababa","Ghana":"Accra","Uganda":"Kampala",
+    "Senegal":"Dakar","Mozambique":"Maputo","Namibia":"Windhoek","Mauritania":"Nouakchott",
+    "Burkina Faso":"Ouagadougou","Mali":"Bamako","Botswana":"Gaborone","Mauritius":"Port Louis",
+    "Rwanda":"Kigali","Madagascar":"Antananarivo","Liberia":"Monrovia","Malawi":"Lilongwe",
+    "Togo":"Lome","Lesotho":"Maseru","Niger":"Niamey","Seychelles":"Victoria","Cabo Verde":"Praia",
+    "Gambia":"Banjul","Comoros":"Moroni","Sao Tome and Principe":"Sao Tome","Congo Republic":"Pointe-Noire",
+    "Central African Republic":"Bangui","Cameroon":"Douala","Democratic Republic of the Congo":"Kinshasa",
+    "Burundi":"Bujumbura","Guinea-Bissau":"Bissau","Cote d'Ivoire":"Abidjan","Zambia":"Lusaka",
+    "Zimbabwe":"Harare","Sudan":"Port Sudan","South Sudan":"Juba","Somalia":"Mogadishu",
+    "Djibouti":"Djibouti","Chad":"N'Djamena","Gabon":"Libreville","Guinea":"Conakry",
+    "Sierra Leone":"Freetown","Benin":"Cotonou","Eswatini":"Manzini",
+    "Russia":"Moscow","Kazakhstan":"Almaty","Uzbekistan":"Tashkent","Azerbaijan":"Baku",
+    "Georgia":"Tbilisi","Armenia":"Yerevan","Belarus":"Minsk","Ukraine":"Kyiv","Moldova":"Chisinau",
+    "Kyrgyz Republic":"Bishkek","Tajikistan":"Dushanbe","Turkmenistan":"Ashgabat",
+    "Poland":"Warsaw","Czechia":"Prague","Hungary":"Budapest","Romania":"Bucharest",
+    "Slovakia":"Bratislava","Bulgaria":"Sofia","Serbia":"Belgrade","Croatia":"Zagreb",
+    "Slovenia":"Ljubljana","Lithuania":"Vilnius","Latvia":"Riga","Estonia":"Tallinn",
+    "North Macedonia":"Skopje","Albania":"Tirana","Montenegro":"Podgorica","Bosnia and Herzegovina":"Sarajevo",
+    "Germany":"Hamburg","United Kingdom":"Birmingham","France":"Lyon","Netherlands":"Rotterdam",
+    "Italy":"Milan","Spain":"Barcelona","Belgium":"Antwerp","Sweden":"Gothenburg","Austria":"Vienna",
+    "Switzerland":"Zurich","Ireland":"Dublin","Denmark":"Copenhagen","Norway":"Oslo","Portugal":"Lisbon",
+    "Finland":"Helsinki","Greece":"Athens","Luxembourg":"Luxembourg","Iceland":"Reykjavik",
+    "Malta":"Valletta","Cyprus":"Limassol","Andorra":"Andorra la Vella",
+    "South Korea":"Busan","Japan":"Osaka","Hong Kong SAR":"Hong Kong","Taiwan (Other Asia nes)":"Kaohsiung",
+    "Macao":"Macau","Australia":"Perth","New Zealand":"Auckland","Papua New Guinea":"Lae",
+    "Fiji":"Suva","French Polynesia":"Papeete","Samoa":"Apia","Solomon Islands":"Honiara",
+    "Vanuatu":"Port Vila","Tuvalu":"Funafuti"
+  };
+
+  var MACRO_GROUPS = [
+    { label:"东南亚与南亚（越/印尼/泰/马/菲/印等）", match:function(d){ return d.region==="Southeast Asia" || d.region==="South Asia"; }, boost:{"Vietnam":1e9,"Indonesia":9e8,"Thailand":8e8,"Malaysia":7e8,"Philippines":6e8,"India":5e8} },
+    { label:"拉美与北美（墨西哥/巴西/智利/秘鲁/美加等）", match:function(d){ return d.region==="North America" || d.region==="Central America" || d.region==="South America" || d.region==="Caribbean"; }, boost:{"Mexico":1e9,"Brazil":9e8,"Chile":8e8,"Peru":7e8,"Colombia":6e8,"Argentina":5e8,"United States":4e8} },
+    { label:"中东与北非（沙特/阿联酋/埃及/摩洛哥/卡塔尔等）", match:function(d){ return (d.region==="Western Asia" && d.country!=="Turkey (Türkiye)") || d.region==="Northern Africa"; }, boost:{"Saudi Arabia":1e9,"United Arab Emirates":9e8,"Egypt":8e8,"Iraq":7e8,"Qatar":6e8,"Morocco":5e8,"Algeria":4e8} },
+    { label:"撒哈拉以南非洲（南非/尼日利亚/肯尼亚/安哥拉等）", match:function(d){ return d.region==="Southern Africa" || d.region==="Western Africa" || d.region==="Eastern Africa" || d.region==="Central Africa" || d.region==="Indian Ocean"; }, boost:{"South Africa":1e9,"Nigeria":9e8,"Kenya":8e8,"Tanzania":7e8,"Angola":6e8} },
+    { label:"中亚、俄语区与中东欧（土耳其/俄罗斯/哈萨克/乌兹别克/波兰等）", match:function(d){ return d.country==="Turkey (Türkiye)" || d.region==="Central Asia" || d.region==="Caucasus" || d.region==="Eastern Europe" || d.region==="Central Europe" || d.region==="Southeast Europe"; }, boost:{"Turkey (Türkiye)":1e9,"Russia":9e8,"Kazakhstan":8e8,"Uzbekistan":7e8,"Poland":6e8} },
+    { label:"西欧、日韩澳新与其他地区", match:function(){ return true; }, boost:{"Germany":1e9,"Australia":9e8,"United Kingdom":8e8} }
+  ];
+
+  function populateCountrySelect(sel, defaultVal){
+    if(!sel) return;
+    sel.innerHTML = "";
+    var used = {};
+    var pool = DATA.filter(function(d){ return d.country !== "China"; });
+    MACRO_GROUPS.forEach(function(g){
+      var list = pool.filter(function(d){ return !used[d.country] && g.match(d); });
+      if(!list.length) return;
+      list.forEach(function(d){ used[d.country] = 1; });
+      list.sort(function(a,b){
+        var ba = (g.boost && g.boost[a.country]) || 0;
+        var bb = (g.boost && g.boost[b.country]) || 0;
+        if(ba !== bb) return bb - ba;
+        return (effImpM(b)||0) - (effImpM(a)||0);
+      });
+      var og = document.createElement("optgroup");
+      og.label = g.label;
+      list.forEach(function(d){
+        var o = document.createElement("option");
+        o.value = d.country;
+        o.textContent = (CN[d.country]||d.country) + " (" + d.country + ")";
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
+    });
+    sel.value = defaultVal || "Vietnam";
+  }
+
+  function attachQuickFilter(sel){
+    if(!sel || !sel.parentNode || sel._hasQuickFilter) return;
+    sel._hasQuickFilter = true;
+    var inp = document.createElement("input");
+    inp.type = "search";
+    inp.placeholder = "输入国家中/英文秒定位（如：墨西哥 / Mexico / 沙特）";
+    inp.setAttribute("aria-label", "快速搜索国家");
+    inp.style.cssText = "width:100%;min-height:30px;padding:3px 9px;margin-bottom:5px;border:1px dashed var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:12px";
+    sel.parentNode.insertBefore(inp, sel);
+    inp.addEventListener("input", function(){
+      var q = inp.value.trim().toLowerCase();
+      if(!q) return;
+      var best = null, bestScore = -1;
+      for(var i = 0; i < sel.options.length; i++){
+        var o = sel.options[i];
+        var v = o.value.toLowerCase(), t = o.textContent.toLowerCase();
+        var cnOnly = (CN[o.value] || "").toLowerCase();
+        var sc = -1;
+        if(cnOnly === q || v === q) sc = 100;
+        else if(cnOnly.indexOf(q) === 0 || v.indexOf(q) === 0) sc = 80;
+        else if(t.indexOf(q) >= 0) sc = 50;
+        if(sc > bestScore){ bestScore = sc; best = o.value; }
+      }
+      if(!best){
+        Object.keys(EXTRA_CN).forEach(function(k){
+          if(EXTRA_CN[k].indexOf(q) >= 0 || k.toLowerCase().indexOf(q) >= 0) best = k;
+        });
+      }
+      if(best){
+        selectOrAppendCountry(sel, best);
+      }
+    });
+  }
+
+  function isGenericRegion(raw){
+    var s = String(raw || "").trim();
+    if(!s) return true;
+    return /^(global|world|your region|southeast asia|middle east|latin america|africa|europe|eastern and southern africa|western and central africa|eastern africa|western africa|全球|全球多国|全球新兴市场)$/i.test(s);
+  }
+
+  function selectOrAppendCountry(sel, rawCountry, allowGenericOption){
+    if(!sel) return {ok:false, generic:true, value:""};
+    var raw = String(rawCountry || "").trim();
+    if(isGenericRegion(raw)){
+      if(allowGenericOption){
+        var genVal = "your region";
+        var exGen = Array.prototype.filter.call(sel.options, function(o){ return o.value === genVal; })[0];
+        if(!exGen){
+          exGen = document.createElement("option");
+          exGen.value = genVal;
+          exGen.textContent = "全球/区域通用 (your region)";
+          sel.insertBefore(exGen, sel.firstChild);
+        }
+        sel.value = genVal;
+        sel.dispatchEvent(new Event("change"));
+      }
+      return {ok:false, generic:true, value:"your region"};
+    }
+    var resolved = (typeof resolveCountryEn === "function" && resolveCountryEn(raw)) || raw;
+    var low = resolved.toLowerCase();
+    var matched = "";
+    for(var i = 0; i < sel.options.length; i++){
+      var ov = sel.options[i].value;
+      if(ov.toLowerCase() === low){ matched = ov; break; }
+    }
+    if(!matched){
+      var aliases = {"turkey":"Turkey (Türkiye)","türkiye":"Turkey (Türkiye)","uae":"United Arab Emirates","hong kong":"Hong Kong SAR","taiwan":"Taiwan (Other Asia nes)","kyrgyzstan":"Kyrgyz Republic","drc":"Democratic Republic of the Congo","dr congo":"Democratic Republic of the Congo","ivory coast":"Cote d'Ivoire"};
+      if(aliases[low]) matched = aliases[low];
+    }
+    if(matched && Array.prototype.some.call(sel.options, function(o){ return o.value === matched; })){
+      sel.value = matched;
+      sel.dispatchEvent(new Event("change"));
+      return {ok:true, generic:false, value:matched, cn:CN[matched]||matched};
+    }
+    var targetVal = matched || resolved;
+    var dynGroup = sel.querySelector("optgroup[data-dyn='1']");
+    if(!dynGroup){
+      dynGroup = document.createElement("optgroup");
+      dynGroup.label = "其他国家 / 世行项目地区";
+      dynGroup.setAttribute("data-dyn", "1");
+      sel.appendChild(dynGroup);
+    }
+    var newOpt = document.createElement("option");
+    newOpt.value = targetVal;
+    newOpt.textContent = (CN[targetVal] ? (CN[targetVal] + " (" + targetVal + ")") : targetVal);
+    dynGroup.appendChild(newOpt);
+    sel.value = targetVal;
+    sel.dispatchEvent(new Event("change"));
+    return {ok:true, generic:false, value:targetVal, cn:CN[targetVal]||targetVal};
+  }
+
+  function hubCity(countryEn){
+    var c = String(countryEn || "").trim();
+    if(HUB_CITIES[c]) return HUB_CITIES[c];
+    if(typeof COUNTRY_META !== "undefined" && COUNTRY_META[c] && COUNTRY_META[c].hub){
+      return COUNTRY_META[c].hub.replace(/\s+(industrial|zone|park|port|freezone).*$/i, "").trim();
+    }
+    return c || "Industrial Zone";
+  }
+
+  function cleanCountryForPitch(countryEn){
+    var c = String(countryEn || "").trim();
+    if(!c || isGenericRegion(c)) return "your region";
+    var map = {
+      "Turkey (Türkiye)": "Turkey",
+      "Taiwan (Other Asia nes)": "Taiwan",
+      "Hong Kong SAR": "Hong Kong",
+      "Macao": "Macau",
+      "Kyrgyz Republic": "Kyrgyzstan",
+      "Congo Republic": "Republic of the Congo"
+    };
+    if(map[c]) return map[c];
+    return c.replace(/\s*\([^)]*\)/g, "").trim();
+  }
+
+  function ensureEnglishProd(prodStr){
+    var s = String(prodStr || "").trim();
+    if(!s) return "industrial equipment";
+    if(!/[\u4e00-\u9fff]/.test(s)) return s;
+    var rules = [
+      [/钢结构|厂房|仓库|彩钢|屋面|檩条/, "prefabricated steel structures & roofing panels"],
+      [/紧固件|螺栓|锚栓/, "high-strength structural bolts & fasteners"],
+      [/渣浆泵|矿用泵/, "heavy-duty mining slurry pumps"],
+      [/灌溉泵|深井泵|潜水泵/, "deep-well & solar/diesel irrigation pumps"],
+      [/水泵|离心泵|排涝泵|排水泵|泵/, "industrial centrifugal & dewatering pumps"],
+      [/阀门|闸阀|蝶阀|止回阀|球阀/, "industrial valves"],
+      [/钢管|管道|法兰|管件/, "steel pipes, flanges & pipe fittings"],
+      [/电缆|电线/, "power & control cables"],
+      [/变压器|开关柜|配电|稳压/, "transformers & LV/MV switchgear"],
+      [/发电机|备电|柴油机/, "backup diesel generator sets"],
+      [/光伏|太阳能|储能/, "solar PV mounting & hybrid power systems"],
+      [/农机|拖拉机|粮仓|冷库/, "agricultural machinery & farm equipment"],
+      [/空压机|风机/, "industrial air compressors & blowers"],
+      [/机床|机械|选矿|矿机/, "industrial & engineering machinery"],
+      [/五金|工具/, "industrial hardware & tools"]
+    ];
+    var picked = [];
+    rules.forEach(function(pair){
+      if(pair[0].test(s) && picked.indexOf(pair[1]) < 0) picked.push(pair[1]);
+    });
+    if(!picked.length) return "industrial valves, water pumps, steel structures & power cables";
+    var top = picked.slice(0, 3);
+    return top.length === 1 ? top[0] : (top.slice(0, -1).join(", ") + " & " + top[top.length - 1]);
+  }
+
+  return {
+    populateCountrySelect: populateCountrySelect,
+    attachQuickFilter: attachQuickFilter,
+    selectOrAppendCountry: selectOrAppendCountry,
+    hubCity: hubCity,
+    cleanCountryForPitch: cleanCountryForPitch,
+    ensureEnglishProd: ensureEnglishProd,
+    isGenericRegion: isGenericRegion
+  };
+})();
+
 /* ===== Outreach Tab: 6-Channel Lead Finder + Quote Calculator + Multilingual Email Generator ===== */
 (function(){
   var lfSel = document.getElementById("lfCountry");
   var emSel = document.getElementById("emCountry");
   var qcSel = document.getElementById("qcCountry");
-  var sortedC = DATA.slice().sort(function(a,b){ return (effImpM(b)||0)-(effImpM(a)||0); });
-  sortedC.forEach(function(d){
-    var txt = (CN[d.country]||d.country) + " (" + d.country + ")";
-    [lfSel, emSel, qcSel].forEach(function(sel){
-      var o = document.createElement("option"); o.value = d.country; o.textContent = txt; sel.appendChild(o);
-    });
+  [lfSel, emSel, qcSel].forEach(function(sel){
+    window.FG_GEO.populateCountrySelect(sel, "Vietnam");
+    window.FG_GEO.attachQuickFilter(sel);
   });
-  lfSel.value = "Vietnam"; emSel.value = "Vietnam"; qcSel.value = "Vietnam";
 
   function updateLF(){
     var c = lfSel.value;
@@ -5121,8 +5398,8 @@ window.getRepSignature = function(){
 
   window.loadIntoCalc = function(country, prod, clientId, quoteSnap){
     navigateTo("quote-calc");
-    if(country && DATA.some(function(d){ return d.country === country; })) qcSel.value = country;
-    if(prod) document.getElementById("qcProdName").value = prod;
+    if(country && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(qcSel, country, false);
+    if(prod) document.getElementById("qcProdName").value = window.FG_GEO ? window.FG_GEO.ensureEnglishProd(prod) : prod;
     syncCountryDuty();
     if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
     var cSel = document.getElementById("qcBindClient");
@@ -5575,19 +5852,20 @@ window.getRepSignature = function(){
       de: "• Produktkatalog, Spezifikationen und Angebot passend zu Ihrer Anfrage",
       ru: "• Каталог продукции, спецификации и расчёт цены по вашему запросу"
     };
+    var cClean = window.FG_GEO ? window.FG_GEO.cleanCountryForPitch(c) : c;
     var vars = {
-      country: c,
+      country: cClean,
       comp: document.getElementById("emCompany").value.trim() || "your company",
       contact: document.getElementById("emContact").value.trim() || "Procurement Team",
-      prod: document.getElementById("emProduct").value.trim() || "industrial equipment",
+      prod: window.FG_GEO ? window.FG_GEO.ensureEnglishProd(document.getElementById("emProduct").value) : (document.getElementById("emProduct").value.trim() || "industrial equipment"),
       edge: rawEdge,
       edgeParen: rawEdge ? (" (" + rawEdge + ")") : "",
       hooks: checkedHooks.length ? checkedHooks.join("\n") : (defaultNeutralHook[lang] || defaultNeutralHook.en),
-      coFollowEn: (ftaOk && coChecked) ? ("\n• Preferential Certificate of Origin (Form E / RCEP / FTA) subject to final HS code verification for " + c) : "",
-      coFollowEs: (ftaOk && coChecked) ? ("\n• Certificado de Origen preferencial (según verificación del código HS para " + c + ")") : "",
-      coFollowVi: (ftaOk && coChecked) ? ("\n• Hỗ trợ C/O ưu đãi (Form E / RCEP) theo mã HS thực tế về " + c) : "",
-      coFollowId: (ftaOk && coChecked) ? ("\n• Dukungan C/O preferensial (Form E / RCEP) sesuai verifikasi kode HS untuk " + c) : "",
-      coFollowTh: (ftaOk && coChecked) ? ("\n• เอกสารสิทธิพิเศษทางภาษี (Form E / RCEP) ขึ้นอยู่กับการตรวจสอบพิกัด HS สำหรับ " + c) : "",
+      coFollowEn: (ftaOk && coChecked) ? ("\n• Preferential Certificate of Origin (Form E / RCEP / FTA) subject to final HS code verification for " + cClean) : "",
+      coFollowEs: (ftaOk && coChecked) ? ("\n• Certificado de Origen preferencial (según verificación del código HS para " + cClean + ")") : "",
+      coFollowVi: (ftaOk && coChecked) ? ("\n• Hỗ trợ C/O ưu đãi (Form E / RCEP) theo mã HS thực tế về " + cClean) : "",
+      coFollowId: (ftaOk && coChecked) ? ("\n• Dukungan C/O preferensial (Form E / RCEP) sesuai verifikasi kode HS untuk " + cClean) : "",
+      coFollowTh: (ftaOk && coChecked) ? ("\n• เอกสารสิทธิพิเศษทางภาษี (Form E / RCEP) ขึ้นอยู่กับการตรวจสอบพิกัด HS สำหรับ " + cClean) : "",
       sender: document.getElementById("emSender").value.trim() || "FriesGo Global Export Team",
       phone: document.getElementById("emPhone").value.trim() ? ("WhatsApp / Tel: " + document.getElementById("emPhone").value.trim()) : ""
     };
@@ -5616,16 +5894,18 @@ window.getRepSignature = function(){
 
   window.loadIntoEmailGen = function(country, lang, prod, comp, toEmail){
     navigateTo("email-gen");
-    var matchedCountry = country && DATA.some(function(d){ return d.country===country; });
-    if(matchedCountry){ emSel.value = country; lfSel.value = country; }
-    document.getElementById("emLang").value = lang || (matchedCountry ? guessLang(emSel.value) : "en");
-    if(prod) document.getElementById("emProduct").value = prod;
-    if(comp) document.getElementById("emCompany").value = comp;
+    var cRes = window.FG_GEO ? window.FG_GEO.selectOrAppendCountry(emSel, country, true) : {ok:false, generic:true};
+    if(cRes.ok && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(lfSel, cRes.value, false);
+    document.getElementById("emLang").value = lang || (cRes.ok ? guessLang(cRes.value) : "en");
+    document.getElementById("emProduct").value = prod ? (window.FG_GEO ? window.FG_GEO.ensureEnglishProd(prod) : prod) : "industrial equipment";
+    document.getElementById("emCompany").value = comp ? String(comp).trim() : "";
+    var ctEl = document.getElementById("emContact");
+    if(ctEl) ctEl.value = "";
     var toEl = document.getElementById("emToEmail");
-    if(toEl) toEl.value = toEmail || "";
+    if(toEl) toEl.value = toEmail ? String(toEmail).trim() : "";
     updateEmail(); updateLF();
-    var suffix = (!matchedCountry && country && country !== "Global") ? "（请手动确认目标国家）" : (!matchedCountry ? "（全球通用，请按需选定目标国家）" : "");
-    showToast("已载入「"+(comp || CN[country] || country)+"」到写开发信" + suffix);
+    var suffix = cRes.generic ? "（该线索未指定单一国家，已设为通用区域，可按需选择具体国家）" : "";
+    showToast("已载入「"+(comp || cRes.cn || CN[country] || country || "开发信")+"」到写开发信" + suffix);
   };
 
   document.getElementById("actions").addEventListener("click", function(e){
@@ -6269,13 +6549,8 @@ window.getRepSignature = function(){
 /* ===== Overseas Company Background Check / Due Diligence Workbench ===== */
 (function(){
   var ddSel = document.getElementById("ddCountry");
-  var sortedD = DATA.slice().sort(function(a,b){ return (effImpM(b)||0)-(effImpM(a)||0); });
-  sortedD.forEach(function(d){
-    var o = document.createElement("option");
-    o.value = d.country; o.textContent = (CN[d.country]||d.country) + " (" + d.country + ")";
-    ddSel.appendChild(o);
-  });
-  ddSel.value = "Vietnam";
+  window.FG_GEO.populateCountrySelect(ddSel, "Vietnam");
+  window.FG_GEO.attachQuickFilter(ddSel);
 
   function cleanDomain(raw){
     return String(raw||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/^www\./,"").split("/")[0].split("?")[0];
@@ -6506,29 +6781,18 @@ window.getRepSignature = function(){
   var ddHasRunAuto = false;
 
   function selectDdCountry(rawCountry){
-    // Remove any previous temporary unlisted option
     ddSel.querySelectorAll("option[data-unlisted='1']").forEach(function(o){ o.remove(); });
     var raw = String(rawCountry || "").trim();
-    if(!raw){
+    if(!raw || window.FG_GEO.isGenericRegion(raw)){
       var optEmpty = document.createElement("option");
       optEmpty.value = "待确认";
-      optEmpty.textContent = "待确认（未指定国家）";
+      optEmpty.textContent = "待确认（未指定具体国家）";
       optEmpty.setAttribute("data-unlisted", "1");
       ddSel.insertBefore(optEmpty, ddSel.firstChild);
       ddSel.value = "待确认";
       return;
     }
-    var resolved = resolveCountryEn(raw) || raw;
-    if(DATA.some(function(d){ return d.country === resolved; })){
-      ddSel.value = resolved;
-      return;
-    }
-    var opt = document.createElement("option");
-    opt.value = resolved;
-    opt.textContent = (CN[resolved] ? (CN[resolved] + " (" + resolved + ")") : resolved) + "（待确认 · 未收录宏观库）";
-    opt.setAttribute("data-unlisted", "1");
-    ddSel.insertBefore(opt, ddSel.firstChild);
-    ddSel.value = resolved;
+    window.FG_GEO.selectOrAppendCountry(ddSel, raw, false);
   }
 
   function resetDdState(showNotice){
@@ -6690,9 +6954,9 @@ window.getRepSignature = function(){
   window.loadIntoDd = function(country, company, domain, email){
     navigateTo("duediligence");
     selectDdCountry(country);
-    if(company !== undefined){ var cEl = document.getElementById("ddCompany"); if(cEl) cEl.value = company; }
-    if(domain !== undefined){ var dEl = document.getElementById("ddDomain"); if(dEl) dEl.value = domain; }
-    if(email !== undefined){ var eEl = document.getElementById("ddEmail"); if(eEl) eEl.value = email; }
+    var cEl = document.getElementById("ddCompany"); if(cEl) cEl.value = company || "";
+    var dEl = document.getElementById("ddDomain"); if(dEl) dEl.value = domain || "";
+    var eEl = document.getElementById("ddEmail"); if(eEl) eEl.value = email || "";
     resetDdState(false);
     document.getElementById("ddAutoResult").textContent = "已载入新客户信息（已重置旧核查项），请点击「开始自动体检」并逐项核查。";
     var sb = document.getElementById("ddStaleNote"); if(sb) sb.hidden = true;
@@ -6716,14 +6980,10 @@ window.getRepSignature = function(){
 
   /* Populate 3 country selects (rdCountry, rjCountry, raCountry) */
   var rdSel = document.getElementById("rdCountry"), rjSel = document.getElementById("rjCountry"), raSel = document.getElementById("raCountry");
-  var sortedR = DATA.slice().sort(function(a,b){ return (effImpM(b)||0)-(effImpM(a)||0); });
-  sortedR.forEach(function(d){
-    var txt = (CN[d.country]||d.country) + " (" + d.country + ")";
-    [rdSel, rjSel, raSel].forEach(function(sel){
-      var o = document.createElement("option"); o.value = d.country; o.textContent = txt; sel.appendChild(o);
-    });
+  [rdSel, rjSel, raSel].forEach(function(sel){
+    window.FG_GEO.populateCountrySelect(sel, "Vietnam");
+    window.FG_GEO.attachQuickFilter(sel);
   });
-  rdSel.value = "Vietnam"; rjSel.value = "Vietnam"; raSel.value = "Vietnam";
 
   /* Local Job Boards per Country */
   var JOB_BOARDS = {
@@ -6759,11 +7019,11 @@ window.getRepSignature = function(){
     infra: {kw:'"port" OR "infrastructure" OR "logistics hub" OR "industrial zone"', cn:'综合基建钢构、泵阀电缆与五金', prodEn:'steel structures, industrial valves/pumps, cables & construction hardware'}
   };
   function updateMoneyRadar(){
-    var c = rdSel.value, cn = CN[c]||c, s = SECTORS[document.getElementById("rdSector").value] || SECTORS.steel;
+    var c = rdSel.value, cClean = window.FG_GEO.cleanCountryForPitch(c), cn = CN[c]||c, s = SECTORS[document.getElementById("rdSector").value] || SECTORS.steel;
     var bank = document.getElementById("rdBankName").value.trim() || "IFC / ADB / development bank";
-    var qLoan = encodeURIComponent('("secured loan" OR "project financing" OR "credit facility" OR "loan approved" OR "IFC" OR "ADB") "'+c+'" ('+s.kw+') ("million" OR "billion")');
-    var qEia = encodeURIComponent('("breaks ground" OR "new factory" OR "environmental impact assessment" OR "EIA" OR "building permit") "'+c+'" ('+s.kw+')');
-    var qCapex = encodeURIComponent('("CAPEX" OR "capital expenditure" OR "capacity expansion" OR "plant expansion") "'+c+'" ('+s.kw+')');
+    var qLoan = encodeURIComponent('("secured loan" OR "project financing" OR "credit facility" OR "loan approved" OR "IFC" OR "ADB") "'+cClean+'" ('+s.kw+') ("million" OR "billion")');
+    var qEia = encodeURIComponent('("breaks ground" OR "new factory" OR "environmental impact assessment" OR "EIA" OR "building permit") "'+cClean+'" ('+s.kw+')');
+    var qCapex = encodeURIComponent('("CAPEX" OR "capital expenditure" OR "capacity expansion" OR "plant expansion") "'+cClean+'" ('+s.kw+')');
     var qCnEpc = encodeURIComponent('("中标" OR "签约" OR "建厂" OR "开工" OR "EPC") "'+cn+'" ("钢结构" OR "厂房" OR "电站" OR "工业园" OR "矿山" OR "水务")');
     var qShort = encodeURIComponent('("lead time" OR "price increase" OR "supply shortage" OR "plant closure") ('+s.kw+')');
     var btns = [
@@ -6777,9 +7037,9 @@ window.getRepSignature = function(){
       return '<a class="pill '+(b.p?'primary':'')+'" target="_blank" rel="noopener" href="'+b.u+'">'+b.l+'</a>';
     }).join("");
     document.getElementById("rdPitchOut").textContent =
-      "Subject: Compliant " + s.prodEn + " supply for your newly financed project in " + c + " | FriesGo Global\n\n"
+      "Subject: Compliant " + s.prodEn + " supply for your newly financed project in " + cClean + " | FriesGo Global\n\n"
       + "Dear Project / Procurement Director,\n\n"
-      + "Congratulations on your recent project financing supported by " + bank + " in " + c + ".\n\n"
+      + "Congratulations on your recent project financing supported by " + bank + " in " + cClean + ".\n\n"
       + "We work closely with project owners and EPC contractors on DFI-backed expansions, supplying full-category industrial packages (" + s.prodEn + ") directly from audited Chinese factories.\n\n"
       + "• Full ISO / CE / energy-efficiency & material traceability docs to support lender ESG/compliance audits\n"
       + "• One-stop multi-category consolidation into full containers to simplify your EPC site scheduling\n"
@@ -6803,10 +7063,10 @@ window.getRepSignature = function(){
     tech: {kw:'("hydraulic technician" OR "pump technician" OR "generator technician" OR "agricultural machinery mechanic")', note:"当地该设备保有量暴增进入维修替换期 → 推替换整机、易损件与维修工具"}
   };
   function updateJobRadar(){
-    var c = rjSel.value, sig = JOB_SIGNALS[document.getElementById("rjSignal").value] || JOB_SIGNALS.steel;
+    var c = rjSel.value, cClean = window.FG_GEO.cleanCountryForPitch(c), sig = JOB_SIGNALS[document.getElementById("rjSignal").value] || JOB_SIGNALS.steel;
     var jb = JOB_BOARDS[c];
-    var qLi = encodeURIComponent('site:linkedin.com/jobs '+sig.kw+' "'+c+'"');
-    var qInd = encodeURIComponent('site:indeed.com '+sig.kw+' "'+c+'"');
+    var qLi = encodeURIComponent('site:linkedin.com/jobs '+sig.kw+' "'+cClean+'"');
+    var qInd = encodeURIComponent('site:indeed.com '+sig.kw+' "'+cClean+'"');
     var btns = [
       {l:"👔 扫 LinkedIn 近 30 天高意图招聘企业", u:"https://www.google.com/search?q="+qLi+"&tbs=qdr:m", p:true}
     ];
@@ -6817,7 +7077,7 @@ window.getRepSignature = function(){
     } else {
       btns.push({l:"🌐 扫 Indeed 近 30 天招聘企业", u:"https://www.google.com/search?q="+qInd+"&tbs=qdr:m", p:true});
     }
-    var qGen = encodeURIComponent(sig.kw+' "'+c+'" ("apply now" OR "job description" OR "hiring")');
+    var qGen = encodeURIComponent(sig.kw+' "'+cClean+'" ("apply now" OR "job description" OR "hiring")');
     btns.push({l:"🔍 全网扫该国招聘启事（近 30 天）", u:"https://www.google.com/search?q="+qGen+"&tbs=qdr:m", p:false});
     document.getElementById("rjBtns").innerHTML = btns.map(function(b){
       return '<a class="pill '+(b.p?'primary':'')+'" target="_blank" rel="noopener" href="'+b.u+'">'+b.l+'</a>';
@@ -6830,7 +7090,8 @@ window.getRepSignature = function(){
 
   /* 3. Global Sudden-Demand & Pre-Stocking Calendar Workbench + 6-Mode Scenario Pitch */
   function updateWeatherPitch(){
-    var reg = document.getElementById("wtRegion").value.trim() || "your region";
+    var regRaw = document.getElementById("wtRegion").value.trim() || "your region";
+    var reg = (/^global$/i.test(regRaw)) ? "your region" : ((/\(/.test(regRaw) || /^(Hong Kong SAR|Kyrgyz Republic|Congo Republic|Macao)$/.test(regRaw)) ? window.FG_GEO.cleanCountryForPitch(regRaw) : regRaw);
     var lang = document.getElementById("wtLang").value;
     var mode = document.getElementById("wtMode").value;
     var sig = repSig();
@@ -6888,27 +7149,18 @@ window.getRepSignature = function(){
     var sel = document.getElementById("msCountry");
     var kw = document.getElementById("msKeyword");
     var target = (countryEn || "").trim();
-    var matched = "";
-    if(sel && target && target !== "Global"){
-      var low = target.toLowerCase();
-      for(var i = 0; i < sel.options.length; i++){
-        var v = sel.options[i].value;
-        if(v.toLowerCase() === low){ matched = v; break; }
-      }
-      if(!matched){
-        for(var j = 0; j < sel.options.length; j++){
-          var v2 = sel.options[j].value;
-          if(v2.toLowerCase().indexOf(low) >= 0 || low.indexOf(v2.toLowerCase()) >= 0){ matched = v2; break; }
-        }
-      }
-      if(matched){
-        sel.value = matched;
-        sel.dispatchEvent(new Event("change"));
-      }
+    var res = {ok:false, generic:true, value:""};
+    if(sel && target){
+      res = window.FG_GEO.selectOrAppendCountry(sel, target, false);
     }
     if(kw && keyword){ kw.value = keyword; }
     navigateTo("map-scraper");
-    showToast("已载入地图找客：" + (matched ? ((CN[matched]||matched) + " · ") : (target ? (target + " · ") : "")) + (keyword || "工业批发商"));
+    if(target && res.generic){
+      showToast("该线索为区域性情报，请先在下拉框选择具体目标国家后再点抓取");
+    } else {
+      var shownC = res.ok ? (res.cn || res.value) : (CN[sel.value] || sel.value);
+      showToast("已载入地图找客：" + shownC + "（" + (document.getElementById("msCity").value || "") + "）· " + (keyword || "工业批发商"));
+    }
   };
 
   /* Dual-view Sudden-Demand & 12-Month Pre-Stocking Calendar Workbench */
@@ -7233,9 +7485,9 @@ window.getRepSignature = function(){
 
   /* 5. Commission-Only Overseas Local Sales Partner Recruitment Workbench (NO hardcoded commission %!) */
   function updateAgentFinder(){
-    var c = raSel.value, jb = JOB_BOARDS[c];
-    var qRep = encodeURIComponent('site:linkedin.com/in ("Independent Sales Agent" OR "Manufacturers Representative" OR "Sales Representative" OR "Business Development") ("industrial" OR "construction" OR "steel" OR "machinery" OR "EPC") "'+c+'"');
-    var qOpen = encodeURIComponent('site:linkedin.com/in ("open to work" OR "freelance" OR "consultant") ("industrial sales" OR "machinery sales" OR "steel" OR "engineering sales") "'+c+'"');
+    var c = raSel.value, cClean = window.FG_GEO.cleanCountryForPitch(c), jb = JOB_BOARDS[c];
+    var qRep = encodeURIComponent('site:linkedin.com/in ("Independent Sales Agent" OR "Manufacturers Representative" OR "Sales Representative" OR "Business Development") ("industrial" OR "construction" OR "steel" OR "machinery" OR "EPC") "'+cClean+'"');
+    var qOpen = encodeURIComponent('site:linkedin.com/in ("open to work" OR "freelance" OR "consultant") ("industrial sales" OR "machinery sales" OR "steel" OR "engineering sales") "'+cClean+'"');
     var btns = [
       {l:"👔 LinkedIn 挖当地独立工业代理 / 厂商代表", u:"https://www.google.com/search?q="+qRep, p:true},
       {l:"🔥 LinkedIn 找求职中/自由工业销售", u:"https://www.google.com/search?q="+qOpen, p:true}
@@ -7243,7 +7495,7 @@ window.getRepSignature = function(){
     if(jb){
       btns.push({l:"💼 直达 "+jb.name+" 找本地工业销售人才", u:jb.url, p:true});
     } else {
-      btns.push({l:"💼 搜 "+c+" 当地招聘网工业销售", u:"https://www.google.com/search?q="+encodeURIComponent('"industrial sales" jobs "'+c+'"'), p:false});
+      btns.push({l:"💼 搜 "+(CN[c]||cClean)+" 当地招聘网工业销售", u:"https://www.google.com/search?q="+encodeURIComponent('"industrial sales" jobs "'+cClean+'"'), p:false});
     }
     document.getElementById("raFindBtns").innerHTML = btns.map(function(b){
       return '<a class="pill '+(b.p?'primary':'')+'" target="_blank" rel="noopener" href="'+b.u+'">'+b.l+'</a>';
@@ -7253,12 +7505,12 @@ window.getRepSignature = function(){
   }
 
   function updateAgentPitch(){
-    var c = raSel.value, cat = document.getElementById("raCat").value, lang = document.getElementById("raLang").value;
+    var cRaw = raSel.value, c = window.FG_GEO.cleanCountryForPitch(cRaw), cat = document.getElementById("raCat").value, lang = document.getElementById("raLang").value;
     var ch = document.getElementById("raChannel").value;
     var nmRaw = document.getElementById("raTargetName").value.trim();
     // 未填称呼时：英文用 "there"，其他语种直接省略称呼，避免出现 "Chào Anh/Chị there" 这类中英混杂
     var nm = nmRaw || (lang === "en" ? "there" : "");
-    var ptLoc = ({Brazil:"no Brasil", Portugal:"em Portugal", Angola:"em Angola", Mozambique:"em Moçambique"})[c] || ("em " + c);
+    var ptLoc = ({Brazil:"no Brasil", Portugal:"em Portugal", Angola:"em Angola", Mozambique:"em Moçambique"})[cRaw] || ("em " + c);
     var sig = repSig();
     var P = {
       en: {
@@ -7336,9 +7588,7 @@ window.getRepSignature = function(){
   window.loadIntoRadar = function(country){
     navigateTo("project-hunt");
     if(country){
-      rdSel.value = country;
-      rjSel.value = country;
-      raSel.value = country;
+      [rdSel, rjSel, raSel].forEach(function(s){ window.FG_GEO.selectOrAppendCountry(s, country, false); });
       updateMoneyRadar();
       updateJobRadar();
       updateAgentFinder();
@@ -7379,14 +7629,7 @@ window.getRepSignature = function(){
 (function(){
   var cSel = document.getElementById("crmNewCountry");
   if(cSel){
-    var sortedC = DATA.slice().sort(function(a,b){ return (effImpM(b)||0)-(effImpM(a)||0); });
-    sortedC.forEach(function(d){
-      var o = document.createElement("option");
-      o.value = d.country;
-      o.textContent = (CN[d.country]||d.country) + " (" + d.country + ")";
-      if(d.country === "Vietnam") o.selected = true;
-      cSel.appendChild(o);
-    });
+    window.FG_GEO.populateCountrySelect(cSel, "Vietnam");
   }
   var stSel = document.getElementById("crmStageFilter");
   if(stSel){
@@ -8226,9 +8469,14 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var emBtnLbl = x.cat === "weather"
         ? (ht === "EQ" ? "强震重建话术" : (ht === "PW" ? "限电备电话术" : (isDrought ? "抗旱灌溉话术" : "抢修话术")))
         : "载入开发信";
+      var hasEntity = !!(x.entity && String(x.entity).trim());
+      var canSaveCrm = (x.cat === "loan" || hasEntity);
       var actionBtn = x.cat === "weather"
         ? ('<button class="pill primary" type="button" data-rf-map="'+idx+'">🗺️ 地图搜当地批发商/工程商</button>')
-        : ('<button class="pill" type="button" data-rf-dd="'+idx+'">背调业主</button>');
+        : ((hasEntity || x.contactEmail)
+            ? ('<button class="pill" type="button" data-rf-dd="'+idx+'">背调业主</button>')
+            : (!window.FG_GEO.isGenericRegion(x.country) ? ('<button class="pill primary" type="button" data-rf-map="'+idx+'">🗺️ 地图搜当地采购商</button>') : ''));
+      var crmBtn = canSaveCrm ? ('<button class="pill" type="button" data-rf-crm="'+idx+'">存入客户</button>') : '';
       return '<div class="'+cls+'">'
         + '<div class="radar-card-head">'+sevBadge+cwBadge+'<span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+dlBadge+repBadge+aiBadge+'<span class="src-ok">'+esc(dateMeta)+' · '+esc(x.source||"")+'</span></div>'
         + '<h3>'+esc(radarTitle(x, {dropSev:true, dropCountry:true}))+'</h3>'
@@ -8238,7 +8486,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         + '<div class="rc-acts">'
         + '<a class="pill" target="_blank" rel="noopener" href="'+esc(x.url||"#")+'">查看原文</a>'
         + actionBtn
-        + '<button class="pill" type="button" data-rf-crm="'+idx+'">存入客户</button>'
+        + crmBtn
         + '<button class="pill good-btn" type="button" data-rf-em="'+idx+'">'+emBtnLbl+'</button>'
         + '</div></div>';
     }).join("");
@@ -8291,7 +8539,8 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     if(bMap){
       var itM = list[+bMap.getAttribute("data-rf-map")]; if(!itM) return;
       if(typeof window.loadIntoMapScraper === "function"){
-        window.loadIntoMapScraper(itM.country, itM.mapQuery || "steel structure water pump distributor");
+        var mapKw = itM.mapQuery || (window.FG_GEO.ensureEnglishProd(itM.productsEn || itM.productsCn || "").split(/[,&]/)[0].trim() + " distributor");
+        window.loadIntoMapScraper(itM.country, mapKw);
       }
       return;
     }
@@ -8327,7 +8576,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var it2 = list[+bEm.getAttribute("data-rf-em")]; if(!it2) return;
       if(it2.cat === "weather"){
         var wr = document.getElementById("wtRegion"), wl = document.getElementById("wtLang"), wm = document.getElementById("wtMode");
-        var cleanRegion = (it2.country && it2.country !== "Global") ? it2.country : "your region";
+        var cleanRegion = window.FG_GEO.cleanCountryForPitch(it2.country);
         if(wr) wr.value = cleanRegion;
         if(wl) wl.value = (it2.lang==="vi"||it2.lang==="id"||it2.lang==="es"||it2.lang==="pt") ? it2.lang : "en";
         var ht2 = it2.hazardType || "";
@@ -8340,7 +8589,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         navigateTo("project-hunt", {innerId:"radar-weather"});
         showToast("已载入「" + cleanRegion + "」到" + modeLbl);
       } else if(typeof window.loadIntoEmailGen === "function"){
-        window.loadIntoEmailGen(it2.country, it2.lang || "en", it2.productsEn || "industrial equipment", it2.entity || "", it2.contactEmail || "");
+        window.loadIntoEmailGen(it2.country, it2.lang || "en", it2.productsEn || it2.productsCn || "industrial equipment", it2.entity || "", it2.contactEmail || "");
       }
     }
   });
@@ -8362,30 +8611,14 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
 
   var FREE_DOMAINS = {"gmail.com":1,"yahoo.com":1,"hotmail.com":1,"outlook.com":1,"live.com":1,"icloud.com":1,"qq.com":1,"163.com":1,"126.com":1,"aol.com":1,"proton.me":1,"protonmail.com":1,"yandex.ru":1,"mail.ru":1};
 
-  var DEFAULT_CITY = {
-    "Vietnam":"Ho Chi Minh City","Indonesia":"Jakarta","Thailand":"Bangkok","Saudi Arabia":"Dammam",
-    "United Arab Emirates":"Dubai","Mexico":"Monterrey","Brazil":"Sao Paulo","Chile":"Santiago",
-    "Nigeria":"Lagos","South Africa":"Johannesburg","India":"Pune","Malaysia":"Kuala Lumpur",
-    "Philippines":"Manila","Peru":"Lima","Colombia":"Bogota","Argentina":"Buenos Aires",
-    "Turkey (Türkiye)":"Istanbul","Poland":"Warsaw","Germany":"Hamburg","United States":"Houston",
-    "Egypt":"Cairo","Kenya":"Nairobi","Morocco":"Casablanca","Australia":"Perth","Kazakhstan":"Almaty"
-  };
-
-  /* Populate Map Scraper country dropdown */
+  /* Populate Map Scraper country dropdown (grouped + quick-search + 165-country industrial hubs) */
   var msCountry = document.getElementById("msCountry");
-  var sortedM = DATA.slice().sort(function(a,b){ return (effImpM(b)||0)-(effImpM(a)||0); });
-  sortedM.forEach(function(d){
-    var o = document.createElement("option");
-    o.value = d.country;
-    o.textContent = (CN[d.country]||d.country) + " (" + d.country + ")";
-    if(d.country === "Vietnam") o.selected = true;
-    msCountry.appendChild(o);
-  });
+  window.FG_GEO.populateCountrySelect(msCountry, "Vietnam");
+  window.FG_GEO.attachQuickFilter(msCountry);
   msCountry.addEventListener("change", function(){
-    var c = this.value;
-    var city = DEFAULT_CITY[c] || (COUNTRY_META[c] ? COUNTRY_META[c].hub.split(" ")[0] : c);
-    document.getElementById("msCity").value = city;
+    document.getElementById("msCity").value = window.FG_GEO.hubCity(this.value);
   });
+  document.getElementById("msCity").value = window.FG_GEO.hubCity(msCountry.value);
 
   /* Load & save Google Maps config (strictly localStorage only) */
   var gCfgIds = ["msProxyUrl","msProxyPass","msGmapsKey"];
@@ -8461,12 +8694,17 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var mapA = r.mapsUrl ? '<a target="_blank" rel="noopener" href="'+esc(r.mapsUrl)+'">🗺️</a> ' : '';
       var webA = r.website ? '<a target="_blank" rel="noopener" href="'+esc(r.website.indexOf("http")===0?r.website:"https://"+r.website)+'">'+esc(r.website.replace(/^https?:\/\/(www\.)?/,"").slice(0,26))+'</a>' : '<span class="src-ok">—</span>';
       var susHtml = rk.suspect ? (' <span class="mx-warn" style="font-size:11px">'+esc(rk.suspectLabel)+'</span>') : '';
+      var qGoogle = encodeURIComponent('"' + r.company + '" ' + (r.city || window.FG_GEO.cleanCountryForPitch(r.country) || '') + ' (website OR email OR contact)');
       return '<tr'+(rk.suspect?' style="opacity:.78"':'')+'><td><b>'+mapA+esc(r.company)+'</b>'+susHtml+'<br><span class="src-ok">'+esc(r.category||"")+'</span></td>'
         + '<td style="font-size:12px">'+esc(r.phone||"—")+'</td>'
         + '<td style="font-size:12px">'+esc(r.email||"—")+'</td>'
         + '<td style="font-size:12px">'+webA+'</td>'
         + '<td style="font-size:11.5px;color:var(--muted)">'+esc((r.address||"").slice(0,52))+'</td>'
-        + '<td><button class="pill" type="button" data-map-crm="'+idx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px;white-space:nowrap">存入客户</button></td></tr>';
+        + '<td style="white-space:nowrap">'
+        + '<a class="pill" target="_blank" rel="noopener" href="https://www.google.com/search?q='+qGoogle+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">搜官网</a> '
+        + '<button class="pill" type="button" data-map-dd="'+idx+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">背调</button> '
+        + '<button class="pill primary" type="button" data-map-crm="'+idx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">存入客户</button>'
+        + '</td></tr>';
     }).join("");
     wrap.innerHTML = (suspectTotal ? '<p class="flag-note" style="margin:0 0 6px;color:var(--med);font-weight:700">提示：共识别出 '+suspectTotal+' 家疑似货代/物流或非工业主体'+(hideSus?'（已隐藏）':'（已标黄，可勾选上方「隐藏疑似货代/非工业主体」过滤）')+'。</p>' : '')
       + '<table><thead><tr><th>企业/商家名</th><th>电话</th><th>邮箱</th><th>官网</th><th>地址</th><th>操作</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
@@ -8474,6 +8712,14 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       + (msEngine === "gmaps" ? '<p class="flag-note">数据来源：Google Maps Platform（Powered by Google），仅限内部客户开发使用。</p>' : '');
   }
   document.getElementById("msResultWrap").addEventListener("click", function(e){
+    var bDd = e.target.closest("button[data-map-dd]");
+    if(bDd){
+      var rDd = mapLeads[+bDd.getAttribute("data-map-dd")]; if(!rDd) return;
+      if(typeof window.loadIntoDd === "function"){
+        window.loadIntoDd(rDd.country, rDd.company, rDd.website || "", rDd.email || "");
+      }
+      return;
+    }
     var b = e.target.closest("button[data-map-crm]"); if(!b) return;
     var r = mapLeads[+b.getAttribute("data-map-crm")]; if(!r) return;
     if(typeof window.addCustomerToCrm === "function"){
@@ -8503,6 +8749,8 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     });
   }
 
+  var NON_BUYER_NOISE_RE = /\b(mckinsey|deloitte|pwc|pricewaterhouse|kpmg|ernst\s*&\s*young|bcg|boston\s+consulting|bain\s*&\s*company|accenture|capgemini|marsh|aon|mercer|regus|wework|coworking|law\s*firm|abogados|bufete|notar[ií]a|real\s*estate|inmobiliaria|bienes\s*ra[ií]ces|insurance|seguros|marketing\s*agency|advertising|publicidad|travel\s*agency|peluquer[ií]a|barber|salon|privada|avenida|calle|boulevard)\b|\s*:v\b|^(zona|parque|area|pol[ií]gono|sector|distrito|corredor)\s+industrial\b|^industrial\s+(zone|area|park|estate)\b|^industrial$/i;
+
   function runOsmScrape(country, city, radius, kw){
     var st = document.getElementById("msStatus");
     if(osmAbortCtrl){ try { osmAbortCtrl.abort(); } catch(e){} }
@@ -8515,7 +8763,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       osmTimeoutId = setTimeout(function(){
         timedOut = true;
         try { ctrl.abort(); } catch(e){}
-      }, 30000);
+      }, 20000);
     }
 
     function fetchWithStepTimeout(url, opts, ms){
@@ -8531,18 +8779,19 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       });
     }
 
+    var countryClean = window.FG_GEO.cleanCountryForPitch(country);
     var kwClean = String(kw || "industrial distributor").trim();
     var kwLow = kwClean.toLowerCase();
     var kwTokens = kwLow.split(/[^a-z0-9]+/).filter(function(w){
-      return w.length >= 3 && !/^(the|and|for|with|supplier|distributor|company|corp|ltd|inc|industrial)$/.test(w);
+      return w.length >= 3 && !/^(the|and|for|with|supplier|distributor|wholesaler|company|corp|ltd|inc|industrial)$/.test(w);
     });
-    st.textContent = "第 1/2 步：正在定位「" + city + ", " + country + "」坐标…";
+    st.textContent = "第 1/2 步：正在定位「" + city + ", " + countryClean + "」坐标…";
 
     function geocodeCity(){
-      var qStr = city + ", " + country;
+      var qStr = city + ", " + countryClean;
       var photonGeo = "https://photon.komoot.io/api/?limit=1&q=" + encodeURIComponent(qStr);
       var nomGeo = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(qStr);
-      return fetchWithStepTimeout(photonGeo, {headers:{"Accept":"application/json"}}, 6500)
+      return fetchWithStepTimeout(photonGeo, {headers:{"Accept":"application/json"}}, 4000)
         .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
         .then(function(j){
           var feat = j && j.features && j.features[0];
@@ -8553,7 +8802,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         })
         .catch(function(err){
           if(ctrl && ctrl.signal.aborted) throw err;
-          return fetchWithStepTimeout(nomGeo, {headers:{"Accept":"application/json"}}, 7000)
+          return fetchWithStepTimeout(nomGeo, {headers:{"Accept":"application/json"}}, 4500)
             .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
             .then(function(arr){
               if(!arr || !arr.length) throw new Error("未找到城市「" + city + "」，请改用标准英文城市名（如 Ho Chi Minh City / Monterrey）");
@@ -8564,41 +8813,53 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
 
     function queryPhotonFallback(lat, lon, bbPhoton){
       var base = "https://photon.komoot.io/api/?limit=25&lat=" + lat.toFixed(4) + "&lon=" + lon.toFixed(4) + "&bbox=" + bbPhoton;
-      var urls = [
-        base + "&q=" + encodeURIComponent(kwTokens[0] || "industrial"),
-        base + "&q=" + encodeURIComponent("company") + "&osm_tag=office:company",
-        base + "&q=" + encodeURIComponent("factory") + "&osm_tag=man_made:works",
-        base + "&q=" + encodeURIComponent("hardware") + "&osm_tag=shop:hardware",
-        base + "&q=" + encodeURIComponent("industrial") + "&osm_tag=landuse:industrial"
-      ];
-      if(kwTokens[1]) urls.push(base + "&q=" + encodeURIComponent(kwTokens[1]));
+      var lg = typeof guessLang === "function" ? guessLang(country) : "en";
+      var localTerms = ({
+        es: ["ferreteria", "acero", "metal", "valvula", "industrial"],
+        pt: ["ferragem", "metalurgica", "aco", "bomba", "industrial"],
+        vi: ["co khi", "thep", "kim khi", "dien", "cong nghiep"],
+        id: ["baja", "teknik", "logam", "pompa", "industri"],
+        fr: ["quincaillerie", "acier", "metal", "pompe", "industriel"]
+      })[lg] || ["hardware", "steel", "metal", "engineering", "machinery"];
+      var qTerms = [];
+      kwTokens.slice(0, 2).concat(localTerms).forEach(function(t){
+        if(t && qTerms.indexOf(t) < 0 && qTerms.length < 6) qTerms.push(t);
+      });
+      var urls = qTerms.map(function(t){ return base + "&q=" + encodeURIComponent(t); });
       return Promise.all(urls.map(function(u){
-        return fetchWithStepTimeout(u, {headers:{"Accept":"application/json"}}, 6500)
+        return fetchWithStepTimeout(u, {headers:{"Accept":"application/json"}}, 4200)
           .then(function(r){ return r.ok ? r.json() : {features:[]}; })
           .catch(function(){ return {features:[]}; });
       })).then(function(results){
         var els = [];
-        var allowKey = /^(office|industrial|man_made|shop|craft|building)$/;
+        var okShop = /^(hardware|trade|wholesale|building_materials|electrical|energy|machine|agrarian|doityourself|industrial|yes)$/i;
+        var badOffice = /^(lawyer|accountant|estate_agent|insurance|consulting|advertising|coworking|notary|financial|tax_advisor|travel_agent|government|political_party|religion|ngo)$/i;
         results.forEach(function(j){
           (j && j.features || []).forEach(function(f){
             var p = f.properties || {};
-            var nm = (p.name || "").trim();
-            if(!nm || nm.toLowerCase() === city.toLowerCase() || nm.toLowerCase() === country.toLowerCase()) return;
-            var okKey = allowKey.test(p.osm_key || "") || (p.osm_key === "landuse" && p.osm_value === "industrial");
-            if(!okKey) return;
+            var nm = (p.name || "").replace(/\s*:v\b/gi, "").trim();
+            if(!nm || nm.toLowerCase() === city.toLowerCase() || nm.toLowerCase() === countryClean.toLowerCase()) return;
+            if(NON_BUYER_NOISE_RE.test(nm)) return;
+            var k = p.osm_key || "", v = p.osm_value || "";
+            var valid = (k === "industrial" || k === "man_made" || k === "craft")
+              || (k === "shop" && okShop.test(v))
+              || (k === "office" && !badOffice.test(v))
+              || (k === "building" && /^(industrial|warehouse|commercial|manufacture|factory)$/i.test(v))
+              || (k === "landuse" && /^(industrial|commercial)$/i.test(v));
+            if(!valid) return;
             var coords = (f.geometry && f.geometry.coordinates) || [];
             els.push({
               lat: coords[1], lon: coords[0],
               tags: {
                 name: nm,
-                industrial: (p.osm_value && p.osm_value !== "yes") ? p.osm_value : (p.osm_key || "industrial"),
+                industrial: (v && v !== "yes") ? v : (k || "industrial"),
                 "addr:street": p.street || p.district || "",
                 "addr:city": p.city || city
               }
             });
           });
         });
-        return { elements: els, _via: "Photon 开源地图快通道（Overpass 拥堵自动兜底）" };
+        return { elements: els, _via: "Photon 开源地图快通道" };
       });
     }
 
@@ -8607,10 +8868,10 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       .then(function(coord){
         geoCoord = coord;
         var lat = coord.lat, lon = coord.lon;
-        st.textContent = "第 2/2 步：已定位 (" + lat.toFixed(2) + ", " + lon.toFixed(2) + ")，正在按「" + kwClean + "」高速检索周边 " + (radius/1000) + "km 工业企业…";
+        st.textContent = "第 2/2 步：已定位 (" + lat.toFixed(2) + ", " + lon.toFixed(2) + ")，正在按「" + kwClean + "」高速检索周边工业企业…";
 
-        // Fast indexed BBOX query (10x faster than around+regex full-table scans!)
-        var radEff = Math.min(radius, 45000);
+        // Tight indexed BBOX query (<=18km radius core)
+        var radEff = Math.min(radius, 18000);
         var dLat = radEff / 111320;
         var cosLat = Math.max(0.2, Math.cos(lat * Math.PI / 180));
         var dLon = radEff / (111320 * cosLat);
@@ -8621,7 +8882,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         var clauses = [
           'node["man_made"="works"]["name"];way["man_made"="works"]["name"];',
           'node["industrial"]["name"];way["industrial"]["name"];',
-          'node["office"~"company|industrial|engineering|construction|energy|logistics"]["name"];way["office"~"company|industrial|engineering|construction|energy|logistics"]["name"];'
+          'node["office"~"industrial|engineering|construction|energy|water_utility|mining"]["name"];way["office"~"industrial|engineering|construction|energy|water_utility|mining"]["name"];'
         ];
         if(/steel|metal|structure|construction|weld|pipe|hardware|fastener/i.test(kwLow)){
           clauses.push('node["craft"~"metal_construction|welding|steel|blacksmith"]["name"];way["craft"~"metal_construction|welding|steel|blacksmith"]["name"];');
@@ -8639,32 +8900,23 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
           clauses.push('node["shop"~"trade|wholesale|machine|electrical|agrarian|hardware"]["name"];way["shop"~"trade|wholesale|machine|electrical|agrarian|hardware"]["name"];');
           clauses.push('node["craft"~"metal_construction|welding|steel|hvac|agricultural_engines"]["name"];');
         }
-        var q = '[out:json][timeout:10][bbox:' + bb + '];(' + clauses.join("") + ');out center 150;';
-        // Strictly browser-CORS-safe Overpass mirrors with short timeouts so congested mirrors fall back smoothly to Photon
-        var mirrors = [
-          {url:"https://overpass-api.de/api/interpreter", name:"OSM Overpass 主节点", ms:7500},
-          {url:"https://maps.mail.ru/osm/tools/overpass/api/interpreter", name:"OSM Overpass 备用节点", ms:6500}
-        ];
-        function tryMirror(idx){
-          var m = mirrors[idx];
-          return fetchWithStepTimeout(m.url, {method:"POST", body:"data="+encodeURIComponent(q), headers:{"Content-Type":"application/x-www-form-urlencoded"}}, m.ms)
-            .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
-            .then(function(j){
-              if(!j || !j.elements || !j.elements.length) throw new Error(j && j.remark ? ("Overpass: " + j.remark) : "empty_overpass");
-              j._via = m.name;
-              return j;
-            })
-            .catch(function(err){
-              if(ctrl && ctrl.signal.aborted) throw err;
-              if(idx + 1 < mirrors.length){
-                st.textContent = "OSM 主节点拥堵，正在切换备用节点检索「" + city + "」…";
-                return tryMirror(idx+1);
-              }
-              st.textContent = "Overpass 公共接口繁忙，正在切换 Photon 开源地图快通道检索「" + city + "」…";
-              return queryPhotonFallback(lat, lon, bbPhoton);
-            });
-        }
-        return tryMirror(0);
+        var q = '[out:json][timeout:4][bbox:' + bb + '];(' + clauses.join("") + ');out center 120;';
+        return fetchWithStepTimeout("https://overpass-api.de/api/interpreter", {
+          method:"POST",
+          body:"data="+encodeURIComponent(q),
+          headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json, */*"}
+        }, 3000)
+          .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+          .then(function(j){
+            if(!j || !j.elements || !j.elements.length) throw new Error("empty_overpass");
+            j._via = "OSM Overpass 节点";
+            return j;
+          })
+          .catch(function(err){
+            if(ctrl && ctrl.signal.aborted) throw err;
+            st.textContent = "正在通过 Photon 开源地图快通道检索「" + city + "」工业与五金商户…";
+            return queryPhotonFallback(lat, lon, bbPhoton);
+          });
       })
       .then(function(json){
         endOsmPending();
@@ -8673,7 +8925,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         els.forEach(function(el){
           var t = el.tags || {};
           var nm = (t.name || t["name:en"] || "").trim();
-          if(!nm || seen[nm.toLowerCase()]) return;
+          if(!nm || seen[nm.toLowerCase()] || NON_BUYER_NOISE_RE.test(nm)) return;
           if(t.amenity && /restaurant|cafe|bar|fast_food|school|hospital|pharmacy|bank|atm|place_of_worship|parking|fuel|hotel/i.test(t.amenity)) return;
           seen[nm.toLowerCase()] = 1;
           var lat = el.lat || (el.center && el.center.lat) || "";
@@ -8700,8 +8952,8 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         mapLeads = res;
         var viaTxt = (json && json._via) ? ("（线路：" + json._via + "）") : "";
         st.textContent = res.length
-          ? ("抓取完成" + viaTxt + "：按「" + kwClean + "」找到 " + res.length + " 家工业企业/贸易商（优先排列关键词匹配及带官网/邮箱商家），可点击「送入导入与洗名单」。")
-          : ("该半径内 OSM 标记企业较少，建议将半径调大至 60km 或改用 Google Maps 引擎。");
+          ? ("抓取完成" + viaTxt + "：按「" + kwClean + "」找到 " + res.length + " 家工业企业/贸易商（可点「搜官网」补全邮箱，或勾选送入「导入与洗名单」）。")
+          : ("该半径内 OSM 标记企业较少，建议改试其他工业城市或使用 Google Maps 引擎。");
         renderMapResults();
       })
       .catch(function(err){
@@ -8711,7 +8963,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         if(userCancelled){
           st.textContent = "已取消本次 OSM 抓取。";
         } else if(isTimeout){
-          st.textContent = "OSM 公共接口响应超时（当前网络到开源地图受限）。建议缩小半径至 15km 重试，或配置 Google Maps 引擎。";
+          st.textContent = "OSM 公共接口响应超时（当前网络到开源地图受限）。建议稍后重试，或配置 Google Maps 引擎。";
         } else {
           st.textContent = "抓取失败：" + (err && err.message ? err.message : "请稍后重试或检查网络") + "。";
         }
@@ -8819,7 +9071,8 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     var cEn = resolveCountryEn(r.country || "");
     var lang = guessLang(cEn);
     var comp = r.company || "your team";
-    var customProd = ((document.getElementById("csvWaProd") || {}).value || "").trim() || "steel structures, valves, pumps, cables & industrial machinery";
+    var rawProd = ((document.getElementById("csvWaProd") || {}).value || "").trim();
+    var customProd = rawProd ? window.FG_GEO.ensureEnglishProd(rawProd) : "steel structures, valves, pumps, cables & industrial machinery";
     if(lang==="vi") return "Chào Anh/Chị "+comp+", em từ FriesGo Global (nhà cung cấp "+customProd+" trực tiếp từ Trung Quốc, hỗ trợ C/O Form E giảm thuế). Em gửi bảng giá & tài liệu tham khảo nhé?";
     if(lang==="id") return "Halo "+comp+", saya dari FriesGo Global (pemasok "+customProd+" langsung dari Tiongkok, tersedia C/O Form E). Boleh kirim katalog & estimasi harga FOB/CIF?";
     if(lang==="es") return "Hola "+comp+", somos FriesGo Global (proveedor directo desde China de "+customProd+"). ¿Podemos enviarle nuestro catálogo técnico y precios FOB/CIF?";

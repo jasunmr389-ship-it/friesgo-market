@@ -259,7 +259,47 @@ CANONICAL_COUNTRY = {
     "Islamic Republic of Pakistan": "Pakistan",
     "Republic of Korea": "South Korea",
     "Slovak Republic": "Slovakia",
+    "Dubai": "United Arab Emirates",
+    "Abu Dhabi": "United Arab Emirates",
+    "Sharjah": "United Arab Emirates",
+    "Emirati": "United Arab Emirates",
+    "Riyadh": "Saudi Arabia",
+    "Jeddah": "Saudi Arabia",
+    "Dammam": "Saudi Arabia",
+    "Saudi": "Saudi Arabia",
+    "Monterrey": "Mexico",
+    "Mexican": "Mexico",
+    "Ho Chi Minh": "Vietnam",
+    "Hanoi": "Vietnam",
+    "Vietnamese": "Vietnam",
+    "Jakarta": "Indonesia",
+    "Indonesian": "Indonesia",
+    "Brazilian": "Brazil",
+    "Egyptian": "Egypt",
+    "Cairo": "Egypt",
+    "Nigerian": "Nigeria",
+    "Lagos": "Nigeria",
+    "Moroccan": "Morocco",
+    "Casablanca": "Morocco",
+    "South African": "South Africa",
+    "Johannesburg": "South Africa",
+    "Indian": "India",
+    "Uzbek": "Uzbekistan",
+    "Tashkent": "Uzbekistan",
+    "Kazakh": "Kazakhstan",
+    "Almaty": "Kazakhstan",
 }
+
+COUNTRY_INFO.update({
+    "Cameroon": ("喀麦隆", "非洲", "fr"),
+    "Tuvalu": ("图瓦卢", "大洋洲", "en"),
+    "West Bank and Gaza": ("巴勒斯坦地区", "中东", "ar"),
+    "Congo Republic": ("刚果（布）", "非洲", "fr"),
+    "Democratic Republic of the Congo": ("刚果（金）", "非洲", "fr"),
+})
+for _alias, _canon in list(CANONICAL_COUNTRY.items()):
+    if _canon in COUNTRY_INFO and _alias not in COUNTRY_INFO:
+        COUNTRY_INFO[_alias] = COUNTRY_INFO[_canon]
 
 # Precompile word-boundary patterns sorted longest-first to avoid substring collisions (e.g. Romania vs Oman, Nigeria vs Niger)
 _COUNTRY_PATTERNS = [
@@ -1254,13 +1294,16 @@ def push_notifications(feed):
                     w_txt = "今日全球主要市场无红橙级别灾害预警"
 
                 lead_items = []
-                for x in loans[:2]:
-                    t_clean = re.sub(r"\s+", "", strip_emoji(x.get("titleCn", "")))
+                zh_loans = [x for x in loans if len(re.findall(r"[\u4e00-\u9fff]", x.get("titleCn") or "")) >= 5]
+                pick_pool = (zh_loans + [x for x in loans if x not in zh_loans])[:2]
+                for x in pick_pool:
+                    raw_t = re.sub(r"^【([^】]+)】\s*", r"\1：", str(x.get("titleCn") or ""))
+                    t_clean = re.sub(r"\s+", " ", strip_emoji(raw_t)).strip()
                     amt = x.get("amount") or ""
                     if amt and amt not in t_clean:
                         t_clean = f"{t_clean}({amt})"
                     if t_clean:
-                        lead_items.append(t_clean[:20])
+                        lead_items.append(t_clean[:22])
                 l_txt = "；".join(lead_items) if lead_items else "点下方「详情」查看全部全球招标与新建项目商机"
 
                 send_url = f"https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={urllib.parse.quote(access_token)}"

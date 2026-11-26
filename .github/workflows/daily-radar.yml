@@ -2,8 +2,8 @@ name: Daily Global Industrial Radar
 
 on:
   schedule:
-    # Runs every day at 00:00 UTC (08:00 Beijing Time)
-    - cron: "0 0 * * *"
+    # Off-peak 23:25 UTC (07:25 Beijing Time) to avoid GitHub 00:00 UTC global queue congestion
+    - cron: "25 23 * * *"
   workflow_dispatch:
     inputs:
       skip_notify:
