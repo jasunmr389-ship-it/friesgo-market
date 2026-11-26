@@ -829,7 +829,7 @@ Best regards,
             <input id="msGmapsKey" type="password" placeholder="AIzaSy...（请勿通过网址参数分享）">
           </div>
         </div>
-        <p class="flag-note" id="msQuotaInfo" style="margin-top:6px">本应用已记录用量：本机本月 0 次。说明：Google Places API (New) 计费以 Google Cloud 控制台为准，请务必在 Google Cloud 配置月度配额上限与预算告警；查询结果仅限团队内部开发客户使用，须遵守 Google Maps Platform 服务条款及来源标注要求（Powered by Google）。</p>
+        <p class="flag-note" id="msQuotaInfo" style="margin-top:6px">本月已记录调用：0 / 950 次（700 提醒 / 900 预警 / 950 硬上限，由 Cloudflare Durable Object 原子预扣）。说明：Google Cloud 控制台仅支持按日/按分钟接口限额与账单预算告警（Budget Alerts，无原生月度 950 硬开关），请同步配置每日限额；结果仅限内部开发客户使用（Powered by Google）。</p>
       </div>
 
       <div class="pills" style="margin-top:12px">
@@ -847,7 +847,7 @@ Best regards,
         <summary>使用说明与配额注意事项（点击展开）</summary>
         <ul>
           <li><b>开源地图 OSM：</b>无需 API Key，若遇到公共接口限流或超时，可点击「取消抓取」后缩小半径至 15km 重试；新兴市场覆盖率有限，建议配合搜索与展会名录交叉开发。</li>
-          <li><b>Google Maps 引擎：</b>团队多人共用请通过 Cloudflare Worker + 强口令转发，并在 Google Cloud 控制台设置每日/每月硬配额上限。</li>
+          <li><b>Google Maps 引擎：</b>团队多人共用请通过 Cloudflare Worker + 强口令转发（Worker 内置 Durable Object `QuotaLimiter` 原子预扣：700 提醒 / 900 预警 / 950 月度硬熔断；注意浏览器 Origin 校验不能替代身份认证），并在 Google Cloud 控制台同步配置每日请求配额上限与账单预算告警（Budget Alerts）。</li>
           <li><b>防毒清洗提示：</b>地图与商业名录常混入国际货代、报关行与非工业零售门店，系统会自动打上「⚠️ 疑似货代/物流」标签，可勾选上方开关或送入「导入与洗名单」一键剔除。</li>
         </ul>
       </details>
@@ -882,6 +882,7 @@ Best regards,
         <span id="csvStats" style="font-size:12.5px;font-weight:800;color:var(--brown)">尚未导入名单</span>
         <button class="pill danger" id="btnPurgeSuspect" type="button" hidden style="min-height:32px;padding:4px 10px;font-size:12px">🧹 一键剔除疑似货代/非工业主体</button>
         <button class="pill good-btn" id="btnVerifyAllMx" type="button" style="margin-left:auto">批量核验企业邮局（MX）</button>
+        <button class="pill danger" id="btnStopMx" type="button" hidden style="min-height:32px;padding:4px 10px;font-size:12px">⏹ 停止核验</button>
         <button class="pill" id="btnExportCleanCsv" type="button">导出清洗后 CSV</button>
       </div>
       <div class="pills" id="csvFilterPills" style="margin-top:8px">
@@ -2247,6 +2248,7 @@ Best regards,
 <script src="data/radar_feed.js"></script>
 <script src="data/trade_data.js"></script>
 <script src="data/policy_sources.js"></script>
+<script src="js/fg-core.js"></script>
 
 <script>
 /* ===== Single compressed Logo (128x128) ===== */
@@ -5921,7 +5923,7 @@ window.FG_GEO = (function(){
 })();
 
 /* ===== Email Guesser + Live SPF/DMARC Check + Container Calculator + Objection Playbook + HS6 Ref ===== */
-(function(){
+window.FG_CORE.safeInit("EmailSpfCtn", function(){
   function quickCopy(txt, lbl){
     if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function(){ showToast("已复制"+lbl); });
     else { var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); showToast("已复制"+lbl); }
@@ -5932,8 +5934,12 @@ window.FG_GEO = (function(){
   function updateEmailGuess(){
     var f = (document.getElementById("egFirst").value||"").trim().toLowerCase().replace(/[^a-z0-9]/g,"");
     var l = (document.getElementById("egLast").value||"").trim().toLowerCase().replace(/[^a-z0-9]/g,"");
-    var d = (document.getElementById("egDom").value||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/^www\./,"").split("/")[0];
-    if(!d){ document.getElementById("egList").innerHTML = '<span class="src-ok">请输入公司域名</span>'; curEmails=[]; return; }
+    var d = window.FG_CORE.extractCleanDomain(document.getElementById("egDom").value);
+    if(!d){
+      document.getElementById("egList").innerHTML = '<span class="src-ok">请输入合法的公司官网域名（如 company.com）</span>';
+      curEmails = [];
+      return;
+    }
     var list = [];
     if(f && l){
       list.push(f+"."+l+"@"+d, f[0]+l+"@"+d, f+"@"+d, f[0]+"."+l+"@"+d, f+l+"@"+d, l+"@"+d);
@@ -5955,45 +5961,73 @@ window.FG_GEO = (function(){
   document.getElementById("btnCopyEmails").addEventListener("click", function(){ quickCopy(curEmails.join("\n"), "全部候选邮箱"); });
   updateEmailGuess();
 
-  /* 2. Live SPF & DMARC Deliverability Checker */
-  function fetchT(url, ms){
-    if(typeof AbortController !== "undefined"){
-      var c=new AbortController(), t=setTimeout(function(){c.abort();}, ms||5500);
-      return fetch(url,{signal:c.signal}).finally(function(){clearTimeout(t);});
-    }
-    return fetch(url);
-  }
+  /* 2. Live SPF & DMARC Deliverability Checker (XSS-Hardened + Sequence Guard) */
+  var spfReqSeq = 0;
   document.getElementById("btnCheckSpf").addEventListener("click", function(){
-    var dom = (document.getElementById("spfDom").value||"").trim().toLowerCase().replace(/^https?:\/\//,"").replace(/^www\./,"").split("/")[0];
-    if(!dom){ showToast("请先输入你发开发信的域名"); return; }
-    document.getElementById("btnMxTool").href = "https://mxtoolbox.com/SuperTool.aspx?action=dmarc%3a"+encodeURIComponent(dom);
+    var rawInput = (document.getElementById("spfDom").value || "").trim();
     var box = document.getElementById("spfResult");
+    if(!rawInput){
+      showToast("请先输入你发开发信的域名");
+      return;
+    }
+    var dom = window.FG_CORE.extractCleanDomain(rawInput);
+    if(!dom){
+      spfReqSeq++;
+      box.style.color = "var(--danger)";
+      box.textContent = "域名格式无效（" + rawInput.slice(0, 64) + "），请输入合法企业域名，例如 friesgo.com";
+      showToast("域名格式不合法，已拦截查询");
+      return;
+    }
+    var mySeq = ++spfReqSeq;
+    document.getElementById("btnMxTool").href = "https://mxtoolbox.com/SuperTool.aspx?action=dmarc%3a" + encodeURIComponent(dom);
     box.style.color = "var(--ink)";
-    var st = ["正在检测 "+dom+" 的 SPF 记录…", "正在检测 _dmarc."+dom+" 的 DMARC 策略…"];
-    function show(){ box.innerHTML = st.join("\n"); }
+    var st = [
+      "正在检测 " + esc(dom) + " 的 SPF 记录…",
+      "正在检测 _dmarc." + esc(dom) + " 的 DMARC 策略…"
+    ];
+    function show(){
+      if(mySeq !== spfReqSeq) return;
+      box.innerHTML = st.join("\n");
+    }
     show();
-    if(typeof fetch !== "function"){ st = ["<i class='sd-n'></i>当前环境不支持在线查询，请点下方 MXToolbox 手动查看。"]; show(); return; }
+    if(typeof fetch !== "function"){
+      st = ["<i class='sd-n'></i>当前环境不支持在线查询，请点下方 MXToolbox 手动查看。"];
+      show();
+      return;
+    }
     window.queryDoh(dom, "TXT", 5000, function(j){
       return (j.Answer||[]).some(function(a){ return (a.data||"").toLowerCase().indexOf("v=spf1")>=0; });
     })
       .then(function(j){
+        if(mySeq !== spfReqSeq) return;
         var recs = (j.Answer||[]).map(function(a){ return a.data||""; }).filter(function(s){ return s.toLowerCase().indexOf("v=spf1")>=0; });
-        st[0] = recs.length ? ("<i class='sd-g'></i>SPF 已配置（"+esc(j._provider||"DoH")+"）：" + esc(recs[0])) : "<i class='sd-r'></i>未检测到 SPF 记录（v=spf1）— 发往 Gmail/Outlook 极易进垃圾箱，请在域名 DNS 添加 TXT 记录。";
+        st[0] = recs.length
+          ? ("<i class='sd-g'></i>SPF 已配置（" + esc(j._provider||"DoH") + "）：" + esc(recs[0]))
+          : "<i class='sd-r'></i>未检测到 SPF 记录（v=spf1）— 发往 Gmail/Outlook 极易进垃圾箱，请在域名 DNS 添加 TXT 记录。";
         show();
-      }).catch(function(){ st[0] = "<i class='sd-n'></i>SPF 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。"; show(); });
-    window.queryDoh("_dmarc."+dom, "TXT", 5000, function(j){
+      }).catch(function(){
+        if(mySeq !== spfReqSeq) return;
+        st[0] = "<i class='sd-n'></i>SPF 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。";
+        show();
+      });
+    window.queryDoh("_dmarc." + dom, "TXT", 5000, function(j){
       return (j.Answer||[]).some(function(a){ return (a.data||"").toLowerCase().indexOf("v=dmarc1")>=0; });
     })
       .then(function(j){
+        if(mySeq !== spfReqSeq) return;
         var recs = (j.Answer||[]).map(function(a){ return a.data||""; }).filter(function(s){ return s.toLowerCase().indexOf("v=dmarc1")>=0; });
         if(recs.length){
           var isStrict = recs[0].indexOf("p=quarantine")>=0 || recs[0].indexOf("p=reject")>=0;
-          st[1] = (isStrict ? "<i class='sd-g'></i>DMARC 严格模式已开启（"+esc(j._provider||"DoH")+"）：" : "<i class='sd-y'></i>DMARC 已配置但仍为监控模式（p=none，建议稳定后改为 p=quarantine）：") + esc(recs[0]);
+          st[1] = (isStrict ? "<i class='sd-g'></i>DMARC 严格模式已开启（" + esc(j._provider||"DoH") + "）：" : "<i class='sd-y'></i>DMARC 已配置但仍为监控模式（p=none，建议稳定后改为 p=quarantine）：") + esc(recs[0]);
         } else {
-          st[1] = "<i class='sd-r'></i>未检测到 DMARC 记录（_dmarc."+esc(dom)+"）— 主流企业邮箱会大幅降权或拒收。";
+          st[1] = "<i class='sd-r'></i>未检测到 DMARC 记录（_dmarc." + esc(dom) + "）— 主流企业邮箱会大幅降权或拒收。";
         }
         show();
-      }).catch(function(){ st[1] = "<i class='sd-n'></i>DMARC 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。"; show(); });
+      }).catch(function(){
+        if(mySeq !== spfReqSeq) return;
+        st[1] = "<i class='sd-n'></i>DMARC 在线检测超时/受限（3 条 DNS 线路均未连通），请直接点下方 MXToolbox 查验。";
+        show();
+      });
   });
 
   /* 3. Multi-SKU Container Load Calculator (Usable Crate CBM, Route Weight Limit & OOG Door Check) */
@@ -6263,7 +6297,7 @@ window.FG_GEO = (function(){
       + '<td><a class="pill" style="min-height:28px;padding:3px 9px;font-size:11.5px" target="_blank" rel="noopener" href="https://www.macmap.org/">查 MacMap 关税</a> '
       + '<a class="pill" style="min-height:28px;padding:3px 9px;font-size:11.5px" target="_blank" rel="noopener" href="https://wits.worldbank.org/trade/comtrade/en/country/ALL/year/2025/tradeflow/Imports/partner/WLD/product/'+hsFirst+'">查 WITS 进口国</a></td></tr>';
   }).join("");
-})();
+});
 
 /* ===== Products Tab: Sortable Heatmap Matrix (Dynamic Max Bounds) + Growth/High Lists ===== */
 (function(){
@@ -7339,7 +7373,7 @@ window.FG_GEO = (function(){
             + '<div class="rc-acts">'
             + '<button class="pill primary" type="button" data-wbl-map="'+idx+'">🗺️ 地图搜当地批发商/工程商</button>'
             + '<button class="pill good-btn" type="button" data-wbl-em="'+idx+'">✉️ 生成场景开发信</button>'
-            + '<a class="pill" target="_blank" rel="noopener" href="'+esc(x.url||"#")+'">查看原文</a>'
+            + (window.FG_CORE.safeHttpUrl(x.url) ? ('<a class="pill" target="_blank" rel="noopener noreferrer" href="'+esc(window.FG_CORE.safeHttpUrl(x.url))+'">查看原文</a>') : '')
             + '</div></div>';
         }).join("");
         liveGrid._shown = filtered;
@@ -8366,7 +8400,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
 });
 
 /* ===== 2.0 MODULE A: Live Daily Global Opportunity Radar Feed ===== */
-(function(){
+window.FG_CORE.safeInit("RadarFeed", function(){
   var feedData = (typeof window.RADAR_FEED_INLINE === "object" && window.RADAR_FEED_INLINE) ? window.RADAR_FEED_INLINE : null;
   var rfCat = "all", rfQuery = "", rfShowAll = false;
 
@@ -8477,6 +8511,8 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
             ? ('<button class="pill" type="button" data-rf-dd="'+idx+'">背调业主</button>')
             : (!window.FG_GEO.isGenericRegion(x.country) ? ('<button class="pill primary" type="button" data-rf-map="'+idx+'">🗺️ 地图搜当地采购商</button>') : ''));
       var crmBtn = canSaveCrm ? ('<button class="pill" type="button" data-rf-crm="'+idx+'">存入客户</button>') : '';
+      var safeItemUrl = window.FG_CORE.safeHttpUrl(x.url);
+      var linkBtn = safeItemUrl ? ('<a class="pill" target="_blank" rel="noopener noreferrer" href="'+esc(safeItemUrl)+'">查看原文</a>') : '';
       return '<div class="'+cls+'">'
         + '<div class="radar-card-head">'+sevBadge+cwBadge+'<span class="meta-pill" style="padding:1px 8px">'+esc(x.countryCn||x.country)+'</span>'+dlBadge+repBadge+aiBadge+'<span class="src-ok">'+esc(dateMeta)+' · '+esc(x.source||"")+'</span></div>'
         + '<h3>'+esc(radarTitle(x, {dropSev:true, dropCountry:true}))+'</h3>'
@@ -8484,7 +8520,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         + '<div class="rc-meta">'+winLine+entLine+procLine+contactLine+'<div><b>建议主推：</b>'+esc(x.productsCn||"")+'</div></div>'
         + '<div class="rc-angle">'+esc(radarAngle(x))+'</div>'
         + '<div class="rc-acts">'
-        + '<a class="pill" target="_blank" rel="noopener" href="'+esc(x.url||"#")+'">查看原文</a>'
+        + linkBtn
         + actionBtn
         + crmBtn
         + '<button class="pill good-btn" type="button" data-rf-em="'+idx+'">'+emBtnLbl+'</button>'
@@ -8598,10 +8634,10 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
   if(!feedData || !Array.isArray(feedData.items) || !feedData.items.length){
     fetchLiveFeed(false);
   }
-})();
+});
 
 /* ===== 2.0 MODULE B & C: Dual-Engine Web Map Scraper + Batch CSV Cleaner & MX Verifier ===== */
-(function(){
+window.FG_CORE.safeInit("MapAndCsv", function(){
   var msEngine = "osm";
   var mapLeads = [];
   var gmapsNextToken = "";
@@ -8635,18 +8671,27 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
 
   function getQuotaKey(){ return "friesgo_gmaps_cnt_" + localDateStr().slice(0,7); }
   function getQuotaCount(){ try { return parseInt(localStorage.getItem(getQuotaKey())||"0", 10) || 0; } catch(e){ return 0; } }
-  function incQuotaCount(serverUsed){
+  function incQuotaCount(serverUsed, serverCap){
     var n = (typeof serverUsed === "number" && serverUsed >= 0) ? serverUsed : (getQuotaCount() + 1);
     try { localStorage.setItem(getQuotaKey(), String(n)); } catch(e){}
-    updateQuotaUI(n);
+    updateQuotaUI(n, serverCap);
   }
-  function updateQuotaUI(cnt){
+  function updateQuotaUI(cnt, capOverride){
     var n = typeof cnt === "number" ? cnt : getQuotaCount();
+    var cap = (typeof capOverride === "number" && capOverride > 0) ? capOverride : 950;
     var el = document.getElementById("msQuotaInfo");
     if(!el) return;
-    el.textContent = n >= 900
-      ? ("提示：本应用本机本月已记录调用 " + n + " 次（达到本地提醒线 900 次），已暂停发起请求；实际计费以 Google Cloud 控制台为准。")
-      : ("本应用已记录用量：本机本月 " + n + " / 900 次。说明：Google Places API (New) 计费与限额以 Google Cloud 控制台为准，请同步在控制台配置硬配额上限；结果仅限内部开发客户使用（Powered by Google）。");
+    var tierNote = "";
+    if(n >= cap){
+      tierNote = "⛔ 熔断拦截：本月已记录调用 " + n + " / " + cap + " 次（已达团队月度硬上限 " + cap + " 次），已暂停请求。";
+    } else if(n >= 900){
+      tierNote = "⚠️ 高水位预警：本月已记录调用 " + n + " / " + cap + " 次（≥900 次预警线，满 " + cap + " 次自动熔断）。";
+    } else if(n >= 700){
+      tierNote = "ℹ️ 用量提醒：本月已记录调用 " + n + " / " + cap + " 次（≥700 次提醒线）。";
+    } else {
+      tierNote = "本月已记录调用：" + n + " / " + cap + " 次（700 提醒 / 900 预警 / " + cap + " 硬上限，由 Cloudflare Durable Object 原子预扣）。";
+    }
+    el.textContent = tierNote + " 说明：Google Cloud 控制台仅支持按日/按分钟接口限额与账单预算告警（Budget Alerts，无月度 950 硬开关），请同步配置每日限额；结果仅限内部开发客户使用（Powered by Google）。";
   }
   updateQuotaUI();
 
@@ -8691,8 +8736,10 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     });
     var rowsHtml = indexed.slice(0, 80).map(function(o){
       var r = o.r, idx = o.idx, rk = o.rk;
-      var mapA = r.mapsUrl ? '<a target="_blank" rel="noopener" href="'+esc(r.mapsUrl)+'">🗺️</a> ' : '';
-      var webA = r.website ? '<a target="_blank" rel="noopener" href="'+esc(r.website.indexOf("http")===0?r.website:"https://"+r.website)+'">'+esc(r.website.replace(/^https?:\/\/(www\.)?/,"").slice(0,26))+'</a>' : '<span class="src-ok">—</span>';
+      var safeMapHref = r.mapsUrl ? window.FG_CORE.safeHttpUrl(r.mapsUrl) : "";
+      var safeWebHref = r.website ? window.FG_CORE.safeHttpUrl(r.website.indexOf("http")===0 ? r.website : ("https://" + r.website)) : "";
+      var mapA = safeMapHref ? '<a target="_blank" rel="noopener noreferrer" href="'+esc(safeMapHref)+'">🗺️</a> ' : '';
+      var webA = safeWebHref ? '<a target="_blank" rel="noopener noreferrer" href="'+esc(safeWebHref)+'">'+esc(r.website.replace(/^https?:\/\/(www\.)?/,"").slice(0,26))+'</a>' : '<span class="src-ok">—</span>';
       var susHtml = rk.suspect ? (' <span class="mx-warn" style="font-size:11px">'+esc(rk.suspectLabel)+'</span>') : '';
       var qGoogle = encodeURIComponent('"' + r.company + '" ' + (r.city || window.FG_GEO.cleanCountryForPitch(r.country) || '') + ' (website OR email OR contact)');
       return '<tr'+(rk.suspect?' style="opacity:.78"':'')+'><td><b>'+mapA+esc(r.company)+'</b>'+susHtml+'<br><span class="src-ok">'+esc(r.category||"")+'</span></td>'
@@ -8701,7 +8748,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
         + '<td style="font-size:12px">'+webA+'</td>'
         + '<td style="font-size:11.5px;color:var(--muted)">'+esc((r.address||"").slice(0,52))+'</td>'
         + '<td style="white-space:nowrap">'
-        + '<a class="pill" target="_blank" rel="noopener" href="https://www.google.com/search?q='+qGoogle+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">搜官网</a> '
+        + '<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">搜官网</a> '
         + '<button class="pill" type="button" data-map-dd="'+idx+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">背调</button> '
         + '<button class="pill primary" type="button" data-map-crm="'+idx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">存入客户</button>'
         + '</td></tr>';
@@ -8737,15 +8784,21 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
   function endOsmPending(){
     if(osmTimeoutId){ clearTimeout(osmTimeoutId); osmTimeoutId = null; }
     osmAbortCtrl = null;
-    if(btnCancelOsm) btnCancelOsm.hidden = true;
+    if(btnCancelOsm && !gmapsAbortCtrl) btnCancelOsm.hidden = true;
   }
   if(btnCancelOsm){
     btnCancelOsm.addEventListener("click", function(){
       if(osmAbortCtrl){
         try { osmAbortCtrl.abort(); } catch(e){}
+        endOsmPending();
+        document.getElementById("msStatus").textContent = "已取消本次 OSM 抓取。可缩小半径至 15km 后重新点击「开始地图找客」。";
       }
-      endOsmPending();
-      document.getElementById("msStatus").textContent = "已取消本次 OSM 抓取。可缩小半径至 15km 后重新点击「开始地图找客」。";
+      if(gmapsAbortCtrl){
+        gmapsReqSeq++;
+        try { gmapsAbortCtrl.abort(); } catch(e){}
+        endGmapsPending();
+        document.getElementById("msStatus").textContent = "已取消本次 Google Maps 检索请求。";
+      }
     });
   }
 
@@ -8970,10 +9023,30 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       });
   }
 
+  var gmapsInFlight = false;
+  var gmapsReqSeq = 0;
+  var gmapsAbortCtrl = null;
+  var gmapsTimeoutId = null;
+  function endGmapsPending(){
+    gmapsInFlight = false;
+    if(gmapsTimeoutId){ clearTimeout(gmapsTimeoutId); gmapsTimeoutId = null; }
+    gmapsAbortCtrl = null;
+    var runBtn = document.getElementById("btnRunMapScrape");
+    var nextBtn = document.getElementById("btnMapNextPage");
+    if(runBtn) runBtn.disabled = false;
+    if(nextBtn) nextBtn.disabled = false;
+    if(btnCancelOsm && !osmAbortCtrl) btnCancelOsm.hidden = true;
+  }
+
   function runGmapsScrape(country, city, kw, appendPage){
     var st = document.getElementById("msStatus");
-    if(getQuotaCount() >= 900){
-      st.textContent = "本应用本机本月已记录调用 900 次（达到本地提醒线），已停止发起请求。请在 Google Cloud 控制台核对真实配额。";
+    if(gmapsInFlight){
+      showToast("正在检索 Google Maps，请勿重复连点（可点击「取消抓取」中断）");
+      return;
+    }
+    if(getQuotaCount() >= 950){
+      st.textContent = "本应用本月已记录调用达 950 次团队硬上限，已自动熔断拦截请求。请核对 Cloudflare Worker Durable Object 配额与 Google Cloud 每日限额/预算告警。";
+      updateQuotaUI(getQuotaCount());
       return;
     }
     var proxyUrl = document.getElementById("msProxyUrl").value.trim();
@@ -8984,35 +9057,59 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       document.getElementById("gmapsCfgBox").hidden = false;
       return;
     }
+    if(proxyUrl && !window.FG_CORE.safeHttpUrl(proxyUrl)){
+      st.textContent = "代理地址格式无效，请填写以 https:// 开头的 Cloudflare Worker 地址。";
+      return;
+    }
+
     var textQuery = appendPage ? gmapsLastQuery : (kw + " " + city + " " + country).trim();
     gmapsLastQuery = textQuery;
+    var mySeq = ++gmapsReqSeq;
+    gmapsInFlight = true;
+    var timedOut = false;
+    if(typeof AbortController !== "undefined"){
+      gmapsAbortCtrl = new AbortController();
+      gmapsTimeoutId = setTimeout(function(){
+        timedOut = true;
+        if(gmapsAbortCtrl){ try { gmapsAbortCtrl.abort(); } catch(e){} }
+      }, 15000);
+    }
+    var runBtn = document.getElementById("btnRunMapScrape");
+    var nextBtn = document.getElementById("btnMapNextPage");
+    if(runBtn) runBtn.disabled = true;
+    if(nextBtn) nextBtn.disabled = true;
+    if(btnCancelOsm) btnCancelOsm.hidden = false;
     st.textContent = "正在调用 Google Places 接口检索「" + textQuery + "」…";
 
+    var sig = gmapsAbortCtrl ? gmapsAbortCtrl.signal : undefined;
     var reqPromise;
     if(proxyUrl){
       var hdr = {"Content-Type":"application/json"};
       if(proxyPass) hdr["X-Team-Pass"] = proxyPass;
       reqPromise = fetch(proxyUrl, {
-        method:"POST", headers:hdr,
+        method:"POST", headers:hdr, signal:sig,
         body: JSON.stringify({textQuery:textQuery, pageSize:20, pageToken: appendPage ? gmapsNextToken : ""})
-      }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, data:j}; }); });
+      }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, data:j}; }); });
     } else {
       var body = {textQuery:textQuery, pageSize:20};
       if(appendPage && gmapsNextToken) body.pageToken = gmapsNextToken;
       var mask = "places.displayName,places.formattedAddress,places.internationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.googleMapsUri,places.primaryTypeDisplayName,nextPageToken";
       reqPromise = fetch("https://places.googleapis.com/v1/places:searchText", {
-        method:"POST",
+        method:"POST", signal:sig,
         headers:{"Content-Type":"application/json","X-Goog-Api-Key":directKey,"X-Goog-FieldMask":mask},
         body: JSON.stringify(body)
-      }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, data:j}; }); });
+      }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, data:j}; }); });
     }
 
     reqPromise.then(function(res){
+      if(mySeq !== gmapsReqSeq) return;
+      endGmapsPending();
       var d = res.data || {};
+      if(typeof d.quotaUsed === "number") incQuotaCount(d.quotaUsed, d.quotaCap);
       if(!res.ok || (d.error && typeof d.error === "string") || (d.error && d.error.message)){
-        throw new Error(typeof d.error === "string" ? d.error : (d.error && d.error.message) || "Google Places API 返回错误");
+        throw new Error(typeof d.error === "string" ? d.error : (d.error && d.error.message) || ("Google Places API 返回错误 HTTP " + res.status));
       }
-      incQuotaCount(d.quotaUsed);
+      if(typeof d.quotaUsed !== "number") incQuotaCount();
       var places = d.places || [];
       gmapsNextToken = d.nextPageToken || "";
       document.getElementById("btnMapNextPage").hidden = !gmapsNextToken;
@@ -9028,10 +9125,20 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       });
       if(appendPage) mapLeads = mapLeads.concat(mapped);
       else mapLeads = mapped;
-      st.textContent = "Google Places 抓取成功：已累计 " + mapLeads.length + " 家商户" + (gmapsNextToken ? "，可点击「加载下一页」继续。" : "。");
+      var qMsg = d.quotaNotice ? (" ｜ " + d.quotaNotice) : "";
+      st.textContent = "Google Places 抓取成功：已累计 " + mapLeads.length + " 家商户" + (gmapsNextToken ? "，可点击「加载下一页」继续。" : "。") + qMsg;
       renderMapResults();
     }).catch(function(err){
-      st.textContent = "Google Places 请求失败：" + (err && err.message ? err.message : "请检查代理地址、团队口令或 API Key 配置");
+      if(mySeq !== gmapsReqSeq) return;
+      var wasAborted = !!(err && err.name === "AbortError");
+      endGmapsPending();
+      if(wasAborted && !timedOut){
+        st.textContent = "已取消本次 Google Maps 检索请求。";
+      } else if(timedOut){
+        st.textContent = "Google Places 请求超时（15 秒未响应），请稍后重试或检查代理网络。";
+      } else {
+        st.textContent = "Google Places 请求失败：" + (err && err.message ? err.message : "请检查代理地址、团队口令或 API Key 配置");
+      }
     });
   }
 
@@ -9238,12 +9345,13 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       var phInfo = analyzePhone(r.phone, r.country);
       var digits = phInfo.digits;
       var waHtml = digits.length >= 7
-        ? ('<a class="pill good-btn" style="min-height:26px;padding:2px 8px;font-size:11.5px" target="_blank" rel="noopener" title="WhatsApp 链接：'+esc(phInfo.formatted)+(phInfo.autoAddedCc?'（已按目的国补国际区号，请确认后发送）':'')+'" href="https://wa.me/'+digits+'?text='+encodeURIComponent(buildWaMsg(r))+'">💬 '+esc(phInfo.formatted)+'</a>'
+        ? ('<a class="pill good-btn" style="min-height:26px;padding:2px 8px;font-size:11.5px" target="_blank" rel="noopener noreferrer" title="WhatsApp 链接：'+esc(phInfo.formatted)+(phInfo.autoAddedCc?'（已按目的国补国际区号，请确认后发送）':'')+'" href="https://wa.me/'+digits+'?text='+encodeURIComponent(buildWaMsg(r))+'">💬 '+esc(phInfo.formatted)+'</a>'
           + (phInfo.autoAddedCc ? ('<div class="src-ok" style="margin-top:2px">'+esc(phInfo.raw)+' → '+esc(phInfo.formatted)+'</div>') : '')
           + (phInfo.needsConfirm ? ('<div style="font-size:11px;color:var(--high);font-weight:700;margin-top:2px">⚠️ 请核对区号</div>') : ''))
         : '<span class="src-ok">—</span>';
-      var webHtml = r.website
-        ? ('<a target="_blank" rel="noopener" href="'+esc(r.website.indexOf("http")===0?r.website:"https://"+r.website)+'">'+esc(extractDom(r.website))+'</a>')
+      var safeWebHref = r.website ? window.FG_CORE.safeHttpUrl(r.website.indexOf("http")===0 ? r.website : ("https://" + r.website)) : "";
+      var webHtml = safeWebHref
+        ? ('<a target="_blank" rel="noopener noreferrer" href="'+esc(safeWebHref)+'">'+esc(extractDom(r.website))+'</a>')
         : '<span class="src-ok">—</span>';
       var susBadge = r.suspect ? ('<div style="margin-top:3px"><span class="mx-warn" style="font-size:11px">'+esc(r.suspectLabel)+'（提单常见代收货人，建议核实或剔除）</span></div>') : '';
 
@@ -9305,7 +9413,31 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     ];
     ingestLeads(sample, true);
   });
+
+  var mxRunSeq = 0;
+  var mxRunning = false;
+  var btnVerifyMxEl = document.getElementById("btnVerifyAllMx");
+  var btnStopMxEl = document.getElementById("btnStopMx");
+  function finishMxRun(lbl){
+    mxRunning = false;
+    if(btnVerifyMxEl){
+      btnVerifyMxEl.disabled = false;
+      btnVerifyMxEl.textContent = lbl || "批量核验企业邮局（MX）";
+    }
+    if(btnStopMxEl) btnStopMxEl.hidden = true;
+  }
+  if(btnStopMxEl){
+    btnStopMxEl.addEventListener("click", function(){
+      mxRunSeq++;
+      finishMxRun();
+      renderCsvTable();
+      showToast("已停止批量邮局 MX 核验");
+    });
+  }
+
   document.getElementById("btnClearCsv").addEventListener("click", function(){
+    mxRunSeq++;
+    finishMxRun();
     csvLeads = [];
     document.getElementById("csvPasteInput").value = "";
     renderCsvTable();
@@ -9320,15 +9452,29 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
     renderCsvTable();
   });
 
-  document.getElementById("btnVerifyAllMx").addEventListener("click", function(){
+  btnVerifyMxEl.addEventListener("click", function(){
+    if(mxRunning){
+      showToast("批量 MX 核验正在运行中，可点击「停止核验」中断");
+      return;
+    }
     var targets = csvLeads.filter(function(r){ return !r.isFree && r.domain && (r.mxStatus === "pending" || r.mxStatus === "error"); });
     if(!targets.length){ showToast("没有待验证的企业域名（已完成或暂无域名）"); return; }
     if(typeof fetch !== "function"){ showToast("当前环境不支持在线 DNS 检测"); return; }
+    var mySeq = ++mxRunSeq;
+    mxRunning = true;
     var done = 0, total = targets.length;
+    btnVerifyMxEl.disabled = true;
+    btnVerifyMxEl.textContent = "核验中 (0/" + total + ")…";
+    if(btnStopMxEl) btnStopMxEl.hidden = false;
     showToast("开始核验 " + total + " 个企业域名邮局 MX…");
     var cache = {};
     function checkOne(row){
-      var dom = row.domain;
+      var dom = window.FG_CORE.extractCleanDomain(row.domain);
+      if(!dom){
+        row.mxStatus = "bad";
+        row.mxDetail = "域名格式非法";
+        return Promise.resolve();
+      }
       if(!cache[dom]){
         cache[dom] = window.queryDoh(dom, "MX", 4500)
           .then(function(j){
@@ -9340,15 +9486,27 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
             return {status: "error", detail: "暂时失败·可重试"};
           });
       }
-      return cache[dom].then(function(res){ row.mxStatus = res.status; row.mxDetail = res.detail; });
+      return cache[dom].then(function(res){
+        if(mySeq !== mxRunSeq) return;
+        row.mxStatus = res.status;
+        row.mxDetail = res.detail;
+      });
     }
     var idx = 0;
     function nextBatch(){
+      if(mySeq !== mxRunSeq) return;
       var slice = targets.slice(idx, idx + 5);
       idx += 5;
-      if(!slice.length){ renderCsvTable(); showToast("已完成 " + total + " 个企业域名 MX 邮局核验"); return; }
+      if(!slice.length){
+        finishMxRun();
+        renderCsvTable();
+        showToast("已完成 " + total + " 个企业域名 MX 邮局核验");
+        return;
+      }
       Promise.all(slice.map(checkOne)).then(function(){
+        if(mySeq !== mxRunSeq) return;
         done += slice.length;
+        if(btnVerifyMxEl) btnVerifyMxEl.textContent = "核验中 (" + Math.min(done, total) + "/" + total + ")…";
         renderCsvTable();
         setTimeout(nextBatch, 120);
       });
@@ -9395,7 +9553,7 @@ document.getElementById("restoreFile").addEventListener("change", function(e){
       if(typeof window.loadIntoDd === "function") window.loadIntoDd(r2.country || "Vietnam", r2.company, r2.website || r2.domain, r2.email);
     }
   });
-})();
+});
 
 updateFollowBadge();
 updateSaveBackupStatus(false);
