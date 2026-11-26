@@ -3548,16 +3548,28 @@ function navigateTo(target, opts){
 
   try { localStorage.setItem("friesgo_last_tool", currentInnerId || currentToolId); } catch(e){}
   if(!opts.skipHash){
-    var hashVal = "#" + (currentInnerId || currentToolId);
-    try { if(history && history.replaceState) history.replaceState(null, "", hashVal); } catch(e){}
+    var navKey = currentInnerId || currentToolId;
+    var hashVal = "#" + navKey;
+    var stateObj = { fgNav: navKey, toolId: currentToolId, innerId: currentInnerId };
+    try {
+      if(history){
+        if(opts.replaceHash || location.hash === hashVal){
+          if(history.replaceState) history.replaceState(stateObj, "", hashVal);
+        } else if(history.pushState){
+          history.pushState(stateObj, "", hashVal);
+        }
+      }
+    } catch(e){}
   }
-  if(res.anchor && document.getElementById(res.anchor)){
-    setTimeout(function(){
-      var aEl = document.getElementById(res.anchor);
-      if(aEl) aEl.scrollIntoView({behavior:"smooth"});
-    }, 50);
-  } else if(!opts.skipScroll){
-    window.scrollTo({top:0, behavior:"smooth"});
+  if(!opts.skipScroll){
+    if(res.anchor && document.getElementById(res.anchor)){
+      setTimeout(function(){
+        var aEl = document.getElementById(res.anchor);
+        if(aEl) aEl.scrollIntoView({behavior:"smooth"});
+      }, 50);
+    } else {
+      window.scrollTo({top:0, behavior:"smooth"});
+    }
   }
 }
 window.navigateTo = navigateTo;
@@ -3851,8 +3863,12 @@ if(homeDueWrap){
 })();
 
 /* ===== Helpers ===== */
-function indImpM(d){ var t=IND[d.country]; return t ? t.ind*1000 : null; }
-function effImpM(d){ if(state.scope==="ind"){ var v=indImpM(d); if(v!=null) return v; } return d.imp; }
+function indImpM(d){ var t = d && IND[d.country]; return (t && t.ind != null) ? t.ind * 1000 : null; }
+function effImpM(d){
+  if(!d) return null;
+  if(state.scope === "ind") return indImpM(d); // Strict scope purity: never silently fall back to full HS84+85 d.imp
+  return d.imp != null ? d.imp : null;
+}
 function supName(en){ if(en==="Other Asia, nes") return "其他亚洲（未另列）"; if(en==="China (self)") return "中国（自报）"; return CN[en]||en; }
 function supText(c){ var s=SUP[c]; if(!s) return ""; return s.s.map(function(x,i){ return "第"+(i+1)+" "+supName(x[0])+" $"+x[1].toFixed(1)+"bn（"+x[2].toFixed(1)+"%）"; }).join(" · "); }
 function compTag(c){ var t=COMP[c]; return t ? ' <span class="comp-tag '+t.cls+'" title="'+esc(t.why)+'">'+t.label+'</span>' : ""; }
@@ -3873,24 +3889,28 @@ var COUNTRY_DIAL = {
   "Kazakhstan":"7","Russia":"7","Uzbekistan":"998","Kyrgyz Republic":"996","Azerbaijan":"994","Georgia":"995","Mongolia":"976","Cambodia":"855","Myanmar":"95","Laos":"856"
 };
 
+var _countryEnCache = Object.create(null);
 function resolveCountryEn(c){
   var s = String(c || "").trim();
   if(!s) return "";
   if(CN[s] || COUNTRY_DIAL[s]) return s;
   var low = s.toLowerCase();
+  if(_countryEnCache[low]) return _countryEnCache[low];
   var keys = Object.keys(CN);
   for(var i=0; i<keys.length; i++){
     var en = keys[i];
-    if(CN[en] === s || en.toLowerCase() === low) return en;
+    if(CN[en] === s || en.toLowerCase() === low){ _countryEnCache[low] = en; return en; }
   }
-  if(/viet\s*nam|越南/i.test(s)) return "Vietnam";
-  if(/saudi|沙特/i.test(s)) return "Saudi Arabia";
-  if(/uae|emirates|阿联酋/i.test(s)) return "United Arab Emirates";
-  if(/turkey|türkiye|土耳其/i.test(s)) return "Turkey (Türkiye)";
-  if(/usa|u\.s\.|united states|美国/i.test(s)) return "United States";
-  if(/uk|united kingdom|英国/i.test(s)) return "United Kingdom";
-  if(/korea|韩国/i.test(s)) return "South Korea";
-  return s;
+  var mapped = s;
+  if(/viet\s*nam|越南/i.test(s)) mapped = "Vietnam";
+  else if(/saudi|沙特/i.test(s)) mapped = "Saudi Arabia";
+  else if(/uae|emirates|阿联酋/i.test(s)) mapped = "United Arab Emirates";
+  else if(/turkey|türkiye|土耳其/i.test(s)) mapped = "Turkey (Türkiye)";
+  else if(/usa|u\.s\.|united states|美国/i.test(s)) mapped = "United States";
+  else if(/uk|united kingdom|英国/i.test(s)) mapped = "United Kingdom";
+  else if(/korea|韩国/i.test(s)) mapped = "South Korea";
+  _countryEnCache[low] = mapped;
+  return mapped;
 }
 
 var COUNTRY_PHONE_LOCAL = {
@@ -3906,45 +3926,31 @@ var COUNTRY_PHONE_LOCAL = {
 
 function analyzePhone(p, country){
   var raw = String(p || "").trim();
-  if(!raw) return {raw:"", digits:"", formatted:"", autoAddedCc:false, needsConfirm:false, cc:"", countryEn:""};
-  var hasIntl = raw.indexOf("+") === 0 || raw.indexOf("00") === 0;
-  var d = raw.replace(/[^\d]/g, "");
-  if(raw.indexOf("00") === 0 && d.length > 9) d = d.slice(2);
+  if(!raw) return {raw:"", digits:"", ext:"", formatted:"", autoAddedCc:false, needsConfirm:false, cc:"", countryEn:""};
   var cEn = resolveCountryEn(country);
   var cc = COUNTRY_DIAL[cEn] || "";
+  var core = window.FG_CORE.analyzePhoneCore(raw, cEn, COUNTRY_DIAL);
+  var d = core.digits || "";
+  var ext = core.ext || "";
+  var hasIntl = /^\+|^00\d/.test(raw);
+  var rawBaseDigits = raw.replace(/(?:ext\.?|extension|分机|转|[xX#])\s*[:：.]?\s*\d{1,6}\s*$/i, "").replace(/\D/g, "");
+  var autoAddedCc = !hasIntl && !!cc && d.indexOf(cc) === 0 && rawBaseDigits !== d;
   var range = COUNTRY_PHONE_LOCAL[cEn] || [7, 10];
   var minLoc = range[0], maxLoc = range[1];
-  if(d.length < 7){
-    return {raw:raw, digits:d, formatted:d ? ("+"+d) : "", autoAddedCc:false, needsConfirm:true, cc:cc, countryEn:cEn};
-  }
-  var autoAddedCc = false;
-  var needsConfirm = false;
-  if(!hasIntl && cc){
-    if(d.indexOf("0") === 0){
-      d = cc + d.replace(/^0+/, "");
-      autoAddedCc = true;
-    } else {
-      var alreadyIntl = (d.indexOf(cc) === 0 && d.length >= cc.length + minLoc && d.length <= cc.length + maxLoc);
-      if(!alreadyIntl && d.length >= minLoc && d.length <= maxLoc){
-        d = cc + d;
-        autoAddedCc = true;
-      } else if(!alreadyIntl){
-        needsConfirm = true;
-      }
-    }
-  } else if(!hasIntl && !cc){
-    needsConfirm = true;
-  }
+  var needsConfirm = !core.ok || (!hasIntl && !cc);
   if(cc && d.indexOf(cc) === 0){
     var natLen = d.length - cc.length;
     if(natLen < Math.max(6, minLoc - 1) || natLen > maxLoc + 1) needsConfirm = true;
   } else if(d.length < 10 || d.length > 15){
     needsConfirm = true;
   }
+  var baseFmt = d ? ("+" + d) : "";
+  var formatted = baseFmt ? (ext ? (baseFmt + " (ext." + ext + ")") : baseFmt) : "";
   return {
     raw: raw,
     digits: d,
-    formatted: d ? ("+" + d) : "",
+    ext: ext,
+    formatted: formatted,
     autoAddedCc: autoAddedCc,
     needsConfirm: needsConfirm,
     cc: cc,
@@ -4141,7 +4147,13 @@ function filtered(){
     if(state.sort==="name") return (CN[a.country]||a.country).localeCompare(CN[b.country]||b.country, "zh-CN");
     if(state.sort==="chinaShare"){ var ca=CHINA[a.country], cb=CHINA[b.country]; var av=ca&&ca.share!=null?ca.share:-1, bv=cb&&cb.share!=null?cb.share:-1; return bv-av; }
     if(state.sort==="steel"){ var sa=STEEL[a.country], sb=STEEL[b.country]; return (sb?sb.t:-1)-(sa?sa.t:-1); }
-    if(state.sort==="imp"){ return (effImpM(b)==null?-1:effImpM(b))-(effImpM(a)==null?-1:effImpM(a)); }
+    if(state.sort==="imp"){
+      var ea = effImpM(a), eb = effImpM(b);
+      if(ea == null && eb == null) return (b.imp || 0) - (a.imp || 0);
+      if(ea == null) return 1;
+      if(eb == null) return -1;
+      return eb - ea;
+    }
     var k=state.sort; var av=a[k]==null?-9999:a[k], bv=b[k]==null?-9999:b[k]; return bv-av;
   });
   return out;
@@ -4330,10 +4342,14 @@ function render(){
     var ytdObj = (typeof YTD2026 !== "undefined" && YTD2026[d.country]) ? YTD2026[d.country] : null;
     var ytdTag = ytdObj && ytdObj.yoy != null ? ('<span class="ytd-line" title="2026-01 至 '+esc(ytdObj.to)+' 官方月度进口累计同比">2026 YTD <span class="'+(ytdObj.yoy>=0?'growth-up':'growth-dn')+'">'+(ytdObj.yoy>=0?'+':'')+ytdObj.yoy.toFixed(0)+'%</span></span>') : '';
     if(state.sort==="steel" && STEEL[d.country]){ var stO=STEEL[d.country]; ytdTag += '<span class="ytd-line" title="HS72+73 钢材与钢制品进口（剔除冶炼原料）">钢材 '+fmt(stO.t)+(stO.y!==2025?'*':'')+(stO.cs!=null?' · 中国 '+stO.cs.toFixed(0)+'%':'')+'</span>'; }
+    var impValM = effImpM(d);
+    var impCellHtml = (state.scope==="ind" && impValM==null)
+      ? ('<span class="src-flag" title="该国暂缺工业品细分剔除数据，为防口径混排已置底">暂缺工业品口径</span> <span class="src-ok">（全口径参考 '+fmt(d.imp)+'·'+yrTag+'）</span>')
+      : ('<span class="num">'+fmt(impValM)+'</span> <span class="src-ok">'+(state.scope==="ind" ? (IND[d.country].basis+'·'+yrTag) : ('全口径·'+yrTag))+'</span>');
     html += '<tr class="country-row" data-c="'+esc(d.country)+'">'
       + '<td class="cname-cell" data-label=""><span class="cname">'+esc(CN[d.country]||d.country)+star+compTag(d.country)+ftaBadge+actBadge+folBadge+'<span class="en">'+esc(d.country)+'</span></span></td>'
       + '<td data-label="地区">'+esc(REGION_CN[d.region]||d.region)+'</td>'
-      + '<td data-label="进口（'+yrTag+'）"><span class="num">'+fmt(effImpM(d))+'</span> <span class="src-ok">'+(state.scope==="ind" ? (IND[d.country] ? IND[d.country].basis+'·'+yrTag : '全口径·'+yrTag) : yrTag)+'</span>'+ytdTag+'</td>'
+      + '<td data-label="进口（'+yrTag+'）">'+impCellHtml+ytdTag+'</td>'
       + '<td data-label="出口 HS 84+85"><span class="num">'+fmt(d.exp)+'</span></td>'
       + '<td data-label="工业品两年增速">'+g+'</td>'
       + '<td data-label="中国占比">'+(function(){ var ch=CHINA[d.country]; if(!ch||ch.share==null) return '<span class="src-ok">—</span>'; var txt=ch.shareTxt||(ch.share.toFixed(1)+"%"); return (ch.share>=20&&ch.share<=50)? '<span class="share-best">'+txt+'</span>' : '<span class="num">'+txt+'</span>'; })()+'</td>'
@@ -4567,7 +4583,9 @@ document.getElementById("mainScopeFull").addEventListener("click", function(){ s
         el.addEventListener("mousemove", function(){
           var scTxt = state.scope==="ind" ? "工业品口径" : "全口径";
           var compTxt = COMP[rec.country] ? " · "+COMP[rec.country].label : "";
-          document.getElementById("mapTip").textContent = (CN[rec.country]||rec.country)+" · 进口（"+scTxt+"）"+fmt(effImpM(rec))+" · "+(POT_CN[rec.potential]||rec.potential)+compTxt;
+          var ei = effImpM(rec);
+          var impTip = (state.scope==="ind" && ei==null) ? ("暂缺工业品口径（全口径参考 "+fmt(rec.imp)+"）") : fmt(ei);
+          document.getElementById("mapTip").textContent = (CN[rec.country]||rec.country)+" · 进口（"+scTxt+"）"+impTip+" · "+(POT_CN[rec.potential]||rec.potential)+compTxt;
         });
         el.addEventListener("click", function(){ jumpToCountry(rec.country); });
       }
@@ -6663,9 +6681,17 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
   document.getElementById("growth-list").innerHTML = byGrowth.map(function(d,i){
     return '<li><span class="rank-no">'+(i+1)+'</span><span><b class="cname-link" data-jump="'+esc(d.country)+'">'+esc(CN[d.country]||d.country)+'</b>'+compTag(d.country)+' <span class="src-ok">'+(d.gWin||"22→24")+'</span></span><span class="rv growth-up">+'+d.growth.toFixed(1)+'%</span></li>';
   }).join("");
-  var highs = DATA.filter(function(d){return d.potential==="High";}).slice().sort(function(a,b){return (effImpM(b)||0)-(effImpM(a)||0);}).slice(0,8);
+  var highs = DATA.filter(function(d){return d.potential==="High";}).slice().sort(function(a,b){
+    var ea = effImpM(a), eb = effImpM(b);
+    if(ea == null && eb == null) return (b.imp || 0) - (a.imp || 0);
+    if(ea == null) return 1;
+    if(eb == null) return -1;
+    return eb - ea;
+  }).slice(0,8);
   document.getElementById("high-list").innerHTML = highs.map(function(d,i){
-    return '<li><span class="rank-no">'+(i+1)+'</span><span><b class="cname-link" data-jump="'+esc(d.country)+'">'+esc(CN[d.country]||d.country)+'</b>'+compTag(d.country)+' · 进口 '+fmt(effImpM(d))+'<br><span style="color:var(--muted);font-size:12.5px">'+esc(d.reason.split("；")[0])+'</span></span></li>';
+    var ei = effImpM(d);
+    var impTxt = ei != null ? fmt(ei) : ("暂缺工业品口径（全口径参考 " + fmt(d.imp) + "）");
+    return '<li><span class="rank-no">'+(i+1)+'</span><span><b class="cname-link" data-jump="'+esc(d.country)+'">'+esc(CN[d.country]||d.country)+'</b>'+compTag(d.country)+' · 进口 '+impTxt+'<br><span style="color:var(--muted);font-size:12.5px">'+esc(d.reason.split("；")[0])+'</span></span></li>';
   }).join("");
   document.getElementById("growth").addEventListener("click", function(e){
     var el = e.target.closest("[data-jump]"); if(el) jumpToCountry(el.getAttribute("data-jump"));
@@ -6750,25 +6776,39 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
     return '<tr><td><span class="cname">'+esc(CN[c]||c)+'</span></td><td>'+(s.s84? esc(s.s84) : '<span class="src-ok">未取到</span>')+'</td><td>'+(s.s85? esc(s.s85) : '<span class="src-ok">未取到</span>')+'</td></tr>';
   }).join("");
 
-  var SCOPE = Object.keys(MARKET).filter(function(c){ return !!IND[c]; }).map(function(c){ var t=IND[c]; return {c:c, full:t.full, ind:t.ind, share:t.share, basis:t.basis + (t.yr===2025 ? " · 2025" : " · 2024*")}; });
+  var SCOPE = Object.keys(MARKET).filter(function(c){ return !!(IND[c] && IND[c].full != null); }).map(function(c){
+    var t=IND[c];
+    return {c:c, full:t.full, ind:t.ind, share:t.share, basis:(t.basis||"工业品口径") + (t.yr===2025 ? " · 2025" : " · 2024*")};
+  });
   var fullRank={}, indRank={};
-  SCOPE.slice().sort(function(a,b){return b.full-a.full;}).forEach(function(r,i){ fullRank[r.c]=i+1; });
-  SCOPE.slice().sort(function(a,b){return b.ind-a.ind;}).forEach(function(r,i){ indRank[r.c]=i+1; });
-  SCOPE.forEach(function(r){ r.chg = fullRank[r.c]+" → "+indRank[r.c]; });
+  SCOPE.slice().sort(function(a,b){return (b.full||0)-(a.full||0);}).forEach(function(r,i){ fullRank[r.c]=i+1; });
+  SCOPE.filter(function(r){return r.ind!=null;}).slice().sort(function(a,b){return b.ind-a.ind;}).forEach(function(r,i){ indRank[r.c]=i+1; });
+  SCOPE.forEach(function(r){ r.chg = fullRank[r.c]+" → "+(indRank[r.c]!=null ? indRank[r.c] : "暂缺"); });
   var scopeMode = "ind";
   function drawScope(){
-    var rows = SCOPE.slice().sort(function(a,b){ return scopeMode==="full" ? b.full-a.full : b.ind-a.ind; });
+    var rows = SCOPE.slice().sort(function(a,b){
+      if(scopeMode==="full") return (b.full||0)-(a.full||0);
+      if(a.ind==null && b.ind==null) return (b.full||0)-(a.full||0);
+      if(a.ind==null) return 1;
+      if(b.ind==null) return -1;
+      return b.ind-a.ind;
+    });
     document.getElementById("scopeColRank").textContent = scopeMode==="full" ? "全口径排名" : "工业品口径排名";
     document.getElementById("scopeColVal").textContent = scopeMode==="full" ? "全口径进口额" : "工业品口径进口额";
     document.getElementById("scopeTbody").innerHTML = rows.map(function(r,i){
-      var val = scopeMode==="full" ? "$"+r.full.toFixed(1)+"bn" : "$"+r.ind.toFixed(1)+"bn";
+      var val = scopeMode==="full"
+        ? (r.full!=null ? ("$"+r.full.toFixed(1)+"bn") : "—")
+        : (r.ind!=null ? ("$"+r.ind.toFixed(1)+"bn") : "暂缺工业品口径");
+      var shTxt = r.share!=null ? (r.share.toFixed(1)+"%") : "—";
+      var rkTxt = (scopeMode==="ind" && r.ind==null) ? "—" : String(i+1);
       return '<tr><td><span class="cname cname-link" data-jump="'+esc(r.c)+'">'+esc(CN[r.c]||r.c)+'</span></td>'
-        + '<td class="num">'+(i+1)+'</td><td class="num">'+val+'</td><td class="num">$'+r.full.toFixed(1)+'bn</td>'
-        + '<td class="num">'+r.share.toFixed(1)+'%</td><td><span class="src-ok">'+esc(r.basis)+'</span></td><td>'+esc(r.chg)+'</td></tr>';
+        + '<td class="num">'+rkTxt+'</td><td class="num">'+val+'</td><td class="num">'+(r.full!=null?("$"+r.full.toFixed(1)+"bn"):"—")+'</td>'
+        + '<td class="num">'+shTxt+'</td><td><span class="src-ok">'+esc(r.basis)+'</span></td><td>'+esc(r.chg)+'</td></tr>';
     }).join("");
     document.getElementById("scopeFull").setAttribute("aria-pressed", scopeMode==="full"?"true":"false");
     document.getElementById("scopeInd").setAttribute("aria-pressed", scopeMode==="ind"?"true":"false");
   }
+  window.renderScope = drawScope;
   document.getElementById("scopeFull").addEventListener("click", function(){ scopeMode="full"; drawScope(); });
   document.getElementById("scopeInd").addEventListener("click", function(){ scopeMode="ind"; drawScope(); });
   drawScope();
@@ -8510,7 +8550,7 @@ function renderTools(){
           else if(r[2]==="g") v = d.growth==null ? "—" : (d.growth>=0?"+":"")+d.growth.toFixed(1)+"%" + (d.gWin ? " ("+d.gWin+(d.gb==="84"?" · HS84":"")+")" : "");
           else if(r[2]==="pot") v = POT_CN[d.potential]||d.potential||"—";
           else if(r[2]==="comp") v = COMP[c] ? '<span class="comp-tag '+COMP[c].cls+'">'+COMP[c].label+'</span>' : "无制裁/转口标签";
-          else if(r[2]==="ind"){ var ii=IND[c]; v = ii ? ("$"+ii.ind.toFixed(1)+"bn（"+ii.basis+"·"+(ii.yr===2025?"2025":"2024*")+"）") : "未计算（暂用全口径）"; }
+          else if(r[2]==="ind"){ var ii=IND[c]; v = (ii && ii.ind!=null) ? ("$"+ii.ind.toFixed(1)+"bn（"+ii.basis+"·"+(ii.yr===2025?"2025":"2024*")+"）") : ("暂缺工业品口径（全口径参考 "+fmt(d.imp)+"）"); }
           else if(r[2]==="st"){ var sx=STEEL[c]; v = sx ? (fmt(sx.t)+" ("+(sx.y===2025?"2025":sx.y+"*")+")"+(sx.g!=null?" · 两年 "+(sx.g>=0?"+":"")+sx.g.toFixed(1)+"%":"")) : "—"; }
           else if(r[2]==="stcs"){ var sy=STEEL[c]; v = sy&&sy.cs!=null ? sy.cs.toFixed(1)+"%" : "—"; }
           else if(r[2]==="sup") v = SUP[c] ? esc(supText(c)) : "—";
@@ -9948,11 +9988,16 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     return out;
   }
 
+  var csvShowAll = false;
   function ingestLeads(list, replaceMode){
     var merged = replaceMode ? [] : csvLeads.slice();
-    var seen = {};
+    if(replaceMode) csvShowAll = false;
+    var seen = Object.create(null);
     merged.forEach(function(x){
-      var k = (x.email||"").toLowerCase() || extractDom(x.website) || cleanPhone(x.phone, x.country) || x.company.toLowerCase();
+      var cEx = resolveCountryEn(x.country || "") || x.country || "";
+      var k = window.FG_CORE.buildLeadDedupeKey({
+        company: x.company, country: cEx, email: x.email, phone: x.phone, website: x.website
+      }, COUNTRY_DIAL);
       if(k) seen[k] = 1;
     });
     var added = 0, dup = 0, susAdded = 0;
@@ -9960,11 +10005,14 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       var cNorm = resolveCountryEn(raw.country || "") || raw.country || "";
       var dom = extractDom(raw.email || raw.website);
       var isFree = !!(dom && FREE_DOMAINS[dom]);
-      var key = (raw.email||"").toLowerCase() || dom || cleanPhone(raw.phone, cNorm) || (raw.company||"").toLowerCase();
+      var key = window.FG_CORE.buildLeadDedupeKey({
+        company: raw.company, country: cNorm, email: raw.email, phone: raw.phone, website: raw.website
+      }, COUNTRY_DIAL);
       if(key && seen[key]){ dup++; return; }
       if(key) seen[key] = 1;
       var rk = window.FG_FRESH ? window.FG_FRESH.detectLeadRisk(raw) : {suspect:"", suspectLabel:"", isRoleEmail:false};
       if(rk.suspect) susAdded++;
+      var phParsed = analyzePhone(raw.phone || "", cNorm);
       merged.push({
         company: raw.company || dom || "未知企业",
         country: cNorm,
@@ -9977,6 +10025,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         suspect: rk.suspect,
         suspectLabel: rk.suspectLabel,
         isRoleEmail: rk.isRoleEmail,
+        _phInfo: phParsed,
         mxStatus: isFree ? "free" : (dom ? "pending" : "none"),
         mxDetail: isFree ? "免费邮箱" : (dom ? "未验证" : "无域名")
       });
@@ -9986,6 +10035,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     renderCsvTable();
     showToast("已导入 " + added + " 条客户" + (dup ? "（去重 " + dup + " 条）" : "") + (susAdded ? ("｜发现 " + susAdded + " 条疑似货代/非工业主体") : ""));
   }
+  window.getCsvLeadsCount = function(){ return csvLeads.length; };
 
   function renderCsvTable(){
     var tb = document.getElementById("csvTbody");
@@ -9999,7 +10049,8 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       if(r.isFree) nFree++;
       if(r.suspect) nSus++;
       if(r.isRoleEmail) nRole++;
-      if(cleanPhone(r.phone, r.country).length >= 7) nWa++;
+      var ph = r._phInfo || (r._phInfo = analyzePhone(r.phone, r.country));
+      if(ph.digits.length >= 7) nWa++;
     });
     var susCntEl = document.getElementById("csvSuspectCnt");
     if(susCntEl) susCntEl.textContent = String(nSus);
@@ -10015,7 +10066,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       if(csvFilter === "clean") return !r.suspect;
       if(csvFilter === "suspect") return !!r.suspect;
       if(csvFilter === "corp") return !r.isFree && !r.suspect && r.mxStatus === "ok";
-      if(csvFilter === "wa") return cleanPhone(r.phone, r.country).length >= 7;
+      if(csvFilter === "wa"){ var ph = r._phInfo || analyzePhone(r.phone, r.country); return ph.digits.length >= 7; }
       if(csvFilter === "free") return r.isFree;
       return true;
     });
@@ -10023,7 +10074,12 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">' + (csvFilter === "corp" && tot ? "暂无已通过 MX 验证的非货代企业域名，请先点击「批量核验企业邮局（MX）」。" : "当前筛选条件下无客户记录。") + '</td></tr>';
       return;
     }
-    tb.innerHTML = shown.map(function(o){
+    var limit = csvShowAll ? shown.length : Math.min(shown.length, 500);
+    var renderSlice = shown.slice(0, limit);
+    var moreRowHtml = shown.length > limit
+      ? ('<tr class="csv-more-row"><td colspan="6" style="text-align:center;padding:12px;background:var(--surface2)">当前极速预览前 <b>'+limit+'</b> / <b>'+shown.length+'</b> 条（全部 '+tot+' 条均已纳入去重统计与 CSV 导出） <button type="button" class="pill" data-csv-showall="1" style="min-height:28px;padding:3px 10px;font-size:12px;margin-left:8px">展开全部 '+shown.length+' 条</button></td></tr>')
+      : '';
+    tb.innerHTML = renderSlice.map(function(o){
       var r = o.r, i = o.i;
       var badge = "";
       if(r.mxStatus === "ok") badge = '<span class="mx-ok" title="'+esc(r.mxDetail||"")+'"><i class="sd-g"></i>域名可收信</span>';
@@ -10034,7 +10090,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       else badge = '<span class="src-ok">— 无邮箱/域名</span>';
       if(r.isRoleEmail) badge += ' <span class="src-ok" title="info@/sales@ 等公共泛邮箱，建议配合猜邮箱工具找采购负责人直邮">· 泛邮箱</span>';
 
-      var phInfo = analyzePhone(r.phone, r.country);
+      var phInfo = r._phInfo || analyzePhone(r.phone, r.country);
       var digits = phInfo.digits;
       var waHtml = digits.length >= 7
         ? ('<a class="pill good-btn" style="min-height:26px;padding:2px 8px;font-size:11.5px" target="_blank" rel="noopener noreferrer" title="WhatsApp 链接：'+esc(phInfo.formatted)+(phInfo.autoAddedCc?'（已按目的国补国际区号，请确认后发送）':'')+'" href="https://wa.me/'+digits+'?text='+encodeURIComponent(buildWaMsg(r))+'">💬 '+esc(phInfo.formatted)+'</a>'
@@ -10056,7 +10112,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         + '<td style="white-space:nowrap"><button class="pill" type="button" data-csv-em="'+i+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">写信</button> '
         + '<button class="pill" type="button" data-csv-crm="'+i+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">存入客户</button> '
         + '<button class="pill" type="button" data-csv-dd="'+i+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">背调</button></td></tr>';
-    }).join("");
+    }).join("") + moreRowHtml;
   }
 
   var btnPurgeSuspect = document.getElementById("btnPurgeSuspect");
@@ -10131,6 +10187,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     mxRunSeq++;
     finishMxRun();
     csvLeads = [];
+    csvShowAll = false;
     document.getElementById("csvPasteInput").value = "";
     renderCsvTable();
     showToast("已清空名单");
@@ -10220,6 +10277,12 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   });
 
   document.getElementById("csvTbody").addEventListener("click", function(e){
+    var bShowAll = e.target.closest("button[data-csv-showall]");
+    if(bShowAll){
+      csvShowAll = true;
+      renderCsvTable();
+      return;
+    }
     var bEm = e.target.closest("button[data-csv-em]");
     if(bEm){
       var r = csvLeads[+bEm.getAttribute("data-csv-em")]; if(!r) return;
@@ -10278,14 +10341,19 @@ if(window.FG_STORE){
 (function(){
   var rawHash = (location.hash || "").replace(/^#/, "").trim();
   if(rawHash){
-    navigateTo(rawHash, {skipScroll:true, skipHash:true});
+    navigateTo(rawHash, {skipScroll:true, replaceHash:true});
   } else {
-    navigateTo("home-workspace", {skipScroll:true, skipHash:true});
+    navigateTo("home-workspace", {skipScroll:true, replaceHash:true});
   }
-  window.addEventListener("hashchange", function(){
-    var h = (location.hash || "").replace(/^#/, "").trim();
-    navigateTo(h || "home-workspace", {skipScroll:true, skipHash:true});
-  });
+  function syncFromHistory(ev){
+    var stNav = ev && ev.state && ev.state.fgNav;
+    var h = stNav || (location.hash || "").replace(/^#/, "").trim() || "home-workspace";
+    if((currentInnerId || currentToolId) !== h){
+      navigateTo(h, {skipScroll:true, skipHash:true, innerId: (ev && ev.state && ev.state.innerId) || undefined});
+    }
+  }
+  window.addEventListener("popstate", syncFromHistory);
+  window.addEventListener("hashchange", syncFromHistory);
 })();
 /* 「云端重跑任务」自动指向当前部署所在仓库（fork 部署时不再跳到原作者仓库） */
 (function(){
