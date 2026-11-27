@@ -34,7 +34,8 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 JSON_OUT = os.path.join(DATA_DIR, "radar_feed.json")
 JS_OUT = os.path.join(DATA_DIR, "radar_feed.js")
-SITE_URL = "https://jasunmr389-ship-it.github.io/friesgo-market/#tab=radar"
+BASE_SITE_URL = "https://jasunmr389-ship-it.github.io/friesgo-market/"
+SITE_URL = BASE_SITE_URL + "#tab=radar"
 
 USER_AGENT = "Mozilla/5.0 (compatible; FriesGoRadarBot/2.0; +https://jasunmr389-ship-it.github.io/friesgo-market/)"
 
@@ -1426,14 +1427,34 @@ def build_brief_markdown(feed):
         for x in news:
             lines.append(f"• [{x['countryCn']}] {x['titleCn']}")
         lines.append("")
-    lines.append(f"👉 点击进入工作台查看详情、一键查当地工作时间与生成开发信：\n{SITE_URL}")
+    primary_url = build_radar_deep_url(pick_primary_radar_id(feed))
+    lines.append(f"👉 点击直达今日首推商机详情、查当地工作时间与生成开发信：\n{primary_url}")
     return "\n".join(lines)
+
+
+def build_radar_deep_url(item_id):
+    """Build direct deep-link URL to a specific radar card (?radar=<id>#radar-live)."""
+    rid = str(item_id or "").strip()
+    if not rid:
+        return SITE_URL
+    return f"{BASE_SITE_URL}?radar={urllib.parse.quote(rid, safe='')}#radar-live"
+
+
+def pick_primary_radar_id(feed):
+    """Pick the highest-intent item ID (award > open loan > news > weather) for WeChat card tap jump."""
+    items = (feed or {}).get("items") or []
+    for cat in ("award", "loan", "news", "weather"):
+        for x in items:
+            if x.get("cat") == cat and x.get("id"):
+                return str(x["id"]).strip()
+    return ""
 
 
 def push_notifications(feed):
     """Send daily morning brief to whichever optional channel secrets are configured."""
     title = f"🌍 全球工业商机早报 ({feed['updatedDate']})"
     md = build_brief_markdown(feed)
+    deep_url = build_radar_deep_url(pick_primary_radar_id(feed))
 
     # 0. Native Tencent WeChat Official Test Account (Zero App download! Auto-sends to all followers!)
     wx_appid = os.environ.get("WX_APP_ID", "").strip()
@@ -1505,7 +1526,7 @@ def push_notifications(feed):
                     payload = {
                         "touser": oid,
                         "template_id": wx_tpl,
-                        "url": SITE_URL,
+                        "url": deep_url,
                         "data": {
                             "date": {"value": feed["updatedCn"]},
                             "stats": {"value": f"共{stats['total']}条（中标买家{award_cnt}｜世行招标{stats['loan']}｜扩产总包{stats['news']}｜灾害{stats['weather']}）"},
@@ -1529,7 +1550,7 @@ def push_notifications(feed):
         try:
             topic_ids = [int(t.strip()) for t in wx_topic.split(",") if t.strip().isdigit()]
             html_body = "<br>".join(html_lib.escape(line) for line in md.splitlines())
-            html_body += f'<br><br><a href="{SITE_URL}">🚀 立即打开全球工业品出海作战地图</a>'
+            html_body += f'<br><br><a href="{deep_url}">🚀 立即打开今日首推商机详情</a>'
             http_post_json(
                 "https://wxpusher.zjiecode.com/api/send/message",
                 {
@@ -1538,7 +1559,7 @@ def push_notifications(feed):
                     "summary": title,
                     "contentType": 2,
                     "topicIds": topic_ids,
-                    "url": SITE_URL,
+                    "url": deep_url,
                 },
             )
             print("[INFO] Pushed morning brief via WxPusher.")

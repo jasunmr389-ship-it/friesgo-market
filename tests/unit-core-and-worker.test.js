@@ -740,3 +740,80 @@ test("V2.0: Foreign-Trade Working Hours, Islamic Fri-Sat / Ramadan / Eid Skippin
   assert.ok(parsedCard.contact.includes("Carlos Mendez"), `Expected contact Carlos Mendez, got: ${parsedCard.contact}`);
   assert.ok(parsedCard.phone.includes("+52"), `Expected +52 phone, got: ${parsedCard.phone}`);
 });
+
+test("13. V2.1 M1: 48-country city directory, CN city resolver, buyer types, OSM expansion, weekly brief, PII-scrubbed feedback & Places ID mask", () => {
+  // 1. >= 50 priority countries, each with >= 4 verified cities + parenthetical alias match (e.g. Turkey (Türkiye))
+  const countryKeys = Object.keys(FG_CORE.COUNTRY_CITIES);
+  assert.ok(countryKeys.length >= 50, `Expected >=50 priority countries, got ${countryKeys.length}`);
+  for (const c of countryKeys) {
+    const arr = FG_CORE.getCountryCities(c);
+    assert.ok(arr.length >= 4, `Expected >=4 cities for ${c}, got ${arr.length}`);
+    assert.ok(arr.every(x => x.cn && x.en), `All cities in ${c} must have cn & en`);
+  }
+  const trCities = FG_CORE.getCountryCities("Turkey (Türkiye)");
+  assert.ok(trCities.length >= 5 && trCities.some(c => c.en === "Istanbul"), "Turkey (Türkiye) must resolve city chips");
+
+  // 2. Chinese city input resolution + arbitrary English pass-through
+  assert.equal(FG_CORE.resolveCityInput("吉达", "Saudi Arabia").queryCity, "Jeddah");
+  assert.equal(FG_CORE.resolveCityInput("吉达市", "Saudi Arabia").queryCity, "Jeddah");
+  assert.equal(FG_CORE.resolveCityInput("瓜达拉哈拉", "Mexico").queryCity, "Guadalajara");
+  assert.equal(FG_CORE.resolveCityInput("海防", "Vietnam").queryCity, "Haiphong");
+  assert.equal(FG_CORE.resolveCityInput("胡志明", "Vietnam").queryCity, "Ho Chi Minh City");
+  assert.equal(FG_CORE.resolveCityInput("达曼", "Saudi Arabia").queryCity, "Dammam");
+  assert.equal(FG_CORE.resolveCityInput("安托法加斯塔", "Chile").queryCity, "Antofagasta");
+  assert.equal(FG_CORE.resolveCityInput("伊斯坦布尔", "Turkey (Türkiye)").queryCity, "Istanbul");
+  const freeCity = FG_CORE.resolveCityInput("Saltillo", "Mexico");
+  assert.equal(freeCity.queryCity, "Saltillo");
+  assert.equal(freeCity.translated, false);
+
+  // 3. Buyer type keyword composition (no duplicate tokens)
+  assert.equal(FG_CORE.composeMapSearchKeyword("industrial valve", "all"), "industrial valve");
+  const epcKw = FG_CORE.composeMapSearchKeyword("steel structure", "epc");
+  assert.ok(epcKw.includes("EPC") && epcKw.includes("engineering"), `Unexpected EPC kw: ${epcKw}`);
+  const distKw = FG_CORE.composeMapSearchKeyword("valve distributor", "distributor");
+  assert.ok(distKw.includes("wholesaler") && !distKw.includes("distributor distributor"), `Unexpected dist kw: ${distKw}`);
+
+  // 4. OSM localized expansion terms across rounds
+  const es1 = FG_CORE.getOsmExpansionTerms("Mexico", "industrial valves", 1);
+  const es2 = FG_CORE.getOsmExpansionTerms("Mexico", "industrial valves", 2);
+  assert.ok(es1.length >= 4 && es2.length >= 4);
+  assert.notDeepEqual(es1, es2, "Round 1 and Round 2 OSM expansion terms should differ");
+
+  // 5. Personal weekly brief (zero manual entry)
+  const sampleLeads = [
+    { id: "l1", company: "Saigon Valve", country: "Vietnam", stage: "已报价", updated: "2026-11-26", nextDate: "2026-11-27", timeline: [{ ts: "2026-11-25 10:00", result: "已发报价" }], quotes: [{ ver: "V1" }], dd: { reg: true, sanc: true, verdict: "pass" } },
+    { id: "l2", company: "Monterrey Steel", country: "Mexico", stage: "跟进中", updated: "2026-11-20", nextDate: "2026-11-24", timeline: [], quotes: [] }
+  ];
+  const brief = FG_CORE.buildPersonalWeeklyBrief(sampleLeads, "2026-11-27");
+  assert.equal(brief.funnel.totalActive, 2);
+  assert.equal(brief.funnel.touched7d, 1);
+  assert.equal(brief.dueToday, 1);
+  assert.equal(brief.overdue, 1);
+  assert.ok(brief.text.includes("在库活跃客户：2 家") && brief.text.includes("今日到期 1 家 / 逾期 1 家"));
+
+  // 6. Strict PII scrubbing in feedback card builder
+  const fb = FG_CORE.buildSanitizedFeedbackCard({
+    category: "报错/卡顿",
+    message: "联系 buyer@client-corp.com 电话 +86 138-0013-8000 打开 https://secret.example.com/quote?id=99 时卡住",
+    activeTool: "地图找客户 (map-scraper)",
+    activeCountry: "Saudi Arabia",
+    prodProfile: "阀门 · 水泵",
+    viewport: "390x844",
+    isWeChat: true,
+    appVersion: "v2.1-m1",
+    lastError: "TypeError at https://internal.example.com/a.js for ceo@acme.mx +52 81 8345 6789"
+  });
+  assert.ok(!fb.cardText.includes("buyer@client-corp.com"), "Email in message must be scrubbed");
+  assert.ok(!fb.cardText.includes("138-0013-8000"), "Phone in message must be scrubbed");
+  assert.ok(!fb.cardText.includes("secret.example.com"), "URL in message must be scrubbed");
+  assert.ok(!fb.cardText.includes("ceo@acme.mx"), "Email in lastError must be scrubbed");
+  assert.ok(!fb.cardText.includes("8345 6789"), "Phone in lastError must be scrubbed");
+  assert.ok(fb.cardText.includes("微信内置浏览器") && fb.cardText.includes("v2.1-m1"));
+
+  // 7. Google Places Worker FIELD_MASK contains places.id & Cache-Control no-store
+  const fsMod = require("fs");
+  const workerSrc = fsMod.readFileSync(path.resolve(__dirname, "..", "workers", "gmaps-proxy.js"), "utf8");
+  assert.ok(workerSrc.includes('"places.id"'), "workers/gmaps-proxy.js FIELD_MASK must include places.id");
+  assert.ok(workerSrc.includes("no-store"), "workers/gmaps-proxy.js must send Cache-Control: no-store");
+});
+

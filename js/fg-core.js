@@ -2250,6 +2250,564 @@
     };
   }
 
+  /* ===== V2.1 M1: 48 Priority Countries Multi-City Directory + Chinese City Resolver ===== */
+  var COUNTRY_CITIES = {
+    "Vietnam": [
+      { cn: "胡志明市", en: "Ho Chi Minh City" }, { cn: "河内", en: "Hanoi" },
+      { cn: "海防", en: "Haiphong" }, { cn: "平阳工业区", en: "Binh Duong" },
+      { cn: "同奈", en: "Dong Nai" }, { cn: "岘港", en: "Da Nang" },
+      { cn: "芹苴", en: "Can Tho" }
+    ],
+    "Indonesia": [
+      { cn: "雅加达", en: "Jakarta" }, { cn: "泗水", en: "Surabaya" },
+      { cn: "勿加泗工业区", en: "Bekasi" }, { cn: "唐格朗", en: "Tangerang" },
+      { cn: "万隆", en: "Bandung" }, { cn: "三宝垄", en: "Semarang" },
+      { cn: "棉兰", en: "Medan" }
+    ],
+    "Thailand": [
+      { cn: "曼谷", en: "Bangkok" }, { cn: "春武里", en: "Chonburi" },
+      { cn: "罗勇工业园", en: "Rayong" }, { cn: "北榄府", en: "Samut Prakan" },
+      { cn: "清迈", en: "Chiang Mai" }, { cn: "合艾", en: "Hat Yai" }
+    ],
+    "Malaysia": [
+      { cn: "吉隆坡", en: "Kuala Lumpur" }, { cn: "莎阿南", en: "Shah Alam" },
+      { cn: "槟城", en: "Penang" }, { cn: "新山", en: "Johor Bahru" },
+      { cn: "巴生港", en: "Klang" }, { cn: "古晋", en: "Kuching" }
+    ],
+    "Philippines": [
+      { cn: "马尼拉", en: "Manila" }, { cn: "宿务", en: "Cebu" },
+      { cn: "达沃", en: "Davao" }, { cn: "内湖工业区", en: "Laguna" },
+      { cn: "甲米地", en: "Cavite" }
+    ],
+    "Singapore": [
+      { cn: "新加坡", en: "Singapore" }, { cn: "裕廊工业区", en: "Jurong" },
+      { cn: "大士港", en: "Tuas" }, { cn: "兀兰", en: "Woodlands" }
+    ],
+    "Saudi Arabia": [
+      { cn: "达曼", en: "Dammam" }, { cn: "利雅得", en: "Riyadh" },
+      { cn: "吉达", en: "Jeddah" }, { cn: "朱拜勒工业城", en: "Jubail" },
+      { cn: "延布工业城", en: "Yanbu" }, { cn: "胡拜尔", en: "Khobar" }
+    ],
+    "United Arab Emirates": [
+      { cn: "迪拜", en: "Dubai" }, { cn: "阿布扎比", en: "Abu Dhabi" },
+      { cn: "沙迦", en: "Sharjah" }, { cn: "杰贝阿里自贸区", en: "Jebel Ali" },
+      { cn: "阿治曼", en: "Ajman" }, { cn: "富查伊拉", en: "Fujairah" }
+    ],
+    "Egypt": [
+      { cn: "开罗", en: "Cairo" }, { cn: "亚历山大", en: "Alexandria" },
+      { cn: "斋月十日城", en: "10th of Ramadan City" }, { cn: "苏伊士", en: "Suez" },
+      { cn: "塞得港", en: "Port Said" }
+    ],
+    "Qatar": [
+      { cn: "多哈", en: "Doha" }, { cn: "梅赛义德工业城", en: "Mesaieed" },
+      { cn: "拉斯拉凡", en: "Ras Laffan" }, { cn: "沃克拉", en: "Al Wakrah" }
+    ],
+    "Kuwait": [
+      { cn: "科威特城", en: "Kuwait City" }, { cn: "舒韦赫工业区", en: "Shuwaikh" },
+      { cn: "艾哈迈迪", en: "Ahmadi" }, { cn: "舒艾拜", en: "Shuaiba" }
+    ],
+    "Oman": [
+      { cn: "马斯喀特", en: "Muscat" }, { cn: "苏哈尔港", en: "Sohar" },
+      { cn: "塞拉莱", en: "Salalah" }, { cn: "杜库姆特区", en: "Duqm" }
+    ],
+    "Iraq": [
+      { cn: "巴格达", en: "Baghdad" }, { cn: "巴士拉", en: "Basra" },
+      { cn: "埃尔比勒", en: "Erbil" }, { cn: "摩苏尔", en: "Mosul" }
+    ],
+    "Morocco": [
+      { cn: "卡萨布兰卡", en: "Casablanca" }, { cn: "丹吉尔", en: "Tangier" },
+      { cn: "拉巴特", en: "Rabat" }, { cn: "盖尼特拉", en: "Kenitra" },
+      { cn: "阿加迪尔", en: "Agadir" }
+    ],
+    "Algeria": [
+      { cn: "阿尔及尔", en: "Algiers" }, { cn: "奥兰", en: "Oran" },
+      { cn: "安纳巴", en: "Annaba" }, { cn: "哈西梅萨乌德", en: "Hassi Messaoud" }
+    ],
+    "Turkey": [
+      { cn: "伊斯坦布尔", en: "Istanbul" }, { cn: "布尔萨", en: "Bursa" },
+      { cn: "伊兹密尔", en: "Izmir" }, { cn: "安卡拉", en: "Ankara" },
+      { cn: "科贾埃利", en: "Kocaeli" }, { cn: "加济安泰普", en: "Gaziantep" }
+    ],
+    "Mexico": [
+      { cn: "蒙特雷", en: "Monterrey" }, { cn: "墨西哥城", en: "Mexico City" },
+      { cn: "瓜达拉哈拉", en: "Guadalajara" }, { cn: "克雷塔罗", en: "Queretaro" },
+      { cn: "普埃布拉", en: "Puebla" }, { cn: "蒂华纳", en: "Tijuana" },
+      { cn: "韦拉克鲁斯港", en: "Veracruz" }
+    ],
+    "Brazil": [
+      { cn: "圣保罗", en: "Sao Paulo" }, { cn: "坎皮纳斯", en: "Campinas" },
+      { cn: "里约热内卢", en: "Rio de Janeiro" }, { cn: "贝洛奥里藏特", en: "Belo Horizonte" },
+      { cn: "库里蒂巴", en: "Curitiba" }, { cn: "阿雷格里港", en: "Porto Alegre" },
+      { cn: "若因维利", en: "Joinville" }
+    ],
+    "Chile": [
+      { cn: "圣地亚哥", en: "Santiago" }, { cn: "安托法加斯塔矿区", en: "Antofagasta" },
+      { cn: "瓦尔帕莱索港", en: "Valparaiso" }, { cn: "康塞普西翁", en: "Concepcion" },
+      { cn: "伊基克自贸区", en: "Iquique" }
+    ],
+    "Peru": [
+      { cn: "利马", en: "Lima" }, { cn: "阿雷基帕", en: "Arequipa" },
+      { cn: "卡亚俄港", en: "Callao" }, { cn: "特鲁希略", en: "Trujillo" }
+    ],
+    "Colombia": [
+      { cn: "波哥大", en: "Bogota" }, { cn: "麦德林", en: "Medellin" },
+      { cn: "卡利", en: "Cali" }, { cn: "巴兰基亚港", en: "Barranquilla" },
+      { cn: "卡塔赫纳", en: "Cartagena" }
+    ],
+    "Argentina": [
+      { cn: "布宜诺斯艾利斯", en: "Buenos Aires" }, { cn: "罗萨里奥", en: "Rosario" },
+      { cn: "科尔多瓦", en: "Cordoba" }, { cn: "门多萨", en: "Mendoza" },
+      { cn: "内乌肯油气区", en: "Neuquen" }
+    ],
+    "Ecuador": [
+      { cn: "瓜亚基尔", en: "Guayaquil" }, { cn: "基多", en: "Quito" },
+      { cn: "昆卡", en: "Cuenca" }, { cn: "曼塔港", en: "Manta" }
+    ],
+    "Nigeria": [
+      { cn: "拉各斯", en: "Lagos" }, { cn: "哈科特港", en: "Port Harcourt" },
+      { cn: "卡诺", en: "Kano" }, { cn: "阿布贾", en: "Abuja" },
+      { cn: "伊巴丹", en: "Ibadan" }
+    ],
+    "South Africa": [
+      { cn: "约翰内斯堡", en: "Johannesburg" }, { cn: "德班港", en: "Durban" },
+      { cn: "开普敦", en: "Cape Town" }, { cn: "比勒陀利亚", en: "Pretoria" },
+      { cn: "格贝哈港", en: "Gqeberha" }, { cn: "勒斯滕堡矿区", en: "Rustenburg" }
+    ],
+    "Kenya": [
+      { cn: "内罗毕", en: "Nairobi" }, { cn: "蒙巴萨港", en: "Mombasa" },
+      { cn: "基苏木", en: "Kisumu" }, { cn: "纳库鲁", en: "Nakuru" }
+    ],
+    "Ghana": [
+      { cn: "阿克拉", en: "Accra" }, { cn: "特马工业港", en: "Tema" },
+      { cn: "库马西", en: "Kumasi" }, { cn: "塔科拉迪", en: "Takoradi" }
+    ],
+    "Ethiopia": [
+      { cn: "亚的斯亚贝巴", en: "Addis Ababa" }, { cn: "阿达玛工业园", en: "Adama" },
+      { cn: "阿瓦萨", en: "Hawassa" }, { cn: "德雷达瓦", en: "Dire Dawa" }
+    ],
+    "Germany": [
+      { cn: "杜塞尔多夫", en: "Dusseldorf" }, { cn: "汉堡港", en: "Hamburg" },
+      { cn: "慕尼黑", en: "Munich" }, { cn: "斯图加特", en: "Stuttgart" },
+      { cn: "法兰克福", en: "Frankfurt" }, { cn: "多特蒙德", en: "Dortmund" }
+    ],
+    "France": [
+      { cn: "里昂", en: "Lyon" }, { cn: "巴黎", en: "Paris" },
+      { cn: "马赛港", en: "Marseille" }, { cn: "图卢兹", en: "Toulouse" },
+      { cn: "里尔", en: "Lille" }
+    ],
+    "Italy": [
+      { cn: "米兰", en: "Milan" }, { cn: "博洛尼亚", en: "Bologna" },
+      { cn: "都灵", en: "Turin" }, { cn: "布雷西亚", en: "Brescia" },
+      { cn: "热那亚港", en: "Genoa" }, { cn: "帕多瓦", en: "Padua" }
+    ],
+    "Spain": [
+      { cn: "毕尔巴鄂", en: "Bilbao" }, { cn: "巴塞罗那", en: "Barcelona" },
+      { cn: "马德里", en: "Madrid" }, { cn: "瓦伦西亚港", en: "Valencia" },
+      { cn: "萨拉戈萨", en: "Zaragoza" }
+    ],
+    "Poland": [
+      { cn: "华沙", en: "Warsaw" }, { cn: "卡托维兹工业区", en: "Katowice" },
+      { cn: "弗罗茨瓦夫", en: "Wroclaw" }, { cn: "格但斯克港", en: "Gdansk" },
+      { cn: "波兹南", en: "Poznan" }
+    ],
+    "United Kingdom": [
+      { cn: "伯明翰", en: "Birmingham" }, { cn: "曼彻斯特", en: "Manchester" },
+      { cn: "伦敦", en: "London" }, { cn: "谢菲尔德", en: "Sheffield" },
+      { cn: "阿伯丁油气港", en: "Aberdeen" }
+    ],
+    "Netherlands": [
+      { cn: "鹿特丹港", en: "Rotterdam" }, { cn: "埃因霍温", en: "Eindhoven" },
+      { cn: "阿姆斯特丹", en: "Amsterdam" }, { cn: "乌得勒支", en: "Utrecht" },
+      { cn: "芬洛", en: "Venlo" }
+    ],
+    "Romania": [
+      { cn: "布加勒斯特", en: "Bucharest" }, { cn: "蒂米什瓦拉", en: "Timisoara" },
+      { cn: "克卢日-纳波卡", en: "Cluj-Napoca" }, { cn: "康斯坦察港", en: "Constanta" }
+    ],
+    "United States": [
+      { cn: "休斯顿", en: "Houston" }, { cn: "芝加哥", en: "Chicago" },
+      { cn: "洛杉矶", en: "Los Angeles" }, { cn: "达拉斯", en: "Dallas" },
+      { cn: "底特律", en: "Detroit" }, { cn: "匹兹堡", en: "Pittsburgh" },
+      { cn: "亚特兰大", en: "Atlanta" }
+    ],
+    "Canada": [
+      { cn: "多伦多", en: "Toronto" }, { cn: "卡尔加里", en: "Calgary" },
+      { cn: "埃德蒙顿", en: "Edmonton" }, { cn: "蒙特利尔", en: "Montreal" },
+      { cn: "温哥华港", en: "Vancouver" }
+    ],
+    "Australia": [
+      { cn: "珀斯矿业中心", en: "Perth" }, { cn: "墨尔本", en: "Melbourne" },
+      { cn: "悉尼", en: "Sydney" }, { cn: "布里斯班", en: "Brisbane" },
+      { cn: "阿德莱德", en: "Adelaide" }
+    ],
+    "India": [
+      { cn: "孟买", en: "Mumbai" }, { cn: "浦那工业区", en: "Pune" },
+      { cn: "金奈", en: "Chennai" }, { cn: "艾哈迈达巴德", en: "Ahmedabad" },
+      { cn: "班加罗尔", en: "Bengaluru" }, { cn: "新德里", en: "Delhi" },
+      { cn: "海得拉巴", en: "Hyderabad" }
+    ],
+    "Pakistan": [
+      { cn: "卡拉奇港", en: "Karachi" }, { cn: "拉合尔", en: "Lahore" },
+      { cn: "费萨拉巴德", en: "Faisalabad" }, { cn: "锡亚尔科特", en: "Sialkot" }
+    ],
+    "Bangladesh": [
+      { cn: "达卡", en: "Dhaka" }, { cn: "吉大港", en: "Chattogram" },
+      { cn: "加济布尔", en: "Gazipur" }, { cn: "纳拉扬甘杰", en: "Narayanganj" }
+    ],
+    "Russia": [
+      { cn: "莫斯科", en: "Moscow" }, { cn: "圣彼得堡", en: "Saint Petersburg" },
+      { cn: "叶卡捷琳堡", en: "Yekaterinburg" }, { cn: "新西伯利亚", en: "Novosibirsk" },
+      { cn: "车里雅宾斯克", en: "Chelyabinsk" }
+    ],
+    "Kazakhstan": [
+      { cn: "阿拉木图", en: "Almaty" }, { cn: "阿斯塔纳", en: "Astana" },
+      { cn: "阿特劳油气区", en: "Atyrau" }, { cn: "卡拉干达", en: "Karaganda" }
+    ],
+    "Uzbekistan": [
+      { cn: "塔什干", en: "Tashkent" }, { cn: "撒马尔罕", en: "Samarkand" },
+      { cn: "纳沃伊矿区", en: "Navoi" }, { cn: "费尔干纳", en: "Fergana" }
+    ],
+    "South Korea": [
+      { cn: "釜山港", en: "Busan" }, { cn: "仁川", en: "Incheon" },
+      { cn: "昌原机械城", en: "Changwon" }, { cn: "蔚山工业城", en: "Ulsan" },
+      { cn: "首尔", en: "Seoul" }
+    ],
+    "Japan": [
+      { cn: "大阪", en: "Osaka" }, { cn: "名古屋", en: "Nagoya" },
+      { cn: "东京", en: "Tokyo" }, { cn: "横滨港", en: "Yokohama" },
+      { cn: "北九州", en: "Kitakyushu" }
+    ],
+    "Belgium": [
+      { cn: "安特卫普港", en: "Antwerp" }, { cn: "布鲁塞尔", en: "Brussels" },
+      { cn: "根特", en: "Ghent" }, { cn: "列日", en: "Liege" }
+    ],
+    "Czechia": [
+      { cn: "布拉格", en: "Prague" }, { cn: "布尔诺", en: "Brno" },
+      { cn: "俄斯特拉发工业区", en: "Ostrava" }, { cn: "比尔森", en: "Plzen" }
+    ],
+    "Hungary": [
+      { cn: "布达佩斯", en: "Budapest" }, { cn: "德布勒森", en: "Debrecen" },
+      { cn: "杰尔工业区", en: "Gyor" }, { cn: "米什科尔茨", en: "Miskolc" }
+    ],
+    "Sweden": [
+      { cn: "哥德堡港", en: "Gothenburg" }, { cn: "斯德哥尔摩", en: "Stockholm" },
+      { cn: "马尔默", en: "Malmo" }, { cn: "韦斯特罗斯", en: "Vasteras" }
+    ],
+    "Portugal": [
+      { cn: "里斯本", en: "Lisbon" }, { cn: "波尔图", en: "Porto" },
+      { cn: "锡尼什港", en: "Sines" }, { cn: "阿威罗", en: "Aveiro" }
+    ],
+    "New Zealand": [
+      { cn: "奥克兰", en: "Auckland" }, { cn: "基督城", en: "Christchurch" },
+      { cn: "惠灵顿", en: "Wellington" }, { cn: "陶朗加港", en: "Tauranga" }
+    ],
+    "Tanzania": [
+      { cn: "达累斯萨拉姆港", en: "Dar es Salaam" }, { cn: "姆万扎矿区", en: "Mwanza" },
+      { cn: "阿鲁沙", en: "Arusha" }, { cn: "多多马", en: "Dodoma" }
+    ]
+  };
+
+  var EXTRA_CN_CITY_ALIAS = {
+    "胡志明": "Ho Chi Minh City",
+    "西贡": "Ho Chi Minh City",
+    "平阳": "Binh Duong",
+    "勿加泗": "Bekasi",
+    "罗勇": "Rayong",
+    "巴生": "Klang",
+    "内湖": "Laguna",
+    "裕廊": "Jurong",
+    "大士": "Tuas",
+    "朱拜勒": "Jubail",
+    "延布": "Yanbu",
+    "杰贝阿里": "Jebel Ali",
+    "斋月十日": "10th of Ramadan City",
+    "梅赛义德": "Mesaieed",
+    "舒韦赫": "Shuwaikh",
+    "苏哈尔": "Sohar",
+    "杜库姆": "Duqm",
+    "韦拉克鲁斯": "Veracruz",
+    "安托法加斯塔": "Antofagasta",
+    "瓦尔帕莱索": "Valparaiso",
+    "伊基克": "Iquique",
+    "卡亚俄": "Callao",
+    "巴兰基亚": "Barranquilla",
+    "内乌肯": "Neuquen",
+    "曼塔": "Manta",
+    "德班": "Durban",
+    "格贝哈": "Gqeberha",
+    "伊丽莎白港": "Gqeberha",
+    "勒斯滕堡": "Rustenburg",
+    "蒙巴萨": "Mombasa",
+    "特马": "Tema",
+    "阿达玛": "Adama",
+    "汉堡": "Hamburg",
+    "马赛": "Marseille",
+    "热那亚": "Genoa",
+    "瓦伦西亚": "Valencia",
+    "卡托维兹": "Katowice",
+    "格但斯克": "Gdansk",
+    "阿伯丁": "Aberdeen",
+    "鹿特丹": "Rotterdam",
+    "康斯坦察": "Constanta",
+    "温哥华": "Vancouver",
+    "珀斯": "Perth",
+    "浦那": "Pune",
+    "德里": "Delhi",
+    "卡拉奇": "Karachi",
+    "阿特劳": "Atyrau",
+    "纳沃伊": "Navoi",
+    "釜山": "Busan",
+    "昌原": "Changwon",
+    "蔚山": "Ulsan",
+    "横滨": "Yokohama",
+    "安特卫普": "Antwerp",
+    "俄斯特拉发": "Ostrava",
+    "哥德堡": "Gothenburg",
+    "锡尼什": "Sines",
+    "陶朗加": "Tauranga",
+    "达累斯萨拉姆": "Dar es Salaam",
+    "姆万扎": "Mwanza"
+  };
+
+  function getCountryCities(countryEn) {
+    var key = String(countryEn || "").trim();
+    if (!key) return [];
+    if (Array.isArray(COUNTRY_CITIES[key])) return COUNTRY_CITIES[key].slice();
+    var stripped = key.replace(/\s*\([^)]*\)\s*/g, "").trim();
+    if (stripped && Array.isArray(COUNTRY_CITIES[stripped])) return COUNTRY_CITIES[stripped].slice();
+    var low = (stripped || key).toLowerCase();
+    var keys = Object.keys(COUNTRY_CITIES);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].toLowerCase() === low) return COUNTRY_CITIES[keys[i]].slice();
+    }
+    return [];
+  }
+
+  function resolveCityInput(rawCity, countryEn) {
+    var raw = String(rawCity || "").trim();
+    if (!raw) return { queryCity: "", matchedCn: "", translated: false };
+    var cleanCn = raw.replace(/[市省区港]+$/g, "").trim();
+    var cList = getCountryCities(countryEn);
+    for (var i = 0; i < cList.length; i++) {
+      var itemCnClean = cList[i].cn.replace(/[市省区港]+$/g, "");
+      if (raw === cList[i].cn || (cleanCn && (cleanCn === cList[i].cn || cleanCn === itemCnClean))) {
+        return { queryCity: cList[i].en, matchedCn: cList[i].cn, translated: true };
+      }
+      if (raw.toLowerCase() === cList[i].en.toLowerCase()) {
+        return { queryCity: cList[i].en, matchedCn: cList[i].cn, translated: false };
+      }
+    }
+    if (EXTRA_CN_CITY_ALIAS[raw]) {
+      return { queryCity: EXTRA_CN_CITY_ALIAS[raw], matchedCn: raw, translated: true };
+    }
+    if (cleanCn && EXTRA_CN_CITY_ALIAS[cleanCn]) {
+      return { queryCity: EXTRA_CN_CITY_ALIAS[cleanCn], matchedCn: cleanCn, translated: true };
+    }
+    var countries = Object.keys(COUNTRY_CITIES);
+    for (var ci = 0; ci < countries.length; ci++) {
+      var arr = COUNTRY_CITIES[countries[ci]];
+      for (var j = 0; j < arr.length; j++) {
+        var cClean = arr[j].cn.replace(/[市省区港]+$/g, "");
+        if (raw === arr[j].cn || (cleanCn && (cleanCn === arr[j].cn || cleanCn === cClean))) {
+          return { queryCity: arr[j].en, matchedCn: arr[j].cn, translated: true };
+        }
+      }
+    }
+    return { queryCity: raw, matchedCn: "", translated: false };
+  }
+
+  var BUYER_TYPE_PRESETS = {
+    all: { label: "全部工业相关", suffix: "" },
+    distributor: { label: "经销商 / 批发商", suffix: "distributor wholesaler stockist" },
+    epc: { label: "工程总包 EPC", suffix: "EPC engineering contractor" },
+    factory: { label: "终端工厂 / 制造商", suffix: "factory manufacturing plant" },
+    importer: { label: "进口贸易商", suffix: "importer industrial supply" }
+  };
+
+  function composeMapSearchKeyword(baseKw, buyerType) {
+    var base = String(baseKw || "").trim() || "industrial equipment";
+    var preset = BUYER_TYPE_PRESETS[buyerType] || BUYER_TYPE_PRESETS.all;
+    if (!preset.suffix) return base;
+    var low = base.toLowerCase();
+    var additions = preset.suffix.split(/\s+/).filter(function (tok) {
+      return tok && low.indexOf(tok.toLowerCase()) < 0;
+    });
+    if (!additions.length) return base;
+    return (base + " " + additions.slice(0, 2).join(" ")).trim();
+  }
+
+  function getOsmExpansionTerms(countryEn, baseKw, roundNum) {
+    var r = Math.max(1, parseInt(roundNum, 10) || 1);
+    var c = String(countryEn || "").trim();
+    var kwLow = String(baseKw || "").toLowerCase();
+    var lang = "en";
+    if (/Mexico|Chile|Peru|Colombia|Argentina|Ecuador|Spain/i.test(c)) lang = "es";
+    else if (/Brazil/i.test(c)) lang = "pt";
+    else if (/Vietnam/i.test(c)) lang = "vi";
+    else if (/Indonesia/i.test(c)) lang = "id";
+    else if (/France|Morocco|Algeria|Belgium/i.test(c)) lang = "fr";
+    else if (/Germany/i.test(c)) lang = "de";
+    else if (/Turkey/i.test(c)) lang = "tr";
+    else if (/Saudi|United Arab Emirates|Egypt|Qatar|Kuwait|Oman|Iraq/i.test(c)) lang = "ar";
+    else if (/Russia|Kazakhstan|Uzbekistan/i.test(c)) lang = "ru";
+
+    var byLang = {
+      es: [
+        ["valvulas", "bombas", "tuberias", "acero", "ferreteria industrial"],
+        ["ingenieria", "maquinaria", "hidraulica", "construccion", "suministros"],
+        ["electrico", "cables", "metalurgia", "equipos", "distribuidor"]
+      ],
+      pt: [
+        ["valvulas", "bombas", "tubos", "aco", "ferragens industriais"],
+        ["engenharia", "maquinas", "hidraulica", "metalurgica", "suprimentos"],
+        ["eletrica", "cabos", "equipamentos", "construcao", "distribuidora"]
+      ],
+      vi: [
+        ["van cong nghiep", "may bom", "ong thep", "co khi", "vat tu"],
+        ["thiet bi dien", "cap dien", "ket cau thep", "xay dung", "nha may"],
+        ["kim khi", "thuy luc", "ky thuat", "thuong mai", "cong nghiep"]
+      ],
+      id: [
+        ["katup", "pompa", "pipa baja", "teknik", "perkakas"],
+        ["listrik", "kabel", "mesin industri", "kontraktor", "konstruksi"],
+        ["logam", "hidrolik", "pabrik", "distributor", "industri"]
+      ],
+      fr: [
+        ["vannes", "pompes", "tuyauterie", "acier", "quincaillerie"],
+        ["ingenierie", "machines", "hydraulique", "construction", "fournitures"],
+        ["electrique", "cables", "metallurgie", "equipements", "grossiste"]
+      ],
+      de: [
+        ["armaturen", "pumpen", "rohrleitungen", "stahlbau", "werkzeuge"],
+        ["maschinenbau", "hydraulik", "elektrotechnik", "anlagenbau", "grosshandel"],
+        ["industrie", "metallbau", "kabel", "komponenten", "technik"]
+      ],
+      tr: [
+        ["vana", "pompa", "celik", "boru", "hirdavat"],
+        ["muhendislik", "makina", "hidrolik", "insaat", "elektrik"],
+        ["kablo", "metal", "sanayi", "tedarik", "toptan"]
+      ],
+      ar: [
+        ["industrial", "valves", "pumps", "piping", "steel"],
+        ["contracting", "engineering", "trading", "electrical", "hardware"],
+        ["equipment", "machinery", "building materials", "oilfield", "supply"]
+      ],
+      ru: [
+        ["арматура", "насосы", "трубы", "металл", "оборудование"],
+        ["инжиниринг", "электротехника", "кабель", "станки", "снабжение"],
+        ["industrial", "engineering", "machinery", "steel", "supply"]
+      ],
+      en: [
+        ["valves", "pumps", "piping", "steel", "hardware"],
+        ["engineering", "machinery", "hydraulics", "contractor", "electrical"],
+        ["industrial supply", "fabrication", "wholesale", "equipment", "cables"]
+      ]
+    };
+    var pools = byLang[lang] || byLang.en;
+    var basePool = pools[(r - 1) % pools.length].slice();
+    if (/valve|pump|pipe|water/i.test(kwLow) && basePool.indexOf("piping") < 0) basePool.unshift("piping");
+    else if (/steel|fastener|bolt|metal/i.test(kwLow) && basePool.indexOf("steel") < 0) basePool.unshift("steel");
+    else if (/cable|power|solar|electr/i.test(kwLow) && basePool.indexOf("electrical") < 0) basePool.unshift("electrical");
+    return basePool.slice(0, 6);
+  }
+
+  function buildPersonalWeeklyBrief(crmLeads, todayIso) {
+    var today = todayIso || new Date().toISOString().slice(0, 10);
+    var fn = computeWeeklyFunnel(crmLeads, today);
+    var active = (Array.isArray(crmLeads) ? crmLeads : []).filter(function (l) { return l && !l.deletedAt; });
+    var tMs = Date.parse(today + "T23:59:59Z");
+    var sevenDaysAgoMs = isNaN(tMs) ? 0 : (tMs - 7 * 86400000);
+    var added7d = 0, dueToday = 0, overdue = 0;
+    var stageMap = Object.create(null);
+    active.forEach(function (l) {
+      var stg = l.stage || "待开发";
+      stageMap[stg] = (stageMap[stg] || 0) + 1;
+      var crMs = l.createdAt || (l.updated ? Date.parse(String(l.updated).slice(0, 10) + "T12:00:00Z") : 0);
+      if (crMs && crMs >= sevenDaysAgoMs) added7d++;
+      if (l.nextDate) {
+        if (l.nextDate < today) overdue++;
+        else if (l.nextDate === today) dueToday++;
+      }
+    });
+    var topStages = Object.keys(stageMap).map(function (k) { return k + " " + stageMap[k]; }).slice(0, 5).join(" / ");
+    var lines = [
+      "📊 FriesGo 个人本周外贸跟进简报（" + today + "）",
+      "• 在库活跃客户：" + fn.totalActive + " 家（近 7 天新增/更新 " + added7d + " 家）",
+      "• 近 7 天有效跟进触达：" + fn.touched7d + " 家",
+      "• 背调通过可正式报价：" + fn.ddApproved + " 家 ｜ 已出正式/参考报价：" + fn.quotedCount + " 家",
+      "• 样品 / 谈判 / 成交推进：" + fn.highIntentOrWon + " 家" + (fn.lostCount ? (" ｜ 归档流失：" + fn.lostCount + " 家") : ""),
+      "• 待办提醒：今日到期 " + dueToday + " 家 / 逾期 " + overdue + " 家",
+      topStages ? ("• 阶段分布：" + topStages) : "• 阶段分布：暂无在库客户",
+      "（注：仅统计本机浏览器中真实录入的客户与跟进记录，无虚构数据）"
+    ];
+    return {
+      text: lines.join("\n"),
+      funnel: fn,
+      added7d: added7d,
+      dueToday: dueToday,
+      overdue: overdue
+    };
+  }
+
+  /* ===== V2.1 M1: Strict PII-Sanitized Feedback Card Builder ===== */
+  function redactPii(str) {
+    var s = String(str || "");
+    if (!s) return "";
+    // Redact email addresses
+    s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[已脱敏邮箱]");
+    // Redact URLs with path/query (keep nothing sensitive)
+    s = s.replace(/https?:\/\/[^\s<>'"]+/gi, "[已脱敏链接]");
+    // Redact phone / long numeric identifiers (>= 7 digits with optional separators)
+    s = s.replace(/(?:\+?\d[\d\s().-]{6,}\d)/g, "[已脱敏号码]");
+    return s;
+  }
+
+  function buildSanitizedFeedbackCard(input) {
+    var inp = input || {};
+    var cat = String(inp.category || "使用建议").trim().slice(0, 24);
+    var msgRaw = String(inp.message || "").trim().slice(0, 600);
+    var msgSafe = redactPii(msgRaw);
+    var tool = String(inp.activeTool || "home-workspace").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff ()（）·]/g, "").slice(0, 48);
+    var country = String(inp.activeCountry || "未选定").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff ()（）]/g, "").slice(0, 36);
+    var profile = String(inp.prodProfile || "all").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff ·]/g, "").slice(0, 36);
+    var viewport = String(inp.viewport || "unknown").replace(/[^0-9x× ]/g, "").slice(0, 20);
+    var isWx = !!inp.isWeChat;
+    var envTag = isWx ? "微信内置浏览器" : String(inp.envLabel || "标准浏览器").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff /]/g, "").slice(0, 24);
+    var ver = String(inp.appVersion || "v2.1-m1").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 24);
+    var errClean = redactPii(String(inp.lastError || "").trim()).slice(0, 140);
+    var ts = String(inp.timestamp || new Date().toISOString().slice(0, 16).replace("T", " "));
+
+    var lines = [
+      "【FriesGo 工作台改进反馈】",
+      "• 类型：" + cat,
+      "• 反馈内容：" + (msgSafe || "（未填写文字）"),
+      "• 所在页面：" + tool + " ｜ 品类：" + profile + " ｜ 国家：" + country,
+      "• 设备环境：" + envTag + " ｜ 视口：" + viewport + " ｜ 版本：" + ver,
+      "• 记录时间：" + ts
+    ];
+    if (errClean) {
+      lines.push("• 最近前端异常（已脱敏）：" + errClean);
+    }
+    lines.push("（安全声明：系统自动脱敏邮箱/电话/链接，不含客户明细、报价与密码）");
+
+    return {
+      category: cat,
+      message: msgSafe,
+      context: {
+        activeTool: tool,
+        activeCountry: country,
+        prodProfile: profile,
+        viewport: viewport,
+        isWeChat: isWx,
+        envTag: envTag,
+        appVersion: ver,
+        lastError: errClean,
+        timestamp: ts
+      },
+      cardText: lines.join("\n")
+    };
+  }
+
   return {
     escHtml: escHtml,
     extractCleanDomain: extractCleanDomain,
@@ -2286,7 +2844,16 @@
     evaluateCountryContactTiming: evaluateCountryContactTiming,
     getUpcomingGlobalTradeAlerts: getUpcomingGlobalTradeAlerts,
     auditColdEmailDeliverability: auditColdEmailDeliverability,
-    parseSmartBusinessCard: parseSmartBusinessCard
+    parseSmartBusinessCard: parseSmartBusinessCard,
+    COUNTRY_CITIES: COUNTRY_CITIES,
+    getCountryCities: getCountryCities,
+    resolveCityInput: resolveCityInput,
+    BUYER_TYPE_PRESETS: BUYER_TYPE_PRESETS,
+    composeMapSearchKeyword: composeMapSearchKeyword,
+    getOsmExpansionTerms: getOsmExpansionTerms,
+    buildPersonalWeeklyBrief: buildPersonalWeeklyBrief,
+    redactPii: redactPii,
+    buildSanitizedFeedbackCard: buildSanitizedFeedbackCard
   };
 });
 

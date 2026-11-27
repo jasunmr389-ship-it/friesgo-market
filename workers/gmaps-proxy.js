@@ -24,7 +24,10 @@ const DEFAULT_WARN_INFO = 700;
 const DEFAULT_WARN_HIGH = 900;
 const DEFAULT_HARD_CAP = 950;
 
+// Google Maps Platform Terms Section 3.2.3: places.id (Place ID) is exempt from non-caching restrictions;
+// all other Places fields are display-only in the frontend and never bulk-exported or copied into CRM.
 const FIELD_MASK = [
+  "places.id",
   "places.displayName",
   "places.formattedAddress",
   "places.internationalPhoneNumber",
@@ -368,6 +371,10 @@ export default {
 function jsonResp(obj, status = 200, corsHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate, private",
+    },
   });
 }
