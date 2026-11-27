@@ -947,6 +947,10 @@
     if (!v) return 0;
     if (typeof v === "number") return v;
     var s = String(v).trim().replace(" ", "T");
+    // Naive timestamps in FriesGo local history are formatted in Beijing Time (UTC+8); anchor them so merges are timezone-invariant (UTC vs UTC+8).
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+      s += "+08:00";
+    }
     var t = Date.parse(s);
     return Number.isFinite(t) ? t : 0;
   }
@@ -1029,9 +1033,17 @@
         if (!prev) {
           tlMap.set(item.tlId, Object.assign({}, item));
         } else {
-          var prevMs = parseTsMs(prev.editedAt || prev.ts || prev.at);
-          var curMs = parseTsMs(item.editedAt || item.ts || item.at);
-          if (curMs >= prevMs) tlMap.set(item.tlId, Object.assign({}, prev, item));
+          var prevHasEdit = Boolean(prev.editedAt);
+          var curHasEdit = Boolean(item.editedAt);
+          if (curHasEdit && !prevHasEdit) {
+            tlMap.set(item.tlId, Object.assign({}, prev, item));
+          } else if (prevHasEdit && !curHasEdit) {
+            // Keep existing edited entry
+          } else {
+            var prevMs = parseTsMs(prev.editedAt || prev.ts || prev.at);
+            var curMs = parseTsMs(item.editedAt || item.ts || item.at);
+            if (curMs >= prevMs) tlMap.set(item.tlId, Object.assign({}, prev, item));
+          }
         }
       });
     });
