@@ -132,6 +132,11 @@ export function redactPii(str) {
   if (!s) return "";
   s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[已脱敏邮箱]");
   s = s.replace(/https?:\/\/[^\s<>'"]+/gi, "[已脱敏链接]");
+  s = s.replace(/\b(?:AIza[0-9A-Za-z_-]{16,}|sk-[0-9A-Za-z_-]{12,}|ghp_[0-9A-Za-z]{16,}|Bearer\s+[A-Za-z0-9._-]{10,})\b/gi, "[已脱敏凭证]");
+  s = s.replace(/(密码|口令|密钥|password|passwd|pwd|secret|token|api[_\s-]?key)(\s*[:：=\s]\s*)([^\s,，;；。\n'"<>]{2,64})/gi, "$1$2[已脱敏凭证]");
+  s = s.replace(/(?:报价|单价|总价|价格|金额|FOB|CIF)\s*[:：]?\s*(?:US\$|USD|EUR|RMB|CNY|GBP|\$|¥|€)?\s*\d[\d,]*(?:\.\d+)?(?:\s*(?:USD|EUR|RMB|CNY|美元|元|万))?/gi, "[已脱敏金额]");
+  s = s.replace(/(?:US\$|USD|EUR|RMB|CNY|GBP)\s*\d[\d,]*(?:\.\d+)?/gi, "[已脱敏金额]");
+  s = s.replace(/(?:[$¥€£])\s*\d[\d,]*(?:\.\d+)?/g, "[已脱敏金额]");
   s = s.replace(/(?:\+?\d[\d\s().-]{6,}\d)/g, "[已脱敏号码]");
   return s;
 }

@@ -1260,6 +1260,9 @@
         var catEl = document.getElementById("fbCategory");
         var rawMsg = (msgEl ? msgEl.value : "").trim();
         if (!rawMsg) { toast("请先用一句话写下问题或建议"); return; }
+        if (typeof global._checkFeedbackPrivacyGuard === "function" && !global._checkFeedbackPrivacyGuard()) {
+          return;
+        }
         global.FG_CLOUD.submitCloudFeedback({
           category: catEl ? catEl.value : "新功能建议",
           content: rawMsg,

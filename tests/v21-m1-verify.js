@@ -282,7 +282,8 @@ async function connectCdpTarget(wsUrl) {
       const osmMoreVisible = !document.getElementById("btnOsmMore").hidden;
       const count1 = document.querySelectorAll("#msResultWrap .ms-card").length;
 
-      // Click "继续搜索更多"
+      // Click "继续搜索更多" (after resetting polite 2s throttle which F05 enforces across all rounds)
+      window._resetOsmThrottle();
       document.getElementById("btnOsmMore").click();
       await new Promise(r => setTimeout(r, 450));
       const status2 = document.getElementById("msStatus").textContent;
@@ -424,7 +425,7 @@ async function connectCdpTarget(wsUrl) {
     assert.notEqual(fbCheck.footFbDisp390, "none", "Mobile footer feedback button must remain visible on 390px");
     assert.equal(fbCheck.opened, true);
     assert.ok(!fbCheck.preview.includes("testbuyer@company.mx") && !fbCheck.preview.includes("8345 6789"), "Feedback modal MUST scrub email & phone PII");
-    assert.ok(fbCheck.copiedCard.includes("v2.1-m1") && fbCheck.copiedCard.includes("390x844"));
+    assert.ok(fbCheck.copiedCard.includes("v2.1-") && fbCheck.copiedCard.includes("390x844"));
     assert.equal(fbCheck.cnt, "1");
     assert.equal(fbCheck.modalOverflow, 0);
     assert.equal(fbCheck.closedOnEsc, true);

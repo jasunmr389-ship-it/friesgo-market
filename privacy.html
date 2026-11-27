@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隐私政策 (Privacy Policy) · FriesGo Global 工业品外贸工作台</title>
+<style>
+  :root{--bg:#FAF6F0;--surface:#FFFFFF;--ink:#231811;--muted:#6B5749;--brown:#4A2E1B;--orange:#D96B27;--line:#E8DDD0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:24px 16px 48px}
+  .wrap{max-width:820px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 24px;box-shadow:0 8px 24px rgba(74,46,27,.06)}
+  h1{margin:0 0 6px;font-size:24px;color:var(--brown)}
+  .meta{font-size:13px;color:var(--muted);margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+  h2{font-size:17px;color:var(--brown);margin:22px 0 8px}
+  p,li{margin:6px 0}
+  ul{padding-left:20px}
+  a{color:var(--orange);font-weight:700;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .box{background:#FFF8F1;border:1px solid #F0D4BC;border-radius:10px;padding:12px 14px;margin:12px 0;font-size:14px}
+  .nav-top{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:13.5px}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="nav-top">
+    <a href="./index.html">← 返回 FriesGo Global 工作台</a>
+    <span>｜</span>
+    <a href="./terms.html">查看服务条款 (Terms of Service)</a>
+  </div>
+  <h1>FriesGo Global 隐私政策（Privacy Policy）</h1>
+  <div class="meta">生效与核查日期：2026-11-27（UTC+8）｜适用站点：FriesGo Global 工业品外贸工作台</div>
+
+  <h2>1. 概览：访客本地存储与公司云端存储严格隔离</h2>
+  <p>我们坚持最小权限与数据隔离原则，区分处理访客本地数据与公司内部员工云端数据：</p>
+  <ul>
+    <li><b>外部访客（未登录）：</b>您在报价计算、开发信生成、本地客户草稿或本机反馈记录中填写的内容仅保存在您当前浏览器的 <code>localStorage</code> 与 <code>IndexedDB</code> 中。FriesGo 后端服务器不会收集或读取外部访客的本地业务数据。</li>
+    <li><b>内部员工（已认证登录）：</b>经公司管理员开通独立账号并登录后，团队共享的企业线索、跟进记录、防撞单锁、报价记录、审核日志与云端共创反馈将加密传输（HTTPS）并存储在公司独立的 Cloudflare D1 数据库中，所有私密接口响应均标记 <code>Cache-Control: no-store</code>。</li>
+  </ul>
+
+  <h2>2. 认证凭据与密钥的保管方式</h2>
+  <ul>
+    <li><b>员工密码与 2FA：</b>服务端采用 PBKDF2-HMAC-SHA256（100,000 次迭代 + 独立随机盐 + 服务端 Pepper）单向派生保存，绝不保存明文密码；管理员 TOTP 2FA 密钥使用 AES-256-GCM 加密存储，应急恢复码仅保存单向哈希。</li>
+    <li><b>登录会话与退出清理：</b>浏览器仅在员工登录后于当前设备保存临时 Bearer 会话令牌；主动退出、密码重置或账号被管理员禁用后，系统立即失效服务端会话并清除本机私有云端缓存与离线待传队列。</li>
+    <li><b>个人直连 API Key：</b>若您主动在地图配置区填写个人 Google API Key 或自定义代理口令，该凭据仅保存在您当前浏览器的 <code>localStorage</code>，不会上传至 FriesGo 静态页面仓库；请在公共电脑使用后及时清除。</li>
+  </ul>
+
+  <h2>3. 外部第三方服务与数据流向（含 Google Privacy Policy）</h2>
+  <div class="box">
+    <b>Google Maps / Google Places 隐私声明：</b>当您使用本工作台的 Google Maps 找客功能时，您的搜索词、城市或地理范围查询将经由公司认证代理或直连方式发送至 Google Maps Platform 接口。使用该功能即表示您知悉并受
+    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google 隐私政策（Google Privacy Policy）</a>
+    以及
+    <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer">Google Maps / Google Earth 附加服务条款</a>
+    约束。
+  </div>
+  <p>根据您主动点击的功能，浏览器或服务端可能向以下第三方公开接口发起必要请求：</p>
+  <ul>
+    <li><b>Google Maps Platform Places API：</b>仅在您点击 Google 地图找客时发送检索查询；不缓存或导出 Google 原始客户字段。</li>
+    <li><b>OpenStreetMap（Overpass API / Photon / Nominatim）：</b>仅在您使用开源地图找客时发送城市坐标与工业关键词查询。</li>
+    <li><b>Cloudflare DNS-over-HTTPS（DoH）：</b>仅在您点击邮箱域 MX 核验时查询目标企业域名是否存在邮件交换记录（不发送个人邮箱账号）。</li>
+    <li><b>GLEIF / ExchangeRate / 世界银行 / GDACS：</b>仅用于公开企业 LEI 核查、参考汇率及公开商机数据拉取。</li>
+  </ul>
+
+  <h2>4. 反馈卡片与诊断上下文边界</h2>
+  <p>「反馈/提建议」功能自动附带的诊断上下文采用严格白名单，仅记录当前页面模块名、当前选定品类/国家、视口尺寸、浏览器类型、版本号、时间戳（UTC+8）与经脱敏处理的最近一条前端报错，<b>绝不自动读取客户库或报价明细</b>。您在自由文本框中输入的内容会做基础自动脱敏（邮箱、号码、链接、常见口令/密钥格式与金额），但技术手段无法保证 100% 识别所有自然语言中的人名或公司名，发送前请您人工复核。</p>
+
+  <h2>5. 数据保留、导出与删除</h2>
+  <ul>
+    <li><b>本机数据：</b>您可随时通过工作台内的 JSON 导出/清空按钮或浏览器清除站点数据功能删除本地存储。</li>
+    <li><b>公司云端数据：</b>内部员工账号权限调整、离职禁用、设备踢下线、数据备份导出或合规删除请求，均由公司最高管理员（<code>super_admin</code>）在管理后台操作并写入不可篡改的审计日志。</li>
+  </ul>
+</main>
+</body>
+</html>

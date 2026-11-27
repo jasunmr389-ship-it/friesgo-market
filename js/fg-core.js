@@ -1702,16 +1702,16 @@
 
   var COUNTRY_TRADE_PROFILES = {
     "Vietnam": { tz: "Asia/Ho_Chi_Minh", hubCn: "胡志明/河内", workWeek: "mon_fri", lunch: [11.5, 13.5], groups: ["tet_cny"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI / DIN", cert: "CR认证 · Form E/RCEP" },
-    "Indonesia": { tz: "Asia/Jakarta", hubCn: "雅加达(西印尼)", workWeek: "mon_fri_jummah", lunch: [12, 13], groups: ["islamic"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI", cert: "SNI 强制认证 · Form E" },
-    "Thailand": { tz: "Asia/Bangkok", hubCn: "曼谷/罗勇", workWeek: "mon_fri", lunch: [12, 13], groups: ["songkran"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI", cert: "TISI 强制认证 · Form E" },
+    "Indonesia": { tz: "Asia/Jakarta", hubCn: "雅加达(西印尼)", workWeek: "mon_fri_jummah", lunch: [12, 13], groups: ["islamic"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI", cert: "SNI (受管制HS适用) · Form E" },
+    "Thailand": { tz: "Asia/Bangkok", hubCn: "曼谷/罗勇", workWeek: "mon_fri", lunch: [12, 13], groups: ["songkran"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI", cert: "TISI (受管制HS适用) · Form E" },
     "Malaysia": { tz: "Asia/Kuala_Lumpur", hubCn: "吉隆坡/巴生", workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic", "tet_cny"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI / JIS", cert: "SIRIM · Form E" },
     "Philippines": { tz: "Asia/Manila", hubCn: "马尼拉", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "BPS (ICC) · Form E" },
     "Singapore": { tz: "Asia/Singapore", hubCn: "裕廊工业区", workWeek: "mon_fri", lunch: [12, 13], groups: ["tet_cny"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / EN / ANSI", cert: "CPS / SS 标准" },
     "Cambodia": { tz: "Asia/Phnom_Penh", hubCn: "金边/西港", workWeek: "mon_fri", lunch: [12, 13.5], groups: ["songkran"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "DIN / JIS / 国标", cert: "ISC · Form E" },
-    "India": { tz: "Asia/Kolkata", hubCn: "孟买/浦那(UTC+5:30)", workWeek: "mon_fri", lunch: [13, 14], groups: ["diwali"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI / IS", cert: "BIS 强制认证(涉钢/机电)" },
+    "India": { tz: "Asia/Kolkata", hubCn: "孟买/浦那(UTC+5:30)", workWeek: "mon_fri", lunch: [13, 14], groups: ["diwali"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI / IS", cert: "BIS (涉钢/机电管制目录适用)" },
     "Pakistan": { tz: "Asia/Karachi", hubCn: "卡拉奇/拉合尔", workWeek: "mon_fri_jummah", lunch: [13, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI", cert: "PSQCA · 中巴FTA" },
     "Bangladesh": { tz: "Asia/Dhaka", hubCn: "达卡/吉大港", workWeek: "sun_thu", lunch: [13, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI", cert: "BSTI · 信用证L/C审单严" },
-    "Saudi Arabia": { tz: "Asia/Riyadh", hubCn: "利雅得/达曼", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "380V/400V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / API 美标", cert: "SABER (SALEEM) 强制清关" },
+    "Saudi Arabia": { tz: "Asia/Riyadh", hubCn: "利雅得/达曼", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "380V/400V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / API 美标", cert: "SABER (SALEEM 管制目录/SCoC按HS核查)" },
     "United Arab Emirates": { tz: "Asia/Dubai", hubCn: "迪拜/杰贝阿里", workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / EN / ANSI", cert: "ECAS / MOIAT" },
     "Qatar": { tz: "Asia/Qatar", hubCn: "多哈", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI / API", cert: "QS 标准 · 原产地证使馆认证" },
     "Kuwait": { tz: "Asia/Kuwait", hubCn: "科威特城", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "ANSI / API / BS", cert: "KUCAS (TER/TIR)" },
@@ -1719,14 +1719,14 @@
     "Iraq": { tz: "Asia/Baghdad", hubCn: "巴格达/巴士拉", workWeek: "sun_thu", lunch: [12.5, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "ANSI / API / DIN", cert: "COC 装船前检验(BV/SGS)" },
     "Egypt": { tz: "Africa/Cairo", hubCn: "开罗/十月城", workWeek: "sun_thu", lunch: [13, 14], groups: ["islamic"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "DIN / EN / ANSI", cert: "ACID 预登记 + GOEIC/COC" },
     "Algeria": { tz: "Africa/Algiers", hubCn: "阿尔及尔", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "EN / DIN 法标欧标", cert: "COC 符合性证书 + 银行交单" },
-    "Morocco": { tz: "Africa/Casablanca", hubCn: "卡萨布兰卡/丹吉尔", workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "EN / NF 欧标法标", cert: "CMim 强制标志 + VOC" },
+    "Morocco": { tz: "Africa/Casablanca", hubCn: "卡萨布兰卡/丹吉尔", workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "EN / NF 欧标法标", cert: "CMim (管制目录适用) + VOC" },
     "Israel": { tz: "Asia/Jerusalem", hubCn: "海法/特拉维夫", workWeek: "sun_thu", lunch: [12.5, 13.5], groups: [], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "EN / ANSI", cert: "SII 标准认证" },
     "Turkey (Türkiye)": { tz: "Europe/Istanbul", hubCn: "伊斯坦布尔", workWeek: "mon_fri_jummah", lunch: [12, 13.5], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "DIN / EN 欧标", cert: "CE + TAREKS 进口核查" },
-    "Mexico": { tz: "America/Monterrey", hubCn: "蒙特雷/墨西哥城", workWeek: "mon_fri", lunch: [13.5, 15], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "NOM 强制认证 + 西语铭牌" },
+    "Mexico": { tz: "America/Monterrey", hubCn: "蒙特雷/墨西哥城", workWeek: "mon_fri", lunch: [13.5, 15], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "NOM (适用管制HS) + 西语铭牌" },
     "Brazil": { tz: "America/Sao_Paulo", hubCn: "圣保罗", workWeek: "mon_fri", lunch: [12, 13.5], groups: ["xmas_ny", "br_carnival"], voltage: "220V/380V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / ABNT", cert: "INMETRO + CNPJ 税号必填提单" },
     "Chile": { tz: "America/Santiago", hubCn: "圣地亚哥/安托法加斯塔", workWeek: "mon_fri", lunch: [13, 14.5], groups: ["xmas_ny", "semana_santa"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "ANSI / ASME 美标", cert: "SEC 认证 · 中智FTA(Form F)" },
     "Peru": { tz: "America/Lima", hubCn: "利马/卡亚俄", workWeek: "mon_fri", lunch: [13, 14.5], groups: ["xmas_ny", "semana_santa"], voltage: "220V/380V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "中秘FTA原产地证降税" },
-    "Colombia": { tz: "America/Bogota", hubCn: "波哥大/麦德林", workWeek: "mon_fri", lunch: [12.5, 14], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "RETIE (电气电缆强制)" },
+    "Colombia": { tz: "America/Bogota", hubCn: "波哥大/麦德林", workWeek: "mon_fri", lunch: [12.5, 14], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "RETIE (电气/线缆类适用)" },
     "Argentina": { tz: "America/Argentina/Buenos_Aires", hubCn: "布宜诺斯艾利斯", workWeek: "mon_fri", lunch: [13, 14.5], groups: ["xmas_ny", "semana_santa"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "ANSI / IRAM", cert: "IRAM 认证 · 严控外汇付款期" },
     "United States": { tz: "America/Chicago", hubCn: "休斯顿(美中工业带)", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny"], voltage: "460V/480V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / API / NPT", cert: "UL / ASME · 注意301/232关税" },
     "Canada": { tz: "America/Toronto", hubCn: "多伦多/卡尔加里", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny"], voltage: "575V/600V(注意高压!) · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / CSA", cert: "CSA / cUL + CRN(压力容器/阀门)" },
@@ -2711,19 +2711,36 @@
     return basePool.slice(0, 6);
   }
 
+  function parseFlexibleTsMs(v) {
+    if (typeof v === "number" && isFinite(v) && v > 0) return v;
+    if (!v) return 0;
+    var s = String(v).trim();
+    if (!s) return 0;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Date.parse(s + "T12:00:00Z") || 0;
+    var p = Date.parse(s);
+    return isNaN(p) ? 0 : p;
+  }
+
   function buildPersonalWeeklyBrief(crmLeads, todayIso) {
     var today = todayIso || new Date().toISOString().slice(0, 10);
     var fn = computeWeeklyFunnel(crmLeads, today);
     var active = (Array.isArray(crmLeads) ? crmLeads : []).filter(function (l) { return l && !l.deletedAt; });
     var tMs = Date.parse(today + "T23:59:59Z");
     var sevenDaysAgoMs = isNaN(tMs) ? 0 : (tMs - 7 * 86400000);
-    var added7d = 0, dueToday = 0, overdue = 0;
+    var added7d = 0, newCreated7d = 0, updatedOnly7d = 0, dueToday = 0, overdue = 0;
     var stageMap = Object.create(null);
     active.forEach(function (l) {
       var stg = l.stage || "待开发";
       stageMap[stg] = (stageMap[stg] || 0) + 1;
-      var crMs = l.createdAt || (l.updated ? Date.parse(String(l.updated).slice(0, 10) + "T12:00:00Z") : 0);
-      if (crMs && crMs >= sevenDaysAgoMs) added7d++;
+      var crMs = parseFlexibleTsMs(l.createdAt);
+      var upMs = Math.max(parseFlexibleTsMs(l.updated), parseFlexibleTsMs(l.updatedAt));
+      var latestRecordMs = Math.max(crMs, upMs);
+      var inWindow = !!(latestRecordMs && latestRecordMs >= sevenDaysAgoMs && (isNaN(tMs) || latestRecordMs <= tMs + 86400000));
+      if (inWindow) {
+        added7d++;
+        if (crMs && crMs >= sevenDaysAgoMs) newCreated7d++;
+        else updatedOnly7d++;
+      }
       if (l.nextDate) {
         if (l.nextDate < today) overdue++;
         else if (l.nextDate === today) dueToday++;
@@ -2732,34 +2749,178 @@
     var topStages = Object.keys(stageMap).map(function (k) { return k + " " + stageMap[k]; }).slice(0, 5).join(" / ");
     var lines = [
       "📊 FriesGo 个人本周外贸跟进简报（" + today + "）",
-      "• 在库活跃客户：" + fn.totalActive + " 家（近 7 天新增/更新 " + added7d + " 家）",
+      "• 在库活跃客户：" + fn.totalActive + " 家（近 7 天新增/更新 " + added7d + " 家，含新录入 " + newCreated7d + " 家 / 旧档案更新 " + updatedOnly7d + " 家）",
       "• 近 7 天有效跟进触达：" + fn.touched7d + " 家",
       "• 背调通过可正式报价：" + fn.ddApproved + " 家 ｜ 已出正式/参考报价：" + fn.quotedCount + " 家",
       "• 样品 / 谈判 / 成交推进：" + fn.highIntentOrWon + " 家" + (fn.lostCount ? (" ｜ 归档流失：" + fn.lostCount + " 家") : ""),
       "• 待办提醒：今日到期 " + dueToday + " 家 / 逾期 " + overdue + " 家",
       topStages ? ("• 阶段分布：" + topStages) : "• 阶段分布：暂无在库客户",
-      "（注：仅统计本机浏览器中真实录入的客户与跟进记录，无虚构数据）"
+      "（注：仅统计本机浏览器中真实录入的客户与跟进记录，档案修改不等同有效触达，无虚构数据）"
     ];
     return {
       text: lines.join("\n"),
       funnel: fn,
       added7d: added7d,
+      newCreated7d: newCreated7d,
+      updatedOnly7d: updatedOnly7d,
       dueToday: dueToday,
       overdue: overdue
     };
   }
 
-  /* ===== V2.1 M1: Strict PII-Sanitized Feedback Card Builder ===== */
+  /* ===== V2.1 M1 F07: Product-Aware Voltage / Frequency / Pipe / Cert Relevance Classifier ===== */
+  function classifyProductSpecRelevance(productName, prodProfileId) {
+    var raw = String(productName || "").trim();
+    var prof = String(prodProfileId || "all").trim().toLowerCase();
+    var text = raw.toLowerCase();
+
+    var explicitNonMotor = /\b(no\s+motor|without\s+motor|non[-\s]?electric|manual|handwheel|hand[-\s]?operated|lever[-\s]?operated|gear[-\s]?operated|mechanical\s+only)\b|手动|无电机|不含电机|非电动|纯机械/i.test(raw);
+    var hasMotorCue = /\b(pump|pumps|motor|motors|compressor|generator|genset|fan|blower|chiller|hvac|crane|hoist|conveyor|mixer|agitator|electric\s+actuat|motorized|cnc|lathe|machin(e|ery)|welding\s+machine|inverter|vfd|transformer|submersible|centrifugal)\b|水泵|离心泵|潜水泵|泥浆泵|泵站|电机|马达|压缩机|发电机|风机|电动执行器|电动阀|变压器|变频器|机床|焊机|机械设备/i.test(raw);
+    var hasElectricCue = /\b(cable|wire|switchgear|panel|breaker|solar|pv|lighting|led|sensor|plc|socket|plug|busbar|conductor|power\s+line|electrical|armored|xlpe)\b|电缆|电线|配电柜|开关柜|断路器|光伏|灯具|线缆|电气|母线/i.test(raw);
+    var hasPipeValveCue = /\b(valve|valves|flange|pipe|piping|fitting|elbow|tee|reducer|gasket|coupling|manifold|hydrant|strainer|actuator)\b|阀|法兰|管件|管道|钢管|弯头/i.test(raw);
+    var hasStructFastenerCue = /\b(bolt|nut|screw|washer|fastener|anchor|steel\s+structure|h-beam|i-beam|rebar|coil|plate|sheet|wire\s+mesh|scaffolding|grating|hardware)\b|紧固件|螺栓|螺母|钢结构|钢板|型钢|脚手架|五金/i.test(raw);
+
+    if (hasMotorCue && !explicitNonMotor) {
+      return {
+        kind: "motor_electric",
+        motorSensitive: true,
+        electricalRelevant: true,
+        pipeRelevant: hasPipeValveCue || prof === "pump_valve",
+        showPipeStd: hasPipeValveCue || prof === "pump_valve" || !raw
+      };
+    }
+    if (explicitNonMotor || (hasPipeValveCue && !hasMotorCue && !hasElectricCue)) {
+      return {
+        kind: "manual_mechanical_pipe",
+        motorSensitive: false,
+        electricalRelevant: false,
+        pipeRelevant: true,
+        showPipeStd: true
+      };
+    }
+    if (hasElectricCue) {
+      return {
+        kind: "electrical_non_motor",
+        motorSensitive: false,
+        electricalRelevant: true,
+        pipeRelevant: false,
+        showPipeStd: false
+      };
+    }
+    if (hasStructFastenerCue) {
+      return {
+        kind: "structural_hardware",
+        motorSensitive: false,
+        electricalRelevant: false,
+        pipeRelevant: false,
+        showPipeStd: false
+      };
+    }
+    // Fallback to selected global product profile only when product text is blank or generic
+    if (prof === "pump_valve" || prof === "machinery" || prof === "agri_solar") {
+      return {
+        kind: "motor_electric",
+        motorSensitive: true,
+        electricalRelevant: true,
+        pipeRelevant: prof === "pump_valve",
+        showPipeStd: prof === "pump_valve"
+      };
+    }
+    if (prof === "electric") {
+      return {
+        kind: "electrical_non_motor",
+        motorSensitive: false,
+        electricalRelevant: true,
+        pipeRelevant: false,
+        showPipeStd: false
+      };
+    }
+    if (prof === "steel_fastener") {
+      return {
+        kind: "structural_hardware",
+        motorSensitive: false,
+        electricalRelevant: false,
+        pipeRelevant: false,
+        showPipeStd: false
+      };
+    }
+    return {
+      kind: "general_industrial",
+      motorSensitive: false,
+      electricalRelevant: false,
+      pipeRelevant: false,
+      showPipeStd: true
+    };
+  }
+
+  /* ===== V2.1 M1 F02/F11: Hardened PII-Sanitized Feedback Card Builder + Risk Detector ===== */
+  function formatUtc8Timestamp(dateObj) {
+    var d = dateObj instanceof Date ? dateObj : new Date();
+    var utc8 = new Date(d.getTime() + 8 * 3600000);
+    return utc8.toISOString().slice(0, 16).replace("T", " ") + " (UTC+8)";
+  }
+
   function redactPii(str) {
     var s = String(str || "");
     if (!s) return "";
-    // Redact email addresses
+    // 1. Redact email addresses
     s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[已脱敏邮箱]");
-    // Redact URLs with path/query (keep nothing sensitive)
+    // 2. Redact URLs (including query params / tokens)
     s = s.replace(/https?:\/\/[^\s<>'"]+/gi, "[已脱敏链接]");
-    // Redact phone / long numeric identifiers (>= 7 digits with optional separators)
+    // 3. Redact recognizable API keys / Bearer tokens
+    s = s.replace(/\b(?:AIza[0-9A-Za-z_-]{16,}|sk-[0-9A-Za-z_-]{12,}|ghp_[0-9A-Za-z]{16,}|Bearer\s+[A-Za-z0-9._-]{10,})\b/gi, "[已脱敏凭证]");
+    // 4. Redact labeled passwords / secrets / tokens (Chinese & English)
+    s = s.replace(/(密码|口令|密钥|password|passwd|pwd|secret|token|api[_\s-]?key)(\s*[:：=\s]\s*)([^\s,，;；。\n'"<>]{2,64})/gi, "$1$2[已脱敏凭证]");
+    // 5. Redact labeled quote prices & explicit currency amounts
+    s = s.replace(/(?:报价|单价|总价|价格|金额|FOB|CIF)\s*[:：]?\s*(?:US\$|USD|EUR|RMB|CNY|GBP|\$|¥|€)?\s*\d[\d,]*(?:\.\d+)?(?:\s*(?:USD|EUR|RMB|CNY|美元|元|万))?/gi, "[已脱敏金额]");
+    s = s.replace(/(?:US\$|USD|EUR|RMB|CNY|GBP)\s*\d[\d,]*(?:\.\d+)?/gi, "[已脱敏金额]");
+    s = s.replace(/(?:[$¥€£])\s*\d[\d,]*(?:\.\d+)?/g, "[已脱敏金额]");
+    // 6. Redact phone / long numeric identifiers (>= 7 digits with optional separators)
     s = s.replace(/(?:\+?\d[\d\s().-]{6,}\d)/g, "[已脱敏号码]");
     return s;
+  }
+
+  var GENERIC_CLIENT_WORDS_RE = /^客户(?:名|名称|列表|跟进|档案|背调|公海|信息|邮箱|电话|反馈|开发|管理|数据|库|卡|数|量|端|群|经理|类型|标签|阶段|提醒|记录|搜索|找客|查重|去重|迁移|迁入)/;
+
+  function detectFeedbackSensitiveRisks(rawText) {
+    var raw = String(rawText || "");
+    var reasons = [];
+    var unredactedHints = [];
+    if (!raw.trim()) {
+      return { hasRisk: false, requiresManualReview: false, reasons: [], unredactedHints: [] };
+    }
+    var hasCred = /(密码|口令|密钥|password|passwd|pwd|secret|token|api[_\s-]?key)\s*[:：=\s]\s*[^\s,，;；。\n]{2,}|\b(?:AIza[0-9A-Za-z_-]{16,}|sk-[0-9A-Za-z_-]{12,}|Bearer\s+[A-Za-z0-9._-]{10,})/i.test(raw);
+    if (hasCred) reasons.push("密码/口令/密钥（预览已自动遮蔽为[已脱敏凭证]，仍建议删去原句）");
+
+    var hasAmount = /(?:报价|单价|总价|价格|金额|FOB|CIF)\s*[:：]?\s*(?:US\$|USD|EUR|RMB|CNY|GBP|\$|¥|€)?\s*\d[\d,]*(?:\.\d+)?|(?:US\$|USD|EUR|RMB|CNY|GBP|\$|¥|€)\s*\d[\d,]*(?:\.\d+)?/i.test(raw);
+    if (hasAmount) reasons.push("报价/金额数字（预览已自动遮蔽为[已脱敏金额]）");
+
+    // Detect Chinese / English company entities (cannot be 100% auto-anonymized safely)
+    var compMatches = raw.match(/[\u4e00-\u9fffA-Za-z0-9·&()-]{2,24}(?:有限公司|股份公司|有限责任公司|贸易公司|工业公司|实业公司|集团公司)|\b[A-Z][A-Za-z0-9&.-]{1,24}(?:\s+[A-Z][A-Za-z0-9&.-]{1,24}){0,4}\s+(?:Co\.?,?\s*Ltd\.?|LLC|Inc\.?|Corp\.?|GmbH|S\.A\.|S\.A\.\s*de\s*C\.V\.|Pte\.?\s*Ltd\.?)\b/g);
+    if (compMatches && compMatches.length) {
+      reasons.push("疑似公司名称（无法自动 100% 脱敏，请手动删除）");
+      unredactedHints.push(compMatches[0]);
+    }
+
+    // Detect explicit person/customer name mentions (excluding generic UI phrases like "客户名/客户列表")
+    var personRe = /(?:客户|联系人|买家|采购(?:员|经理)?)\s*[:：]?\s*([\u4e00-\u9fff]{2,4}|[A-Z][a-z]{2,15}(?:\s+[A-Z][a-z]{2,15})?)/g;
+    var pm;
+    while ((pm = personRe.exec(raw)) !== null) {
+      var fullHit = pm[0];
+      if (!GENERIC_CLIENT_WORDS_RE.test(fullHit)) {
+        reasons.push("疑似客户/联系人姓名（无法自动 100% 脱敏，请手动删除）");
+        unredactedHints.push(fullHit);
+        break;
+      }
+    }
+
+    var requiresManualReview = unredactedHints.length > 0;
+    return {
+      hasRisk: reasons.length > 0,
+      requiresManualReview: requiresManualReview,
+      reasons: reasons,
+      unredactedHints: unredactedHints
+    };
   }
 
   function buildSanitizedFeedbackCard(input) {
@@ -2767,20 +2928,21 @@
     var cat = String(inp.category || "使用建议").trim().slice(0, 24);
     var msgRaw = String(inp.message || "").trim().slice(0, 600);
     var msgSafe = redactPii(msgRaw);
+    var sensitiveRisks = detectFeedbackSensitiveRisks(msgRaw);
     var tool = String(inp.activeTool || "home-workspace").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff ()（）·]/g, "").slice(0, 48);
     var country = String(inp.activeCountry || "未选定").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff ()（）]/g, "").slice(0, 36);
     var profile = String(inp.prodProfile || "all").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff ·]/g, "").slice(0, 36);
     var viewport = String(inp.viewport || "unknown").replace(/[^0-9x× ]/g, "").slice(0, 20);
     var isWx = !!inp.isWeChat;
     var envTag = isWx ? "微信内置浏览器" : String(inp.envLabel || "标准浏览器").replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff /]/g, "").slice(0, 24);
-    var ver = String(inp.appVersion || "v2.1-m1").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 24);
+    var ver = String(inp.appVersion || "v2.1-m2a").replace(/[^a-zA-Z0-9._+-]/g, "").slice(0, 32);
     var errClean = redactPii(String(inp.lastError || "").trim()).slice(0, 140);
-    var ts = String(inp.timestamp || new Date().toISOString().slice(0, 16).replace("T", " "));
+    var ts = String(inp.timestamp || formatUtc8Timestamp(new Date()));
 
     var lines = [
       "【FriesGo 工作台改进反馈】",
       "• 类型：" + cat,
-      "• 反馈内容：" + (msgSafe || "（未填写文字）"),
+      "• 反馈内容（自由文本·发送前请人工复核）：" + (msgSafe || "（未填写文字）"),
       "• 所在页面：" + tool + " ｜ 品类：" + profile + " ｜ 国家：" + country,
       "• 设备环境：" + envTag + " ｜ 视口：" + viewport + " ｜ 版本：" + ver,
       "• 记录时间：" + ts
@@ -2788,11 +2950,12 @@
     if (errClean) {
       lines.push("• 最近前端异常（已脱敏）：" + errClean);
     }
-    lines.push("（安全声明：系统自动脱敏邮箱/电话/链接，不含客户明细、报价与密码）");
+    lines.push("（隐私提示：自动上下文仅含白名单页面/环境信息，不读取客户库；自由文本已自动脱敏邮箱/号码/链接/凭证/金额，但无法保证覆盖全部自然语言人名或公司名，发送前请人工复核）");
 
     return {
       category: cat,
       message: msgSafe,
+      sensitiveRisks: sensitiveRisks,
       context: {
         activeTool: tool,
         activeCountry: country,
@@ -2852,7 +3015,10 @@
     composeMapSearchKeyword: composeMapSearchKeyword,
     getOsmExpansionTerms: getOsmExpansionTerms,
     buildPersonalWeeklyBrief: buildPersonalWeeklyBrief,
+    classifyProductSpecRelevance: classifyProductSpecRelevance,
+    formatUtc8Timestamp: formatUtc8Timestamp,
     redactPii: redactPii,
+    detectFeedbackSensitiveRisks: detectFeedbackSensitiveRisks,
     buildSanitizedFeedbackCard: buildSanitizedFeedbackCard
   };
 });

@@ -942,10 +942,10 @@ Best regards,
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px">
-        <div id="msCityChips" class="ms-city-chips" style="margin-top:0;flex:1 1 260px" aria-label="重点工业与港口城市快捷切换"></div>
-        <label style="font-size:12px;font-weight:700;color:var(--muted);display:inline-flex;align-items:center;gap:6px;white-space:nowrap">
-          OSM 真实扫描半径：
-          <select id="msRadius" style="min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px">
+        <div id="msCityChips" class="ms-city-chips" style="margin-top:0;flex:1 1 220px;min-width:0;max-width:100%" aria-label="重点工业与港口城市快捷切换"></div>
+        <label style="font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:100%;min-width:0">
+          <span>OSM 真实扫描半径：</span>
+          <select id="msRadius" style="min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px;max-width:100%;min-width:0">
             <option value="15000">周边 15 km（核心工业区）</option>
             <option value="30000" selected>周边 30 km（整城覆盖）</option>
             <option value="60000">周边 60 km（大都会工业带）</option>
@@ -954,23 +954,24 @@ Best regards,
       </div>
 
       <div id="gmapsCfgBox" hidden style="margin-top:12px;padding:12px;border:1px dashed var(--line);border-radius:10px;background:var(--surface2)">
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">Google Places API 接入配置（正式公司团队作业请统一使用方式 A 代理模式；仅保存于当前浏览器本地）：</div>
+        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">Google Places API 接入配置（正式公司团队作业请优先登录员工账号走认证代理，或配置受控团队代理；仅保存于当前浏览器本地）：</div>
         <div class="form-grid">
           <div>
-            <label for="msProxyUrl">方式 A（公司正式统一模式）：Cloudflare Worker 团队代理地址</label>
-            <input id="msProxyUrl" type="text" placeholder="如：https://friesgo-gmaps.xxx.workers.dev">
+            <label for="msProxyUrl">方式 A（自定义团队代理）：Cloudflare Worker 代理地址</label>
+            <input id="msProxyUrl" type="text" placeholder="如：https://friesgo-api.xxx.workers.dev">
           </div>
           <div>
-            <label for="msProxyPass">团队访问口令（必填）</label>
-            <input id="msProxyPass" type="password" placeholder="填写 Worker 配置的 TEAM_PASS">
+            <label for="msProxyPass">团队访问口令（仅旧代理需要）</label>
+            <input id="msProxyPass" type="password" placeholder="填写旧版 Worker 配置的 TEAM_PASS">
           </div>
           <div>
             <label for="msGmapsKey">方式 B：个人直连 API Key（独立计费·不受团队服务端限额管控）</label>
             <input id="msGmapsKey" type="password" placeholder="AIzaSy...（仅限个人临时自费测试，禁用于公司统一作业）">
           </div>
         </div>
-        <div id="gmapsDirectBillingWarn" style="margin-top:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,var(--med) 14%,var(--surface));border:1px solid var(--med);font-size:12px;color:var(--brown);font-weight:700">⚠️ 计费与额度边界声明：正式公司团队作业须走「方式 A：Cloudflare Worker 统一代理」（受服务端 Durable Object 月度 950 次原子硬限额保护）；若填写「方式 B：个人直连 API Key」，将直接走该 Key 所属 Google Cloud 账户<b>独立计费</b>，<b>不受团队服务端额度控制</b>！</div>
-        <p class="flag-note" id="msQuotaInfo" style="margin-top:6px">本月已记录调用：0 / 950 次（700 提醒 / 900 预警 / 950 硬上限，由 Cloudflare Durable Object 原子预扣）。说明：Google Cloud 控制台仅支持按日/按分钟接口限额与账单预算告警（Budget Alerts，无原生月度 950 硬开关），请同步配置每日限额；结果仅限实时展示与人工核实（Powered by Google）。</p>
+        <div id="gmapsDirectBillingWarn" style="margin-top:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,var(--med) 14%,var(--surface));border:1px solid var(--med);font-size:12px;color:var(--brown);font-weight:700">⚠️ 计费与额度边界声明：正式公司团队作业须走经管理员核查的认证服务端代理（受团队/单员工月度硬上限保护）；若填写「方式 B：个人直连 API Key」，将直接走该 Key 所属 Google Cloud 账户<b>独立计费</b>，<b>不受团队服务端额度控制</b>！</div>
+        <p class="flag-note" id="msQuotaInfo" style="margin-top:6px">本浏览器本地已记录调用：0 / 950 次（仅代表当前浏览器本地计数，不等同团队服务端实时总用量；正式团队配额以服务端实时校验为准）。Google Cloud 控制台无原生月度 950 硬开关，启用付费 Key 前请同步在 Google Cloud 设置每日/每分钟限额与预算告警（Budget Alerts），且实际费用按请求字段触发的 SKU 计费。</p>
+        <p class="flag-note" style="margin-top:4px">📜 法律与政策条款：使用 Google Maps / Places 功能即受 <a href="./terms.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">FriesGo 服务条款 (Terms)</a>、<a href="./privacy.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">隐私政策 (Privacy)</a> 以及 <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google Maps/Google Earth 附加服务条款</a> 与 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google 隐私政策</a> 约束（Powered by Google）。</p>
       </div>
 
       <div class="pills" style="margin-top:12px">
@@ -985,7 +986,7 @@ Best regards,
       </div>
       <div id="gmapsCloudAutoHint" class="flag-note" hidden style="margin-top:6px;color:var(--good)">✅ 已登录公司员工账号：使用 Google Maps 引擎时将自动通过公司认证代理转发（按个人与团队月度配额保护，无需填写共享口令）。</div>
       <div id="gmapsTermsBanner" class="v2-guard-bar lv-yellow" hidden style="margin-top:8px;margin-bottom:0">
-        <b>⚖️ Google Places 许可合规隔离（Google Maps Platform Terms）：</b>Google 地图检索结果<b>仅限浏览器内实时展示与人工跳转官网核实</b>，已禁用一键导出 CSV、禁止送入批量洗名单及禁止自动复制其电话/地址进客户档案；请先点击「打开官网」或「Google 原页」确认有效联系方式后再通过「核实后手填建档」录入。如需批量导出/洗名单，请使用开源地图 OSM 或自行导入企业名录。
+        <b>⚖️ Google Places 许可合规隔离（Powered by Google）：</b>Google 地图检索结果<b>仅限浏览器内实时展示与人工跳转官网核实</b>，已禁用一键导出 CSV、禁止送入批量洗名单及禁止自动复制其电话/地址进客户档案；请先点击「打开官网」或「Google 原页」确认有效联系方式后再通过「核实后手填建档」录入。详见 <a href="./terms.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">服务条款</a> · <a href="./privacy.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">隐私政策</a> · <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google Maps 条款</a> · <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google 隐私政策</a>。
       </div>
       <div id="msStatus" class="flag-note" style="margin-top:8px;font-weight:700;color:var(--brown)">选好国家、城市与关键词，点击「开始地图找客」。</div>
       <div id="msResultWrap" class="mini-scroll" style="margin-top:10px"></div>
@@ -993,8 +994,8 @@ Best regards,
       <details class="method-note" style="margin-top:10px">
         <summary>使用说明与数据合规边界（点击展开）</summary>
         <ul>
-          <li><b>开源地图 OSM（© OpenStreetMap contributors，ODbL）：</b>无需 API Key，按所选真实半径（15/30/60km）检索，Overpass 主节点单点礼貌查询（超时 7 秒自动退化至 Photon 快通道并明确提示「部分结果」）；点「继续搜索更多」可按当地语种同义词补全去重，但不承诺固定新增条数。</li>
-          <li><b>Google Maps 引擎（Powered by Google）：</b>严格遵守 Google Maps Platform 条款，结果仅在浏览器实时展示（仅 Place ID 可豁免引用），<b>不提供 CSV 批量导出、不送入洗名单、不一键拷贝其原始电话/地址进客户档案</b>；团队多人共用须走 Cloudflare Worker + 强口令转发（Durable Object 月度 950 次硬熔断）。</li>
+          <li><b>开源地图 OSM（© OpenStreetMap contributors，ODbL）：</b>无需 API Key，按所选圆形真实半径（15/30/60km，经 Haversine 球面距离过滤）检索，Overpass 主节点单点礼貌查询（超时 7 秒自动退化至 Photon 快通道并明确提示「部分结果」；遇 429 自动停止并冷却）；工业园区/地理区域会标记为「📍 园区线索」并与单一企业分开统计。</li>
+          <li><b>Google Maps 引擎（Powered by Google）：</b>严格遵守 <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer">Google Maps/Google Earth 附加服务条款</a> 与 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google 隐私政策</a>，结果仅在浏览器实时展示（仅 Place ID 可豁免引用），<b>不提供 CSV 批量导出、不送入洗名单、不一键拷贝其原始电话/地址进客户档案</b>；完整说明见 <a href="./terms.html" target="_blank" rel="noopener">服务条款 (Terms)</a> 与 <a href="./privacy.html" target="_blank" rel="noopener">隐私政策 (Privacy)</a>。</li>
           <li><b>防毒清洗提示：</b>地图与商业名录常混入国际货代、报关行与非工业零售门店，系统会自动打上「⚠️ 疑似货代/物流」标签，可勾选上方开关过滤。</li>
         </ul>
       </details>
@@ -2646,7 +2647,7 @@ Best regards,
 
 <footer>
   <img class="js-logo" alt="FriesGo Global">
-  <div><b>FriesGo Global · 工业品外贸工作台</b><br>宏观统计参考（UN Comtrade，核查日 2026-11-25）：146 国 HS84+85 机电总盘（117 国 2025 / 29 国 2024*）· 120 国工业净口径（剔除 9 类消费/算力电子）· 143 国钢材钢构（HS72+73 剔除 7201–7205）· 76 国 2026 月度 YTD + 中国海关总署 2026.01–10｜宏观口径不等同于单一产品进口规模，签约前须按具体 HS 编码复核官方税则与制裁清单｜<a href="#sources" onclick="if(window.navigateTo){navigateTo('sources');return false;}" style="color:var(--orange);font-weight:700">口径、保质期与清洗说明</a> <button type="button" class="pill" id="btnFooterFeedback" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">💬 反馈/提建议</button> <button type="button" class="pill" id="btnFooterCloudAuth" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">🔒 员工登录</button></div>
+  <div><b>FriesGo Global · 工业品外贸工作台</b><br>宏观统计参考（UN Comtrade，核查日 2026-11-25）：146 国 HS84+85 机电总盘（117 国 2025 / 29 国 2024*）· 120 国工业净口径（剔除 9 类消费/算力电子）· 143 国钢材钢构（HS72+73 剔除 7201–7205）· 76 国 2026 月度 YTD + 中国海关总署 2026.01–10｜宏观口径不等同于单一产品进口规模，签约前须按具体 HS 编码复核官方税则与制裁清单｜<a href="#sources" onclick="if(window.navigateTo){navigateTo('sources');return false;}" style="color:var(--orange);font-weight:700">口径、保质期与清洗说明</a> · <a href="./terms.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">服务条款 (Terms)</a> · <a href="./privacy.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">隐私政策 (Privacy)</a> <button type="button" class="pill" id="btnFooterFeedback" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">💬 反馈/提建议</button> <button type="button" class="pill" id="btnFooterCloudAuth" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">🔒 员工登录</button></div>
 </footer>
   </main>
 </div>
@@ -2665,7 +2666,7 @@ Best regards,
       <h3 id="fbModalTitle">💬 员工共建反馈与整改建议</h3>
       <button type="button" class="pill" id="btnCloseFeedback" aria-label="关闭反馈弹窗" style="min-height:28px;padding:2px 9px;font-size:12px">× 关闭</button>
     </div>
-    <p class="flag-note" style="margin:0 0 10px">使用中遇到报错卡顿、步骤繁琐、数据口径存疑或想要更好用的功能，用一句话写下来发到团队群、暂存本机，或登录员工账号直交公司共创整改榜。<b>请勿在此输入客户真实邮箱、电话或报价明细。</b></p>
+    <p class="flag-note" style="margin:0 0 10px">使用中遇到报错卡顿、步骤繁琐、数据口径存疑或想要更好用的功能，用一句话写下来发到团队群、暂存本机，或登录员工账号直交公司共创整改榜。<b>请勿在此输入客户真实姓名、公司名、邮箱、电话、报价金额或任何密码/口令。</b></p>
     <div style="display:grid;gap:8px">
       <div>
         <label for="fbCategory" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">问题 / 建议类型</label>
@@ -2677,12 +2678,17 @@ Best regards,
         </select>
       </div>
       <div>
-        <label for="fbMessage" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">一句话说明遇到的问题或改进建议</label>
+        <label for="fbMessage" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">一句话说明遇到的问题或改进建议（自由文本 · 发送前须人工复核脱敏）</label>
         <textarea id="fbMessage" rows="3" placeholder="例如：在手机微信打开地图找客时，希望直接切换吉达和利雅得，或者某一步点不动…" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px;resize:vertical"></textarea>
       </div>
     </div>
+    <div id="fbSensitiveWarn" class="v2-guard-bar lv-red" hidden style="margin-top:8px;margin-bottom:0"></div>
+    <label id="fbManualCheckWrap" hidden style="display:flex;align-items:flex-start;gap:6px;margin-top:6px;font-size:12px;font-weight:700;color:var(--danger);cursor:pointer">
+      <input type="checkbox" id="fbManualCheckOk" style="margin-top:2px">
+      <span>我已人工核查上方自由文本预览，确认不含真实客户姓名、公司名或敏感商业信息，允许继续复制/保存/提交</span>
+    </label>
     <div style="margin-top:8px">
-      <div style="font-size:12px;font-weight:800;color:var(--brown)">自动附带的脱敏诊断上下文（只读预览 · 绝不含客户明细/报价/密码）：</div>
+      <div style="font-size:12px;font-weight:800;color:var(--brown)">反馈卡片预览（系统自动上下文严格白名单、不读取客户库；自由文本已自动遮蔽邮箱/号码/链接/凭证/金额，仍须人工复核）：</div>
       <div id="fbContextPreview" class="fb-ctx-box"></div>
     </div>
     <div class="pills" style="margin-top:10px">
@@ -5579,7 +5585,9 @@ window.getRepSignature = function(){
     tag.className = "fx-src-pill" + (level === "live" ? " live" : (level === "warn" ? " warn" : ""));
   }
 
+  var fxReqSeq = 0;
   function fetchLiveRates(notify){
+    var myFxSeq = ++fxReqSeq;
     var badge = document.getElementById("fxStatusBadge");
     badge.innerHTML = '<i class="sd-n"></i>正在拉取最新国际实时汇率…';
     if(typeof fetch !== "function"){
@@ -5591,6 +5599,7 @@ window.getRepSignature = function(){
     fetch("https://open.er-api.com/v6/latest/USD")
       .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
       .then(function(j){
+        if(myFxSeq !== fxReqSeq) return;
         if(j && j.rates && j.rates.CNY){
           Object.keys(ratesUsd).forEach(function(k){ if(j.rates[k]) ratesUsd[k] = j.rates[k]; });
           var upd = j.time_last_update_utc ? String(j.time_last_update_utc).slice(0,16) : "刚刚";
@@ -5602,9 +5611,11 @@ window.getRepSignature = function(){
         } else throw new Error("bad data");
       })
       .catch(function(){
+        if(myFxSeq !== fxReqSeq) return;
         fetch("https://api.frankfurter.app/latest?from=USD")
           .then(function(r){ return r.json(); })
           .then(function(j2){
+            if(myFxSeq !== fxReqSeq) return;
             if(j2 && j2.rates && j2.rates.CNY){
               Object.keys(j2.rates).forEach(function(k){ if(ratesUsd[k]!=null) ratesUsd[k] = j2.rates[k]; });
               var d2 = j2.date || "最新";
@@ -5615,6 +5626,7 @@ window.getRepSignature = function(){
             } else throw new Error("fail2");
           })
           .catch(function(){
+            if(myFxSeq !== fxReqSeq) return;
             try {
               var cached = JSON.parse(localStorage.getItem("friesgo_fx_cache") || "null");
               if(cached && cached.rates){
@@ -6229,12 +6241,35 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(specBar && window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function"){
       var tmQ = window.FG_CORE.evaluateCountryContactTiming(qcSel.value);
       var spQ = tmQ.spec || {};
-      specBar.className = "v2-guard-bar " + (spQ.is60Hz ? "lv-red" : "lv-green");
-      specBar.innerHTML = '<span>' + (spQ.is60Hz ? '⚡ <b>60Hz 电机/水泵防错警报</b>（严禁按国内 50Hz 默认排产！）' : '🔌 <b>目的国工业机电标准</b>')
-        + '：<b>' + esc(spQ.voltage || "") + '</b></span>'
-        + '<span>｜ 法兰/管标：<b>' + esc(spQ.pipeStd || "") + '</b></span>'
-        + '<span>｜ 强制清关认证：<b>' + esc(spQ.cert || "") + '</b></span>'
-        + '<span class="src-ok" style="white-space:normal">（目的国通用参考，正式排产/报价请以具体产品适用性及客户图纸/合同为准）</span>';
+      var qcProdRaw = ((document.getElementById("qcProdName")||{}).value || "").trim();
+      var gProfId = ((document.getElementById("globalProdProfile")||{}).value || "all");
+      var rel = (typeof window.FG_CORE.classifyProductSpecRelevance === "function")
+        ? window.FG_CORE.classifyProductSpecRelevance(qcProdRaw, gProfId)
+        : { kind: "motor_electric", motorSensitive: true, electricalRelevant: true, showPipeStd: true };
+      var certSpan = '<span>｜ 常见准入/认证参考（按具体 HS 适用性核查）：<b>' + esc(spQ.cert || "") + '</b></span>';
+      var pipeSpan = rel.showPipeStd ? ('<span>｜ 法兰/管标参考：<b>' + esc(spQ.pipeStd || "") + '</b></span>') : '';
+      var noteSpan = '<span class="src-ok" style="white-space:normal">（目的国通用参考，正式排产/报价请以具体产品适用性及客户图纸/合同为准）</span>';
+      if(spQ.is60Hz && rel.motorSensitive){
+        specBar.className = "v2-guard-bar lv-red";
+        specBar.innerHTML = '<span>⚡ <b>60Hz 电机/水泵防错警报</b>（严禁按国内 50Hz 默认排产！）：<b>' + esc(spQ.voltage || "") + '</b></span>'
+          + pipeSpan + certSpan + noteSpan;
+      } else if(rel.kind === "electrical_non_motor"){
+        specBar.className = "v2-guard-bar " + (spQ.is60Hz ? "lv-yellow" : "lv-green");
+        specBar.innerHTML = '<span>🔌 <b>电力/线缆合规提示</b>（非旋转电机类，重点核对额定电压、绝缘等级与安规标准）：目的国电网参考 <b>' + esc(spQ.voltage || "") + '</b></span>'
+          + certSpan + noteSpan;
+      } else if(rel.kind === "manual_mechanical_pipe"){
+        specBar.className = "v2-guard-bar lv-green";
+        specBar.innerHTML = '<span>🔧 <b>机械/手动件标准提示</b>（当前品名识别为非电动机械件，不触发电机频压警报' + (spQ.is60Hz ? '；若改配电动执行器须复核目的国 60Hz 电网' : '') + '）</span>'
+          + pipeSpan + certSpan + noteSpan;
+      } else if(rel.kind === "structural_hardware"){
+        specBar.className = "v2-guard-bar lv-green";
+        specBar.innerHTML = '<span>🔩 <b>钢构/紧固件标准提示</b>（非电动设备，重点核对材质牌号、防腐等级与螺纹/型钢标准）</span>'
+          + certSpan + noteSpan;
+      } else {
+        specBar.className = "v2-guard-bar lv-green";
+        specBar.innerHTML = '<span>🔌 <b>目的国工业机电标准参考</b>：<b>' + esc(spQ.voltage || "") + '</b></span>'
+          + pipeSpan + certSpan + noteSpan;
+      }
     }
     var advPill = document.getElementById("qcAdvSummaryPill");
     if(advPill){
@@ -7440,10 +7475,21 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
         ? (' <span>｜ 🗓️ 近期大假：<b>' + esc(tmE.upcomingHoliday.nameCn) + '</b>（' + tmE.upcomingHoliday.daysAway + '天后）</span>')
         : '';
       var spE = tmE.spec || {};
-      var hzTag = spE.is60Hz ? ('<b style="color:var(--danger)">⚡ ' + esc(spE.voltage) + ' (60Hz防错!)</b>') : ('<b>' + esc(spE.voltage || "") + '</b>');
+      var emProdRaw = ((document.getElementById("emProduct")||{}).value || "").trim();
+      var emProfId = ((document.getElementById("globalProdProfile")||{}).value || "all");
+      var relE = (typeof window.FG_CORE.classifyProductSpecRelevance === "function")
+        ? window.FG_CORE.classifyProductSpecRelevance(emProdRaw, emProfId)
+        : { kind: "motor_electric", motorSensitive: true, showPipeStd: true };
+      var hzTag = (spE.is60Hz && relE.motorSensitive)
+        ? ('<b style="color:var(--danger)">⚡ ' + esc(spE.voltage) + ' (60Hz电机防错!)</b>')
+        : (relE.kind === "manual_mechanical_pipe"
+          ? ('<span>机械/手动件（无电机频压警报）</span>')
+          : (relE.kind === "electrical_non_motor"
+            ? ('<b>🔌 电网参考 ' + esc(spE.voltage || "") + '（核对电压绝缘）</b>')
+            : ('<b>' + esc(spE.voltage || "") + '</b>')));
       tmBar.innerHTML = '<span>' + tmE.dot + ' <b>' + esc(CN[c]||c) + '</b>：<b>' + esc(tmE.statusLabel) + '</b> — ' + esc(tmE.actionAdvice) + '</span>'
         + holWarnHtml
-        + '<span>｜ 机电标准：' + hzTag + ' · ' + esc(spE.pipeStd || "") + ' · ' + esc(spE.cert || "") + '</span>'
+        + '<span>｜ 标准参考：' + hzTag + (relE.showPipeStd ? (' · ' + esc(spE.pipeStd || "")) : '') + ' · 准入参考 ' + esc(spE.cert || "") + '</span>'
         + '<span class="src-ok" style="white-space:normal">（目的国通用参考，正式排产/报价请以具体产品适用性及客户图纸/合同为准）</span>';
     }
 
@@ -11296,6 +11342,8 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   var gmapsLastQuery = "";
   var osmLastState = null; // { country, city, coord, radius, kw, round }
   var osmLastReqAt = 0;
+  var osmCooldownUntil = 0;
+  var osmReqSeq = 0;
   var csvLeads = [];
   var csvFilter = "all";
 
@@ -11450,44 +11498,54 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var btnPush = document.getElementById("btnPushToCsv");
     var btnExp = document.getElementById("btnExportMapCsv");
     var isGmapsResults = mapLeads.length > 0 && (mapResultSource === "gmaps" || mapLeads.some(function(x){ return x && x._source === "gmaps"; }));
+    var companyLeadsCount = mapLeads.filter(function(x){ return x && x._entityKind !== "zone"; }).length;
 
     // Strict Google Maps Platform Terms compliance isolation: NEVER enable CSV export or bulk CSV push for Google results
-    if(btnPush) btnPush.hidden = (!mapLeads.length || isGmapsResults);
-    if(btnExp) btnExp.hidden = (!mapLeads.length || isGmapsResults);
+    if(btnPush) btnPush.hidden = (!companyLeadsCount || isGmapsResults);
+    if(btnExp) btnExp.hidden = (!companyLeadsCount || isGmapsResults);
     if(termsBanner) termsBanner.hidden = !isGmapsResults;
     if(!mapLeads.length){ wrap.innerHTML = ""; return; }
 
     var hideSus = !!(msHideNonBuyerEl && msHideNonBuyerEl.checked);
     var suspectTotal = 0;
+    var zoneTotal = 0;
     var indexed = mapLeads.map(function(r, idx){
-      var rk = window.FG_FRESH ? window.FG_FRESH.detectLeadRisk(r) : {suspect:"", suspectLabel:""};
+      var isZone = r && r._entityKind === "zone";
+      if(isZone) zoneTotal++;
+      var rk = (!isZone && window.FG_FRESH) ? window.FG_FRESH.detectLeadRisk(r) : {suspect:"", suspectLabel:""};
       if(rk.suspect) suspectTotal++;
-      return {r:r, idx:idx, rk:rk};
+      return {r:r, idx:idx, rk:rk, isZone:isZone};
     }).filter(function(o){
-      return !(hideSus && o.rk.suspect);
+      return !(hideSus && (o.rk.suspect || o.isZone));
     });
 
     var shownSlice = indexed.slice(0, 80);
     var rowsHtml = shownSlice.map(function(o){
-      var r = o.r, idx = o.idx, rk = o.rk;
+      var r = o.r, idx = o.idx, rk = o.rk, isZone = o.isZone;
       var isG = (r._source === "gmaps") || isGmapsResults;
       var safeMapHref = r.mapsUrl ? window.FG_CORE.safeHttpUrl(r.mapsUrl) : "";
       var safeWebHref = r.website ? window.FG_CORE.safeHttpUrl(r.website.indexOf("http")===0 ? r.website : ("https://" + r.website)) : "";
       var mapA = safeMapHref ? '<a target="_blank" rel="noopener noreferrer" href="'+esc(safeMapHref)+'">🗺️</a> ' : '';
       var webA = safeWebHref ? '<a target="_blank" rel="noopener noreferrer" href="'+esc(safeWebHref)+'">'+esc(r.website.replace(/^https?:\/\/(www\.)?/,"").slice(0,26))+'</a>' : '<span class="src-ok">—</span>';
-      var susHtml = rk.suspect ? (' <span class="mx-warn" style="font-size:11px">'+esc(rk.suspectLabel)+'</span>') : '';
-      var qGoogle = encodeURIComponent('"' + r.company + '" ' + (r.city || window.FG_GEO.cleanCountryForPitch(r.country) || '') + ' (website OR email OR contact)');
+      var susHtml = isZone
+        ? ' <span class="mx-warn" style="font-size:11px">📍 工业园区/地理线索（非单一企业）</span>'
+        : (rk.suspect ? (' <span class="mx-warn" style="font-size:11px">'+esc(rk.suspectLabel)+'</span>') : '');
+      var distHtml = (r._distKm != null && r._distKm !== "") ? (' · 距中心约 ' + esc(r._distKm) + 'km') : '';
+      var qGoogle = encodeURIComponent('"' + r.company + '" ' + (r.city || window.FG_GEO.cleanCountryForPitch(r.country) || '') + (isZone ? ' companies directory factories' : ' (website OR email OR contact)'));
       var actCell = isG
         ? ((safeWebHref
             ? '<a class="pill" target="_blank" rel="noopener noreferrer" href="'+esc(safeWebHref)+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">打开官网</a> '
             : '<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">搜官网</a> ')
           + (safeMapHref ? '<a class="pill" target="_blank" rel="noopener noreferrer" href="'+esc(safeMapHref)+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">Google 原页</a> ' : '')
           + '<button class="pill primary" type="button" data-map-manual-crm="1" style="min-height:26px;padding:2px 8px;font-size:11.5px">核实后手填建档</button>')
-        : ('<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">搜官网</a> '
-          + '<button class="pill" type="button" data-map-dd="'+idx+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">背调</button> '
-          + '<button class="pill primary" type="button" data-map-crm="'+idx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">存入客户</button>');
+        : (isZone
+          ? ('<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">搜园区企业</a> '
+            + (safeMapHref ? '<a class="pill" target="_blank" rel="noopener noreferrer" href="'+esc(safeMapHref)+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">看地图</a>' : ''))
+          : ('<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">搜官网</a> '
+            + '<button class="pill" type="button" data-map-dd="'+idx+'" style="min-height:26px;padding:2px 7px;font-size:11.5px">背调</button> '
+            + '<button class="pill primary" type="button" data-map-crm="'+idx+'" style="min-height:26px;padding:2px 8px;font-size:11.5px">存入客户</button>'));
 
-      return '<tr'+(rk.suspect?' style="opacity:.78"':'')+'><td><b>'+mapA+esc(r.company)+'</b>'+susHtml+'<br><span class="src-ok">'+esc(r.category||"")+'</span></td>'
+      return '<tr'+((rk.suspect || isZone)?' style="opacity:.82"':'')+'><td><b>'+mapA+esc(r.company)+'</b>'+susHtml+'<br><span class="src-ok">'+esc(r.category||"")+distHtml+'</span></td>'
         + '<td style="font-size:12px">'+esc(r.phone||"—")+'</td>'
         + '<td style="font-size:12px">'+esc(r.email||"—")+'</td>'
         + '<td style="font-size:12px">'+webA+'</td>'
@@ -11495,21 +11553,26 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         + '<td style="white-space:nowrap">' + actCell + '</td></tr>';
     }).join("");
 
-    // Mobile (<=768px) vertical customer card stream (0px horizontal overflow, thumb-friendly 3-button action bar)
+    // Mobile (<=768px) vertical customer card stream (0px horizontal overflow, thumb-friendly action bar)
     var cardsHtml = shownSlice.map(function(o){
-      var r = o.r, idx = o.idx, rk = o.rk;
+      var r = o.r, idx = o.idx, rk = o.rk, isZone = o.isZone;
       var isG = (r._source === "gmaps") || isGmapsResults;
       var safeMapHref = r.mapsUrl ? window.FG_CORE.safeHttpUrl(r.mapsUrl) : "";
       var safeWebHref = r.website ? window.FG_CORE.safeHttpUrl(r.website.indexOf("http")===0 ? r.website : ("https://" + r.website)) : "";
-      var qGoogle = encodeURIComponent('"' + r.company + '" ' + (r.city || window.FG_GEO.cleanCountryForPitch(r.country) || '') + ' (website OR email OR contact)');
-      var srcTag = isG ? '<span class="meta-pill" style="padding:1px 7px;font-size:11px">Google</span>' : '<span class="meta-pill" style="padding:1px 7px;font-size:11px">OSM</span>';
-      var susHtml = rk.suspect ? (' <span class="mx-warn" style="font-size:11px">'+esc(rk.suspectLabel)+'</span>') : '';
+      var qGoogle = encodeURIComponent('"' + r.company + '" ' + (r.city || window.FG_GEO.cleanCountryForPitch(r.country) || '') + (isZone ? ' companies directory factories' : ' (website OR email OR contact)'));
+      var srcTag = isG
+        ? '<span class="meta-pill" style="padding:1px 7px;font-size:11px">Google</span>'
+        : (isZone ? '<span class="meta-pill" style="padding:1px 7px;font-size:11px">园区线索</span>' : '<span class="meta-pill" style="padding:1px 7px;font-size:11px">OSM</span>');
+      var susHtml = isZone
+        ? ' <span class="mx-warn" style="font-size:11px">📍 工业园区/地理线索（非单一企业）</span>'
+        : (rk.suspect ? (' <span class="mx-warn" style="font-size:11px">'+esc(rk.suspectLabel)+'</span>') : '');
       var metaLines = [];
-      if(r.category) metaLines.push('<div><b>类型：</b>'+esc(r.category)+'</div>');
+      if(r.category) metaLines.push('<div><b>类型：</b>'+esc(r.category)+(r._distKm != null && r._distKm !== "" ? (' · 约 '+esc(r._distKm)+'km') : '')+'</div>');
       if(r.phone) metaLines.push('<div><b>电话：</b>'+esc(r.phone)+'</div>');
       if(r.email) metaLines.push('<div><b>邮箱：</b>'+esc(r.email)+'</div>');
       if(safeWebHref) metaLines.push('<div><b>官网：</b><a target="_blank" rel="noopener noreferrer" href="'+esc(safeWebHref)+'">'+esc(r.website.replace(/^https?:\/\/(www\.)?/,"").slice(0,32))+'</a></div>');
       if(r.address) metaLines.push('<div><b>地址：</b>'+esc(r.address.slice(0,72))+'</div>');
+      if(isZone) metaLines.push('<div class="src-ok" style="white-space:normal">此项为地理园区/片区标记，不计入企业数且禁止直接建档；可点「搜园区企业」查找入驻工厂。</div>');
 
       var cardActs = isG
         ? ((safeWebHref
@@ -11519,11 +11582,14 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
             ? '<a class="pill" target="_blank" rel="noopener noreferrer" href="'+esc(safeMapHref)+'">🗺️ 原页</a>'
             : '<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'">🔍 核实</a>')
           + '<button class="pill primary" type="button" data-map-manual-crm="1">✍️ 手填建档</button>')
-        : ('<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'">🔍 搜官网</a>'
-          + '<button class="pill" type="button" data-map-dd="'+idx+'">🛡️ 背调</button>'
-          + '<button class="pill primary" type="button" data-map-crm="'+idx+'">＋ 存客户</button>');
+        : (isZone
+          ? ('<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'">🔍 搜园区企业</a>'
+            + (safeMapHref ? '<a class="pill" target="_blank" rel="noopener noreferrer" href="'+esc(safeMapHref)+'">🗺️ 看地图</a>' : ''))
+          : ('<a class="pill" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='+qGoogle+'">🔍 搜官网</a>'
+            + '<button class="pill" type="button" data-map-dd="'+idx+'">🛡️ 背调</button>'
+            + '<button class="pill primary" type="button" data-map-crm="'+idx+'">＋ 存客户</button>'));
 
-      return '<div class="ms-card'+(rk.suspect?' is-suspect':'')+'">'
+      return '<div class="ms-card'+((rk.suspect || isZone)?' is-suspect':'')+'" data-entity-kind="'+(isZone?'zone':'company')+'">'
         + '<div class="ms-card-head"><div class="ms-card-title">'+esc(r.company)+susHtml+'</div>'+srcTag+'</div>'
         + '<div class="ms-card-meta">'+(metaLines.length ? metaLines.join("") : '<div>暂无公开电话/官网，建议点「搜官网」补全</div>')+'</div>'
         + '<div class="ms-card-acts">'+cardActs+'</div>'
@@ -11531,19 +11597,27 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     }).join("");
 
     var footerAttr = isGmapsResults
-      ? '<p class="flag-note">数据来源：Google Maps Platform（Powered by Google），仅限实时展示与跳转官网人工核实，不导出/不批量复制进本地库。</p>'
+      ? '<p class="flag-note">数据来源：Google Maps Platform（Powered by Google），仅限实时展示与跳转官网人工核实，不导出/不批量复制进本地库。详见 <a href="./terms.html" target="_blank" rel="noopener">服务条款</a> · <a href="./privacy.html" target="_blank" rel="noopener">隐私政策</a>。</p>'
       : '<p class="flag-note">数据来源：© OpenStreetMap contributors（ODbL 开源许可），内部业务建档或导出请保留署名说明。</p>';
 
-    wrap.innerHTML = (suspectTotal ? '<p class="flag-note" style="margin:0 0 6px;color:var(--med);font-weight:700">提示：共识别出 '+suspectTotal+' 家疑似货代/物流或非工业主体'+(hideSus?'（已隐藏）':'（已标黄，可勾选上方「隐藏疑似货代/非工业主体」过滤）')+'。</p>' : '')
+    var topNotices = [];
+    if(suspectTotal){
+      topNotices.push('<p class="flag-note" style="margin:0 0 6px;color:var(--med);font-weight:700">提示：共识别出 '+suspectTotal+' 家疑似货代/物流或非工业主体'+(hideSus?'（已隐藏）':'（已标黄，可勾选上方「隐藏疑似货代/非工业主体」过滤）')+'。</p>');
+    }
+    if(zoneTotal){
+      topNotices.push('<p class="flag-note" style="margin:0 0 6px;color:var(--muted);font-weight:700">📍 已自动区分 '+zoneTotal+' 处工业园区/地理片区线索（不计入企业数、不导出 CSV、不支持直接建档，仅用于反查园区入驻企业）。</p>');
+    }
+
+    wrap.innerHTML = topNotices.join("")
       + '<div class="ms-table-view"><table><thead><tr><th>企业/商家名</th><th>电话</th><th>邮箱</th><th>官网</th><th>地址</th><th>操作</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'
       + '<div class="ms-card-list" aria-label="手机端客户卡片流">'+cardsHtml+'</div>'
-      + (indexed.length > 80 ? '<p class="flag-note">预览前 80 条（当前共 '+indexed.length+' 条'+(isGmapsResults?'':'，可导出 CSV 或送入「导入与洗名单」处理全部')+'）。</p>' : '')
+      + (indexed.length > 80 ? '<p class="flag-note">预览前 80 条（当前共 '+indexed.length+' 条'+(isGmapsResults?'':'，可导出 CSV 或送入「导入与洗名单」处理全部企业')+'）。</p>' : '')
       + footerAttr;
 
     if(window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.onMapResultsRendered === "function"){
       window.FG_CLOUD_UI.onMapResultsRendered(
         isGmapsResults ? "gmaps" : "osm",
-        shownSlice.map(function(o){ return o.r; }),
+        shownSlice.filter(function(o){ return !o.isZone; }).map(function(o){ return o.r; }),
         {
           country: msCountry ? msCountry.value : "",
           city: msCityInp ? msCityInp.value.trim() : "",
@@ -11563,6 +11637,10 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var bDd = e.target.closest("button[data-map-dd]");
     if(bDd){
       var rDd = mapLeads[+bDd.getAttribute("data-map-dd")]; if(!rDd) return;
+      if(rDd._entityKind === "zone"){
+        showToast("工业园区/地理片区线索非单一企业主体，请点「搜园区企业」核查入驻工厂后再建档");
+        return;
+      }
       if(rDd._source === "gmaps"){
         openCleanManualCrmEntry();
         return;
@@ -11574,6 +11652,10 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     }
     var b = e.target.closest("button[data-map-crm]"); if(!b) return;
     var r = mapLeads[+b.getAttribute("data-map-crm")]; if(!r) return;
+    if(r._entityKind === "zone"){
+      showToast("工业园区/地理片区线索不可直接存为客户，请先查明具体入驻企业主体");
+      return;
+    }
     if(r._source === "gmaps"){
       openCleanManualCrmEntry();
       return;
@@ -11602,6 +11684,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   if(btnCancelOsm){
     btnCancelOsm.addEventListener("click", function(){
       if(osmAbortCtrl){
+        osmReqSeq++;
         try { osmAbortCtrl.abort(); } catch(e){}
         endOsmPending();
         document.getElementById("msStatus").textContent = "已取消本次 OSM 抓取。可缩小半径至 15km 或切换城市后重新点击「开始地图找客」。";
@@ -11615,34 +11698,59 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     });
   }
 
-  var NON_BUYER_NOISE_RE = /\b(mckinsey|deloitte|pwc|pricewaterhouse|kpmg|ernst\s*&\s*young|bcg|boston\s+consulting|bain\s*&\s*company|accenture|capgemini|marsh|aon|mercer|regus|wework|coworking|law\s*firm|abogados|bufete|notar[ií]a|real\s*estate|inmobiliaria|bienes\s*ra[ií]ces|insurance|seguros|marketing\s*agency|advertising|publicidad|travel\s*agency|peluquer[ií]a|barber|salon|privada|avenida|calle|boulevard)\b|\s*:v\b|^(zona|parque|area|pol[ií]gono|sector|distrito|corredor)\s+industrial\b|^industrial\s+(zone|area|park|estate)\b|^industrial$/i;
+  var NON_BUYER_NOISE_RE = /\b(mckinsey|deloitte|pwc|pricewaterhouse|kpmg|ernst\s*&\s*young|bcg|boston\s+consulting|bain\s*&\s*company|accenture|capgemini|marsh|aon|mercer|regus|wework|coworking|law\s*firm|abogados|bufete|notar[ií]a|real\s*estate|inmobiliaria|bienes\s*ra[ií]ces|insurance|seguros|marketing\s*agency|advertising|publicidad|travel\s*agency|peluquer[ií]a|barber|salon|privada|avenida|calle|boulevard)\b|\s*:v\b|^industrial$/i;
+  var INDUSTRIAL_ZONE_NAME_RE = /\b(industrial\s+(zone|area|park|estate|city|district|complex|corridor|cluster|hub)|free\s+zone|export\s+processing\s+zone|special\s+economic\s+zone|business\s+park|tech\s+park|logistics\s+park)\b|\b(zona|parque|area|pol[ií]gono|sector|distrito|corredor)\s+industrial\b|(المدينة\s*الصناعية|مدينة\s*صناعية|المنطقة\s*الصناعية|منطقة\s*صناعية|工业园|工业园区|工业区|工业城|产业园|开发区|保税区|промзона|индустриальный\s+парк|kawasan\s+industri|khu\s+công\s+nghiệp|organize\s+sanayi)/i;
 
-  function parseOsmElementsToLeads(els, country, city, kwTokens){
+  function haversineMeters(lat1, lon1, lat2, lon2){
+    var R = 6371000;
+    var toRad = Math.PI / 180;
+    var dLat = (lat2 - lat1) * toRad;
+    var dLon = (lon2 - lon1) * toRad;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+      + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function parseOsmElementsToLeads(els, country, city, kwTokens, centerCoord, maxMeters){
     var seen = {}, res = [];
     (els || []).forEach(function(el){
       var t = el.tags || {};
       var nm = (t.name || t["name:en"] || "").trim();
       if(!nm || seen[nm.toLowerCase()] || NON_BUYER_NOISE_RE.test(nm)) return;
       if(t.amenity && /restaurant|cafe|bar|fast_food|school|hospital|pharmacy|bank|atm|place_of_worship|parking|fuel|hotel/i.test(t.amenity)) return;
+      var lat = el.lat != null ? parseFloat(el.lat) : (el.center && el.center.lat != null ? parseFloat(el.center.lat) : NaN);
+      var lon = el.lon != null ? parseFloat(el.lon) : (el.center && el.center.lon != null ? parseFloat(el.center.lon) : NaN);
+      var distKm = "";
+      if(centerCoord && isFinite(lat) && isFinite(lon) && isFinite(centerCoord.lat) && isFinite(centerCoord.lon)){
+        var distM = haversineMeters(centerCoord.lat, centerCoord.lon, lat, lon);
+        if(maxMeters && maxMeters > 0 && distM > maxMeters) return;
+        distKm = (distM / 1000).toFixed(1);
+      }
       seen[nm.toLowerCase()] = 1;
-      var lat = el.lat || (el.center && el.center.lat) || "";
-      var lon = el.lon || (el.center && el.center.lon) || "";
       var phone = t.phone || t["contact:phone"] || t["contact:mobile"] || t.mobile || "";
       var web = t.website || t["contact:website"] || t.url || "";
       var em = t.email || t["contact:email"] || "";
       var addr = [t["addr:street"], t["addr:housenumber"], t["addr:city"] || city].filter(Boolean).join(", ");
-      var cat = t.industrial || t.shop || t.craft || t.office || (t.man_made==="works"?"factory":"industrial");
+      var hasDirectBizContact = !!(phone || web || em);
+      var isLanduseOnly = !!(t._osmKey === "landuse" || (t.landuse && !t.shop && !t.office && !t.craft && !t.man_made));
+      var isZoneEntity = (isLanduseOnly && !hasDirectBizContact) || (INDUSTRIAL_ZONE_NAME_RE.test(nm) && !hasDirectBizContact);
+      var cat = isZoneEntity
+        ? "工业园区/地理片区"
+        : (t.industrial || t.shop || t.craft || t.office || (t.man_made==="works"?"factory":"industrial"));
       var hay = (nm + " " + cat + " " + (t.description || "")).toLowerCase();
       var kwHits = 0;
       (kwTokens || []).forEach(function(tok){ if(hay.indexOf(tok) >= 0) kwHits++; });
       res.push({
         _source: "osm",
-        company: nm, country: country, city: city, category: cat + (kwHits ? " · 关键词匹配" : ""),
+        _entityKind: isZoneEntity ? "zone" : "company",
+        _distKm: distKm,
+        company: nm, country: country, city: city, category: cat + (!isZoneEntity && kwHits ? " · 关键词匹配" : ""),
         phone: phone, email: em, website: web, address: addr, _kwHits: kwHits,
-        mapsUrl: (lat && lon) ? ("https://www.openstreetmap.org/?mlat="+lat+"&mlon="+lon+"#map=16/"+lat+"/"+lon) : ""
+        mapsUrl: (isFinite(lat) && isFinite(lon)) ? ("https://www.openstreetmap.org/?mlat="+lat+"&mlon="+lon+"#map=16/"+lat+"/"+lon) : ""
       });
     });
     res.sort(function(a,b){
+      if(a._entityKind !== b._entityKind) return a._entityKind === "zone" ? 1 : -1;
       var sa = (a._kwHits*6)+(a.email?4:0)+(a.website?2:0)+(a.phone?2:0);
       var sb = (b._kwHits*6)+(b.email?4:0)+(b.website?2:0)+(b.phone?2:0);
       return sb - sa;
@@ -11650,17 +11758,36 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     return res;
   }
 
+  function parseRetryAfterSec(resp, fallbackSec){
+    var def = fallbackSec || 15;
+    try {
+      var raw = resp && resp.headers && typeof resp.headers.get === "function" ? resp.headers.get("Retry-After") : "";
+      var n = parseInt(raw, 10);
+      if(isFinite(n) && n > 0) return Math.min(Math.max(n, 5), 120);
+    } catch(_){}
+    return def;
+  }
+
   function runOsmScrape(country, city, radius, kw, isExpandMore){
     var st = document.getElementById("msStatus");
     var nowMs = Date.now();
-    if(!isExpandMore && osmLastReqAt && (nowMs - osmLastReqAt) < 2000){
-      showToast("请稍候 2 秒再发起下一次 OSM 查询（尊重开源地图公用节点频控）");
+    // F05: Unified rate-limit cooldown + 2s polite throttle across ALL rounds (including isExpandMore)
+    if(osmCooldownUntil && nowMs < osmCooldownUntil){
+      var waitCool = Math.ceil((osmCooldownUntil - nowMs) / 1000);
+      st.textContent = "⏳ OSM 公共接口处于限流冷却中（请等待 " + waitCool + " 秒后再试，避免触发公用节点封禁）。" + (mapLeads.length ? "（下方保留上次缓存结果供参考）" : "");
+      showToast("OSM 公用节点限流冷却中，请 " + waitCool + " 秒后再试");
+      return;
+    }
+    if(osmLastReqAt && (nowMs - osmLastReqAt) < 2000){
+      var waitThrottle = Math.max(1, Math.ceil((2000 - (nowMs - osmLastReqAt)) / 1000));
+      showToast("请稍候 " + waitThrottle + " 秒再发起下一次 OSM 查询（首轮与扩搜均遵守公用节点频控）");
       return;
     }
     osmLastReqAt = nowMs;
 
     if(osmAbortCtrl){ try { osmAbortCtrl.abort(); } catch(e){} }
     endOsmPending();
+    var mySeq = ++osmReqSeq;
     var t0 = Date.now();
     var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
     osmAbortCtrl = ctrl;
@@ -11676,14 +11803,29 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       }, 24000);
     }
 
+    function isStaleOrAborted(){
+      return mySeq !== osmReqSeq || !!(ctrl && ctrl.signal.aborted);
+    }
+
     function fetchWithStepTimeout(url, opts, ms){
+      if(isStaleOrAborted()){
+        return Promise.reject(new DOMException("Aborted", "AbortError"));
+      }
       var stepCtrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
-      var t = stepCtrl ? setTimeout(function(){ try { stepCtrl.abort(); } catch(e){} }, ms) : null;
+      var stepTimedOut = false;
+      var t = stepCtrl ? setTimeout(function(){ stepTimedOut = true; try { stepCtrl.abort(); } catch(e){} }, ms) : null;
       function onParentAbort(){ if(stepCtrl) try { stepCtrl.abort(); } catch(e){} }
       if(ctrl && ctrl.signal) ctrl.signal.addEventListener("abort", onParentAbort, {once:true});
       var fOpts = Object.assign({}, opts || {});
       if(stepCtrl) fOpts.signal = stepCtrl.signal;
-      return fetch(url, fOpts).finally(function(){
+      return fetch(url, fOpts).catch(function(err){
+        if(stepTimedOut && !(ctrl && ctrl.signal.aborted)){
+          var te = new Error("STEP_TIMEOUT");
+          te.code = "STEP_TIMEOUT";
+          throw te;
+        }
+        throw err;
+      }).finally(function(){
         if(t) clearTimeout(t);
         if(ctrl && ctrl.signal) ctrl.signal.removeEventListener("abort", onParentAbort);
       });
@@ -11695,9 +11837,11 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var kwTokens = kwLow.split(/[^a-z0-9]+/).filter(function(w){
       return w.length >= 3 && !/^(the|and|for|with|supplier|distributor|wholesaler|company|corp|ltd|inc|industrial)$/.test(w);
     });
-    // True search radius honoring 15km / 30km / 60km (removed hidden 18km clamp!)
+    // F08: True circular radius honoring 15km / 30km / 60km, and compute expanded effective radius up-front
     var radEff = Math.min(Math.max(Number(radius) || 30000, 5000), 60000);
-    var radKm = Math.round(radEff / 1000);
+    var nextRound = isExpandMore && osmLastState ? ((osmLastState.round || 0) + 1) : 0;
+    var effectiveMeters = isExpandMore ? Math.min(Math.round(radEff * (1 + nextRound * 0.2)), 70000) : radEff;
+    var effectiveKm = Math.round(effectiveMeters / 1000);
 
     function buildBbox(lat, lon, meters){
       var dLat = meters / 111320;
@@ -11715,7 +11859,15 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       var photonGeo = "https://photon.komoot.io/api/?limit=1&q=" + encodeURIComponent(qStr);
       var nomGeo = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(qStr);
       return fetchWithStepTimeout(photonGeo, {headers:{"Accept":"application/json"}}, 4500)
-        .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+        .then(function(r){
+          if(r.status === 429){
+            var ra = parseRetryAfterSec(r, 15);
+            osmCooldownUntil = Date.now() + ra * 1000;
+            var e429 = new Error("HTTP 429"); e429.code = "RATE_LIMITED"; e429.retryAfterSec = ra; throw e429;
+          }
+          if(!r.ok) throw new Error("HTTP "+r.status);
+          return r.json();
+        })
         .then(function(j){
           var feat = j && j.features && j.features[0];
           if(feat && feat.geometry && feat.geometry.coordinates && feat.geometry.coordinates.length >= 2){
@@ -11724,9 +11876,17 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
           throw new Error("photon_empty");
         })
         .catch(function(err){
-          if(ctrl && ctrl.signal.aborted) throw err;
+          if(isStaleOrAborted() || (err && err.code === "RATE_LIMITED")) throw err;
           return fetchWithStepTimeout(nomGeo, {headers:{"Accept":"application/json"}}, 5000)
-            .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+            .then(function(r){
+              if(r.status === 429){
+                var ra2 = parseRetryAfterSec(r, 15);
+                osmCooldownUntil = Date.now() + ra2 * 1000;
+                var e429b = new Error("HTTP 429"); e429b.code = "RATE_LIMITED"; e429b.retryAfterSec = ra2; throw e429b;
+              }
+              if(!r.ok) throw new Error("HTTP "+r.status);
+              return r.json();
+            })
             .then(function(arr){
               if(!arr || !arr.length) throw new Error("未找到城市「" + city + "」，请点击上方重点城市标签或改用标准英文城市名");
               return { lat: parseFloat(arr[0].lat), lon: parseFloat(arr[0].lon) };
@@ -11734,7 +11894,8 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         });
     }
 
-    function queryPhotonTerms(lat, lon, bbPhoton, customTerms, viaLabel, degraded){
+    // F01/F04/F05: Controlled batch concurrency (max 2), strict Abort propagation, per-request outcome tracking, 429 immediate stop
+    function queryPhotonTerms(lat, lon, bbPhoton, customTerms, viaLabel, degraded, overpassConfirmedEmpty){
       var base = "https://photon.komoot.io/api/?limit=25&lat=" + lat.toFixed(4) + "&lon=" + lon.toFixed(4) + "&bbox=" + bbPhoton;
       var qTerms = (customTerms && customTerms.length)
         ? customTerms.slice(0, 6)
@@ -11742,16 +11903,68 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
             ? window.FG_CORE.getOsmExpansionTerms(country, kwClean, 1)
             : ["hardware", "steel", "metal", "engineering", "machinery"]);
       var urls = qTerms.map(function(t){ return base + "&q=" + encodeURIComponent(t); });
-      return Promise.all(urls.map(function(u){
-        return fetchWithStepTimeout(u, {headers:{"Accept":"application/json"}}, 5000)
-          .then(function(r){ return r.ok ? r.json() : {features:[]}; })
-          .catch(function(){ return {features:[]}; });
-      })).then(function(results){
+      var outcomes = [];
+      var rateLimitedErr = null;
+
+      function runBatch(startIdx){
+        if(isStaleOrAborted()){
+          return Promise.reject(new DOMException("Aborted", "AbortError"));
+        }
+        if(rateLimitedErr) return Promise.reject(rateLimitedErr);
+        if(startIdx >= urls.length) return Promise.resolve();
+        var slice = urls.slice(startIdx, startIdx + 2);
+        return Promise.all(slice.map(function(u){
+          return fetchWithStepTimeout(u, {headers:{"Accept":"application/json"}}, 5000)
+            .then(function(r){
+              if(isStaleOrAborted()) throw new DOMException("Aborted", "AbortError");
+              if(r.status === 429){
+                var ra = parseRetryAfterSec(r, 15);
+                osmCooldownUntil = Date.now() + ra * 1000;
+                var e429 = new Error("Photon 公共节点触发限流 (HTTP 429)");
+                e429.code = "RATE_LIMITED";
+                e429.retryAfterSec = ra;
+                rateLimitedErr = e429;
+                return { status: "rate_limited", features: [] };
+              }
+              if(!r.ok) return { status: "error", httpStatus: r.status, features: [] };
+              return r.json().then(function(j){
+                return { status: "ok", features: (j && Array.isArray(j.features)) ? j.features : [] };
+              }).catch(function(){
+                return { status: "error", features: [] };
+              });
+            })
+            .catch(function(err){
+              if(isStaleOrAborted() || (err && err.name === "AbortError" && ctrl && ctrl.signal.aborted)){
+                throw err;
+              }
+              if(err && err.code === "RATE_LIMITED"){
+                rateLimitedErr = err;
+                return { status: "rate_limited", features: [] };
+              }
+              if(err && err.code === "STEP_TIMEOUT"){
+                return { status: "timeout", features: [] };
+              }
+              return { status: "error", features: [] };
+            });
+        })).then(function(batchRes){
+          if(isStaleOrAborted()) throw new DOMException("Aborted", "AbortError");
+          batchRes.forEach(function(o){ outcomes.push(o); });
+          if(rateLimitedErr) throw rateLimitedErr;
+          return runBatch(startIdx + 2);
+        });
+      }
+
+      return runBatch(0).then(function(){
+        if(isStaleOrAborted()) throw new DOMException("Aborted", "AbortError");
+        var okCount = 0, errCount = 0, toCount = 0;
         var els = [];
         var okShop = /^(hardware|trade|wholesale|building_materials|electrical|energy|machine|agrarian|doityourself|industrial|yes)$/i;
         var badOffice = /^(lawyer|accountant|estate_agent|insurance|consulting|advertising|coworking|notary|financial|tax_advisor|travel_agent|government|political_party|religion|ngo)$/i;
-        results.forEach(function(j){
-          (j && j.features || []).forEach(function(f){
+        outcomes.forEach(function(out){
+          if(out.status === "ok") okCount++;
+          else if(out.status === "timeout") toCount++;
+          else errCount++;
+          (out.features || []).forEach(function(f){
             var p = f.properties || {};
             var nm = (p.name || "").replace(/\s*:v\b/gi, "").trim();
             if(!nm || nm.toLowerCase() === city.toLowerCase() || nm.toLowerCase() === countryClean.toLowerCase()) return;
@@ -11767,6 +11980,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
             els.push({
               lat: coords[1], lon: coords[0],
               tags: {
+                _osmKey: k,
                 name: nm,
                 industrial: (v && v !== "yes") ? v : (k || "industrial"),
                 "addr:street": p.street || p.district || "",
@@ -11775,31 +11989,47 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
             });
           });
         });
-        return { elements: els, _via: viaLabel || "Photon 开源快通道", _degraded: !!degraded };
+        // F01: NEVER turn all-failed / all-timeout requests into false "真实零条结果"
+        if(okCount === 0){
+          var failErr = new Error("OSM 主节点与 Photon 开源通道均请求失败或超时（成功 0/" + urls.length + "），无法判定该区域无企业");
+          failErr.code = toCount > 0 && errCount === 0 ? "ALL_TIMEOUT" : "ALL_FAILED";
+          throw failErr;
+        }
+        var hasPartialFailures = (errCount + toCount) > 0;
+        var isDegradedFinal = !!degraded || hasPartialFailures;
+        var partialMsg = hasPartialFailures
+          ? ("部分子查询失败/超时（成功 " + okCount + "/" + urls.length + "）")
+          : (degraded ? "主节点超时或异常已退化至快通道" : "");
+        return {
+          elements: els,
+          _via: viaLabel || "Photon 开源快通道",
+          _degraded: isDegradedFinal,
+          _partialReason: partialMsg,
+          _verifiedZeroEligible: (!hasPartialFailures && (!degraded || overpassConfirmedEmpty || okCount === urls.length))
+        };
       });
     }
 
-    var nextRound = isExpandMore && osmLastState ? ((osmLastState.round || 0) + 1) : 0;
     st.textContent = isExpandMore
-      ? ("正在执行第 " + nextRound + " 轮 OSM 多语种扩词检索「" + city + ", " + countryClean + "」（半径 " + radKm + " km）…")
-      : ("第 1/2 步：正在定位「" + city + ", " + countryClean + "」坐标（真实半径 " + radKm + " km）…");
+      ? ("正在执行第 " + nextRound + " 轮 OSM 多语种扩词检索「" + city + ", " + countryClean + "」（扩圈半径 " + effectiveKm + " km）…")
+      : ("第 1/2 步：正在定位「" + city + ", " + countryClean + "」坐标（圆形半径 " + effectiveKm + " km）…");
 
     var geoCoord = null;
     geocodeCity()
       .then(function(coord){
+        if(isStaleOrAborted()) throw new DOMException("Aborted", "AbortError");
         geoCoord = coord;
         var lat = coord.lat, lon = coord.lon;
-        var effectiveMeters = isExpandMore ? Math.min(Math.round(radEff * (1 + nextRound * 0.2)), 70000) : radEff;
         var boxes = buildBbox(lat, lon, effectiveMeters);
 
         if(isExpandMore){
           var expTerms = (window.FG_CORE && typeof window.FG_CORE.getOsmExpansionTerms === "function")
             ? window.FG_CORE.getOsmExpansionTerms(country, kwClean, nextRound)
             : ["engineering", "machinery", "piping", "contractor", "wholesale"];
-          return queryPhotonTerms(lat, lon, boxes.bbPhoton, expTerms, "Photon 扩词补全（第 " + nextRound + " 轮）", false);
+          return queryPhotonTerms(lat, lon, boxes.bbPhoton, expTerms, "Photon 扩词补全（第 " + nextRound + " 轮）", false, false);
         }
 
-        st.textContent = "第 2/2 步：已定位 (" + lat.toFixed(2) + ", " + lon.toFixed(2) + ")，正在通过 OSM Overpass 主节点按真实半径 " + radKm + " km 检索「" + kwClean + "」…";
+        st.textContent = "第 2/2 步：已定位 (" + lat.toFixed(2) + ", " + lon.toFixed(2) + ")，正在通过 OSM Overpass 主节点按圆形半径 " + effectiveKm + " km 检索「" + kwClean + "」…";
 
         var clauses = [
           'node["man_made"="works"]["name"];way["man_made"="works"]["name"];',
@@ -11824,21 +12054,49 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         }
         // Single polite Overpass official endpoint with 7s timeout (NO mirror rotation to evade rate limits)
         var q = '[out:json][timeout:7][bbox:' + boxes.bb + '];(' + clauses.join("") + ');out center 150;';
+        var overpassConfirmedEmpty = false;
         return fetchWithStepTimeout("https://overpass-api.de/api/interpreter", {
           method:"POST",
           body:"data="+encodeURIComponent(q),
           headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json, */*"}
         }, 7000)
-          .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+          .then(function(r){
+            if(r.status === 429){
+              var ra = parseRetryAfterSec(r, 15);
+              osmCooldownUntil = Date.now() + ra * 1000;
+              var e429 = new Error("OSM Overpass 节点触发限流 (HTTP 429)");
+              e429.code = "RATE_LIMITED";
+              e429.retryAfterSec = ra;
+              throw e429;
+            }
+            if(!r.ok) throw new Error("HTTP "+r.status);
+            return r.json();
+          })
           .then(function(j){
-            if(!j || !j.elements || !j.elements.length) throw new Error("empty_overpass");
-            j._via = "OSM Overpass 主节点";
-            j._degraded = false;
-            return j;
+            var remarkStr = String((j && j.remark) || "").trim();
+            var hasRuntimeRemark = /runtime error|timed out|timeout|memory|exhausted/i.test(remarkStr);
+            var hasEls = !!(j && Array.isArray(j.elements) && j.elements.length > 0);
+            if(hasEls){
+              // F06: Overpass HTTP 200 with timeout/runtime remark MUST be marked partial/degraded, never complete!
+              if(hasRuntimeRemark){
+                j._via = "OSM Overpass 主节点（超时部分结果）";
+                j._degraded = true;
+                j._partialReason = "主节点查询超时（remark: " + remarkStr.slice(0, 64) + "），仅返回部分结果";
+              } else {
+                j._via = "OSM Overpass 主节点";
+                j._degraded = false;
+              }
+              return j;
+            }
+            if(!hasRuntimeRemark){
+              overpassConfirmedEmpty = true;
+            }
+            throw new Error(hasRuntimeRemark ? ("overpass_remark_empty:" + remarkStr) : "empty_overpass");
           })
           .catch(function(err){
-            if(ctrl && ctrl.signal.aborted) throw err;
-            st.textContent = "⚠️ OSM 主节点超时或空响应，正在自动退化至 Photon 开源快通道检索「" + city + "」（部分结果模式）…";
+            // F04 & F05: Never swallow user abort or 429 rate-limit into Photon fallback storm!
+            if(isStaleOrAborted() || (err && err.code === "RATE_LIMITED")) throw err;
+            st.textContent = "⚠️ OSM 主节点超时或空响应，正在自动退化至 Photon 开源快通道检索「" + city + "」（部分结果模式 · 半径 " + effectiveKm + " km）…";
             var fallbackTerms = kwTokens.slice(0, 2).concat(
               (window.FG_CORE && typeof window.FG_CORE.getOsmExpansionTerms === "function")
                 ? window.FG_CORE.getOsmExpansionTerms(country, kwClean, 1)
@@ -11846,15 +12104,17 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
             );
             var uniqTerms = [];
             fallbackTerms.forEach(function(x){ if(x && uniqTerms.indexOf(x) < 0 && uniqTerms.length < 6) uniqTerms.push(x); });
-            return queryPhotonTerms(lat, lon, boxes.bbPhoton, uniqTerms, "Photon 开源快通道（退化部分结果）", true);
+            return queryPhotonTerms(lat, lon, boxes.bbPhoton, uniqTerms, "Photon 开源快通道（退化部分结果）", true, overpassConfirmedEmpty);
           });
       })
       .then(function(json){
+        if(mySeq !== osmReqSeq) return;
         endOsmPending();
         var elapsedSec = ((Date.now() - t0) / 1000).toFixed(1);
-        var parsed = parseOsmElementsToLeads((json && json.elements) || [], country, city, kwTokens);
+        var parsed = parseOsmElementsToLeads((json && json.elements) || [], country, city, kwTokens, geoCoord, effectiveMeters);
         mapResultSource = "osm";
-        var addedCnt = 0;
+        var addedCompanies = 0;
+        var addedZones = 0;
         if(isExpandMore){
           var existingNames = Object.create(null);
           mapLeads.forEach(function(x){ if(x && x.company) existingNames[x.company.toLowerCase()] = 1; });
@@ -11863,15 +12123,20 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
             if(!existingNames[k]){
               existingNames[k] = 1;
               mapLeads.push(item);
-              addedCnt++;
+              if(item._entityKind === "zone") addedZones++;
+              else addedCompanies++;
             }
           });
-          osmLastState = { country: country, city: city, coord: geoCoord, radius: radEff, kw: kwClean, round: nextRound };
+          osmLastState = { country: country, city: city, coord: geoCoord, radius: radEff, effectiveMeters: effectiveMeters, kw: kwClean, round: nextRound };
         } else {
           mapLeads = parsed;
-          addedCnt = parsed.length;
-          osmLastState = { country: country, city: city, coord: geoCoord, radius: radEff, kw: kwClean, round: 0 };
+          addedCompanies = parsed.filter(function(x){ return x._entityKind !== "zone"; }).length;
+          addedZones = parsed.filter(function(x){ return x._entityKind === "zone"; }).length;
+          osmLastState = { country: country, city: city, coord: geoCoord, radius: radEff, effectiveMeters: effectiveMeters, kw: kwClean, round: 0 };
         }
+        var totalCompanies = mapLeads.filter(function(x){ return x._entityKind !== "zone"; }).length;
+        var totalZones = mapLeads.filter(function(x){ return x._entityKind === "zone"; }).length;
+        var zoneSuffix = totalZones > 0 ? ("（另识别 " + totalZones + " 处工业园区/地理线索，已与企业分开统计）") : "";
         var curRound = osmLastState ? osmLastState.round : 0;
         if(btnOsmMore){
           btnOsmMore.hidden = (msEngine !== "osm" || !geoCoord || curRound >= 3);
@@ -11879,27 +12144,43 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
         }
         var viaTxt = (json && json._via) ? json._via : "OSM";
         if(isExpandMore){
-          st.textContent = addedCnt > 0
-            ? ("扩搜完成（" + viaTxt + " · 半径 " + radKm + " km · " + elapsedSec + "s）：本次新增 " + addedCnt + " 家，累计 " + mapLeads.length + " 家去重工业企业。")
-            : ("本轮扩搜未发现更多新增企业（" + viaTxt + " · " + elapsedSec + "s，当前累计 " + mapLeads.length + " 家），建议点击上方其他工业城市或更换关键词。");
-        } else if(mapLeads.length){
-          st.textContent = (json && json._degraded ? "⚠️ 主节点超时已退化（部分结果）｜ " : "检索完成 ｜ ")
-            + "引擎：" + viaTxt + " · 半径 " + radKm + " km · 耗时 " + elapsedSec + "s ｜ 按「" + kwClean + "」找到 " + mapLeads.length + " 家工业企业（可点「继续搜索更多」扩词补全，或送入洗名单）。";
+          st.textContent = addedCompanies > 0
+            ? ("扩搜完成（" + viaTxt + " · 扩圈半径 " + effectiveKm + " km · " + elapsedSec + "s）：本次新增 " + addedCompanies + " 家，累计 " + totalCompanies + " 家去重工业企业" + zoneSuffix + "。")
+            : ("本轮扩搜未发现更多新增企业（" + viaTxt + " · 扩圈半径 " + effectiveKm + " km · " + elapsedSec + "s，当前累计 " + totalCompanies + " 家企业" + zoneSuffix + "），建议点击上方其他工业城市或更换关键词。");
+        } else if(totalCompanies > 0){
+          var prefix = (json && json._degraded)
+            ? ("⚠️ " + (json._partialReason ? ("主节点超时（部分结果）：" + json._partialReason) : "主节点超时已退化（部分结果）") + " ｜ ")
+            : "检索完成 ｜ ";
+          st.textContent = prefix
+            + "引擎：" + viaTxt + " · 圆形半径 " + effectiveKm + " km · 耗时 " + elapsedSec + "s ｜ 按「" + kwClean + "」找到 " + totalCompanies + " 家工业企业" + zoneSuffix + "（可点「继续搜索更多」扩词补全，或送入洗名单）。";
+        } else if(totalZones > 0){
+          st.textContent = "检索完成（" + viaTxt + " · 圆形半径 " + effectiveKm + " km · " + elapsedSec + "s）：当前找到 0 家具体工业企业，但识别到 " + totalZones + " 处工业园区/地理片区线索（不可直接建档，可点卡片「搜园区企业」反查入驻工厂）。";
+        } else if(json && json._degraded && !json._verifiedZeroEligible){
+          st.textContent = "⚠️ 检索未完整完成（" + viaTxt + " · " + (json._partialReason || "部分子查询异常") + " · 圆形半径 " + effectiveKm + " km · " + elapsedSec + "s）：当前 0 条结果不代表该区域无企业，请稍后重试或切换城市。";
         } else {
-          st.textContent = "真实零条结果（" + viaTxt + " · 半径 " + radKm + " km · " + elapsedSec + "s）：该区域 OSM 开源标记较少，可点「继续搜索更多」换词尝试，或切换其他城市 / Google Maps 引擎。";
+          st.textContent = "真实零条结果（" + viaTxt + " · 圆形半径 " + effectiveKm + " km · " + elapsedSec + "s）：全部查询已成功完成但该区域 OSM 开源标记较少，可点「继续搜索更多」换词尝试，或切换其他城市 / Google Maps 引擎。";
         }
         renderMapResults();
       })
       .catch(function(err){
+        if(mySeq !== osmReqSeq) return;
         var userCancelled = !!(ctrl && ctrl.signal.aborted && !timedOut);
-        var isTimeout = timedOut || (err && err.name === "AbortError");
+        var isRateLimited = !!(err && err.code === "RATE_LIMITED");
+        var isAllFailed = !!(err && (err.code === "ALL_FAILED" || err.code === "ALL_TIMEOUT"));
+        var isTimeout = timedOut || (err && (err.name === "AbortError" || err.code === "STEP_TIMEOUT" || err.code === "ALL_TIMEOUT"));
         endOsmPending();
+        var cacheNote = mapLeads.length ? "（下方保留上次缓存结果供参考）" : "";
         if(userCancelled){
           st.textContent = "已取消本次 OSM 抓取。";
+        } else if(isRateLimited){
+          var sec = (err && err.retryAfterSec) || 15;
+          st.textContent = "⚠️ OSM 公共接口触发限流（HTTP 429），已自动停止请求并进入 " + sec + " 秒冷却（尊重 Retry-After），请稍后再试。" + cacheNote;
+        } else if(isAllFailed){
+          st.textContent = "⚠️ 检索失败（接口/网络异常）：" + err.message + "，请检查网络后重试或切换 Google Maps 引擎。" + cacheNote;
         } else if(isTimeout){
-          st.textContent = "OSM 公共接口整体响应超时（当前网络到开源地图受限）。建议缩小半径至 15km 后重试，或切换 Google Maps 引擎。";
+          st.textContent = "⚠️ OSM 公共接口整体响应超时（当前网络到开源地图受限，无法判定无企业）。建议缩小半径至 15km 后重试，或切换 Google Maps 引擎。" + cacheNote;
         } else {
-          st.textContent = "抓取失败：" + (err && err.message ? err.message : "请稍后重试或检查网络") + "。";
+          st.textContent = "⚠️ 抓取失败（非零条结果）：" + (err && err.message ? err.message : "请稍后重试或检查网络") + "。" + cacheNote;
         }
       });
   }
@@ -12077,15 +12358,20 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       showToast("按 Google Maps Platform 条款，Google 检索结果禁止导出 CSV");
       return;
     }
+    var exportable = mapLeads.filter(function(r){ return r && r._entityKind !== "zone"; });
+    if(!exportable.length){
+      showToast("当前结果均为工业园区/地理片区线索，无单一企业可导出 CSV");
+      return;
+    }
     var lines = ["# Source: OpenStreetMap contributors (ODbL)","Company,Country,City,Category,Phone,Email,Website,Address,MapLink"];
-    mapLeads.forEach(function(r){
+    exportable.forEach(function(r){
       lines.push([qCsv(r.company),qCsv(r.country),qCsv(r.city),qCsv(r.category),qCsv(r.phone),qCsv(r.email),qCsv(r.website),qCsv(r.address),qCsv(r.mapsUrl)].join(","));
     });
     downloadFile("friesgo-osm-leads-"+localDateStr()+".csv", "\ufeff"+lines.join("\n"), "text/csv;charset=utf-8");
-    showToast("已导出 " + mapLeads.length + " 家开源地图（OSM · ODbL）采客名单");
+    showToast("已导出 " + exportable.length + " 家开源地图（OSM · ODbL）企业名单");
   });
 
-  window._resetOsmThrottle = function(){ osmLastReqAt = 0; };
+  window._resetOsmThrottle = function(){ osmLastReqAt = 0; osmCooldownUntil = 0; };
   window._syncMapCityChips = function(){ renderCityChips(msCountry.value); };
 
   /* ===== MODULE C: CSV Cleaner + MX Verifier + WhatsApp/Email Outreach ===== */
@@ -12348,7 +12634,12 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       showToast("按 Google Maps Platform 条款，Google 检索结果禁止送入批量洗名单");
       return;
     }
-    ingestLeads(mapLeads, false);
+    var pushable = mapLeads.filter(function(r){ return r && r._entityKind !== "zone"; });
+    if(!pushable.length){
+      showToast("当前结果均为工业园区/地理片区线索，无单一企业可送入洗名单");
+      return;
+    }
+    ingestLeads(pushable, false);
     navigateTo("csv-workbench");
   });
   document.getElementById("btnUploadCsv").addEventListener("click", function(){ document.getElementById("csvFileInput").click(); });
@@ -12533,10 +12824,10 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   });
 });
 
-/* ===== V2.1 M1: Lightweight In-App Employee Feedback & Co-Creation Modal (Local Edition) ===== */
+/* ===== V2.1 M1/M2-A: Lightweight In-App Employee Feedback & Co-Creation Modal ===== */
 window.FG_CORE.safeInit("FeedbackModal", function(){
   var FB_STORAGE_KEY = "friesgo_m1_feedback_v1";
-  var APP_VER = "v2.1-m1";
+  var APP_VER = "v2.1-m2a";
   var lastSanitizedErr = "";
 
   function captureSanitizedErr(raw){
@@ -12560,6 +12851,9 @@ window.FG_CORE.safeInit("FeedbackModal", function(){
   var catEl = document.getElementById("fbCategory");
   var msgEl = document.getElementById("fbMessage");
   var ctxBox = document.getElementById("fbContextPreview");
+  var warnBox = document.getElementById("fbSensitiveWarn");
+  var checkWrap = document.getElementById("fbManualCheckWrap");
+  var checkOk = document.getElementById("fbManualCheckOk");
   var cntEl = document.getElementById("fbLocalCount");
   var listEl = document.getElementById("fbLocalList");
   var clearBtn = document.getElementById("btnFbClearLocal");
@@ -12610,8 +12904,37 @@ window.FG_CORE.safeInit("FeedbackModal", function(){
   function refreshPreview(){
     var built = buildCurrentFeedback();
     if(ctxBox) ctxBox.textContent = built.cardText;
+    var risks = built.sensitiveRisks || { hasRisk: false, requiresManualReview: false, reasons: [] };
+    if(warnBox){
+      if(risks.hasRisk){
+        warnBox.hidden = false;
+        warnBox.className = "v2-guard-bar " + (risks.requiresManualReview ? "lv-red" : "lv-yellow");
+        warnBox.textContent = "⚠️ 敏感内容提醒：" + risks.reasons.join("；") + "。";
+      } else {
+        warnBox.hidden = true;
+        warnBox.textContent = "";
+      }
+    }
+    if(checkWrap){
+      checkWrap.hidden = !risks.requiresManualReview;
+      if(!risks.requiresManualReview && checkOk) checkOk.checked = false;
+    }
     return built;
   }
+
+  function verifyPrivacyGuardOrWarn(built){
+    var risks = (built && built.sensitiveRisks) || { requiresManualReview: false };
+    if(risks.requiresManualReview && !(checkOk && checkOk.checked)){
+      showToast("检测到疑似客户姓名或公司名：请先删改自由文本，或勾选「已人工核查确认脱敏」后再继续");
+      if(msgEl) msgEl.focus();
+      return false;
+    }
+    return true;
+  }
+  window._checkFeedbackPrivacyGuard = function(){
+    var built = refreshPreview();
+    return verifyPrivacyGuardOrWarn(built);
+  };
 
   function renderLocalFeedbackList(){
     var items = loadSavedFeedback();
@@ -12632,6 +12955,7 @@ window.FG_CORE.safeInit("FeedbackModal", function(){
 
   function openModal(){
     modal.hidden = false;
+    if(checkOk) checkOk.checked = false;
     refreshPreview();
     renderLocalFeedbackList();
     if(msgEl) setTimeout(function(){ msgEl.focus(); }, 40);
@@ -12651,19 +12975,23 @@ window.FG_CORE.safeInit("FeedbackModal", function(){
     if(e.key === "Escape" && !modal.hidden) closeModal();
   });
   if(catEl) catEl.addEventListener("change", refreshPreview);
-  if(msgEl) msgEl.addEventListener("input", refreshPreview);
+  if(msgEl) msgEl.addEventListener("input", function(){
+    if(checkOk) checkOk.checked = false;
+    refreshPreview();
+  });
 
   var btnCopy = document.getElementById("btnFbCopyCard");
   if(btnCopy){
     btnCopy.addEventListener("click", function(){
       var built = refreshPreview();
+      if(!verifyPrivacyGuardOrWarn(built)) return;
       window._lastFeedbackCardText = built.cardText;
       if(navigator.clipboard && navigator.clipboard.writeText){
         navigator.clipboard.writeText(built.cardText)
-          .then(function(){ showToast("已复制脱敏反馈卡片，可直接粘贴发到团队群"); })
-          .catch(function(){ showToast("已生成脱敏反馈卡片（请在上方预览框手动复制）"); });
+          .then(function(){ showToast("已复制反馈卡片（请发群前再次确认无敏感词）"); })
+          .catch(function(){ showToast("已生成反馈卡片（请在上方预览框手动复制）"); });
       } else {
-        showToast("已生成脱敏反馈卡片（请在上方预览框手动复制）");
+        showToast("已生成反馈卡片（请在上方预览框手动复制）");
       }
     });
   }
@@ -12678,10 +13006,12 @@ window.FG_CORE.safeInit("FeedbackModal", function(){
         return;
       }
       var built = refreshPreview();
+      if(!verifyPrivacyGuardOrWarn(built)) return;
       var list = loadSavedFeedback();
       list.unshift(built);
       saveFeedbackList(list);
       if(msgEl) msgEl.value = "";
+      if(checkOk) checkOk.checked = false;
       refreshPreview();
       renderLocalFeedbackList();
       showToast("已存入本机试用反馈记录（共 " + list.length + " 条）");
