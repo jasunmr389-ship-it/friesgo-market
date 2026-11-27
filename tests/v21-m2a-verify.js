@@ -20,7 +20,8 @@ import { generateTotpCode } from "../workers/friesgo-api/src/totp.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const SCHEMA_SQL = fs.readFileSync(path.join(ROOT, "workers", "friesgo-api", "migrations", "0001_init.sql"), "utf8");
-const CHROME_BIN = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+import { findChrome } from "./_chrome.cjs";
+const CHROME_BIN = findChrome();
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -53,7 +54,22 @@ function createSqliteD1() {
       },
     };
   }
-  return { raw, prepare: (sql) => wrapStmt(sql, []) };
+  return {
+    raw,
+    prepare: (sql) => wrapStmt(sql, []),
+    async batch(stmts) {
+      raw.exec("BEGIN IMMEDIATE");
+      try {
+        const out = [];
+        for (const s of stmts) out.push(await s.run());
+        raw.exec("COMMIT");
+        return out;
+      } catch (err) {
+        try { raw.exec("ROLLBACK"); } catch (_) {}
+        throw err;
+      }
+    },
+  };
 }
 
 function startStaticServer() {
@@ -200,7 +216,7 @@ async function launchChrome() {
       localCrmVisible: !document.getElementById("localCrmCardWrap").hidden,
       fbCloudHidden: document.getElementById("fbCloudSection").hidden
     }))()`);
-    assert.ok(guest.authBtn.includes("员工登录"));
+    assert.ok(guest.authBtn.includes("成员登录"));
     assert.equal(guest.poolBarHidden, true);
     assert.equal(guest.localCrmVisible, true);
     assert.equal(guest.fbCloudHidden, true);

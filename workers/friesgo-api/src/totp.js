@@ -72,14 +72,22 @@ export async function generateTotpCode(secretBase32, timestampMs = Date.now(), p
   return String(bin % 1000000).padStart(6, "0");
 }
 
-export async function verifyTotpCode(secretBase32, candidate, timestampMs = Date.now(), windowSteps = 1) {
+export async function verifyTotpCodeWithStep(secretBase32, candidate, timestampMs = Date.now(), windowSteps = 1) {
   const clean = String(candidate || "").replace(/\s+/g, "");
-  if (!/^\d{6}$/.test(clean)) return false;
-  for (let step = -windowSteps; step <= windowSteps; step++) {
-    const expected = await generateTotpCode(secretBase32, timestampMs + step * 30000);
-    if (timingSafeEqualStr(clean, expected)) return true;
+  if (!/^\d{6}$/.test(clean)) return { ok: false, step: 0 };
+  const baseStep = Math.floor(timestampMs / 1000 / 30);
+  for (let offset = -windowSteps; offset <= windowSteps; offset++) {
+    const expected = await generateTotpCode(secretBase32, timestampMs + offset * 30000);
+    if (timingSafeEqualStr(clean, expected)) {
+      return { ok: true, step: baseStep + offset };
+    }
   }
-  return false;
+  return { ok: false, step: 0 };
+}
+
+export async function verifyTotpCode(secretBase32, candidate, timestampMs = Date.now(), windowSteps = 1) {
+  const r = await verifyTotpCodeWithStep(secretBase32, candidate, timestampMs, windowSteps);
+  return r.ok;
 }
 
 export function buildOtpAuthUri(secretBase32, loginId, issuer = "FriesGo Global") {

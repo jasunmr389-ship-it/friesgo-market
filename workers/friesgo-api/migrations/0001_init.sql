@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS employees (
   recovery_codes_hash_json TEXT NOT NULL DEFAULT '[]',
   must_reset_pwd INTEGER NOT NULL DEFAULT 0,
   gmaps_monthly_cap INTEGER NOT NULL DEFAULT 250,
+  last_totp_step INTEGER NOT NULL DEFAULT 0,
   schema_version INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -283,4 +284,11 @@ CREATE TABLE IF NOT EXISTS migration_batches (
   employee_name TEXT NOT NULL,
   summary_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS system_maintenance_state (
+  state_key TEXT PRIMARY KEY,
+  state_value TEXT NOT NULL,
+  meta_json TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL
 );

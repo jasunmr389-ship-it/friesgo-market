@@ -1,0 +1,64 @@
+name: FriesGo Global Quality Gate
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-gate:
+    name: Unit, API Security, E2E Chrome & Policy Freshness Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify Chrome binary availability
+        run: |
+          CHROME_BIN="$(which google-chrome || which google-chrome-stable || which chromium || which chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo "Installing Chromium..."
+            sudo apt-get update && sudo apt-get install -y chromium-browser
+            CHROME_BIN="$(which chromium-browser)"
+          fi
+          echo "CHROME_PATH=$CHROME_BIN" >> "$GITHUB_ENV"
+          "$CHROME_BIN" --version
+
+      - name: Syntax check core JS bundles
+        run: |
+          node -c js/fg-core.js
+          node -c js/fg-store.js
+          node -c js/fg-cloud.js
+          node -c js/fg-cloud-ui.js
+
+      - name: Run Node Unit Tests (fg-core)
+        run: node --test tests/unit-core-and-worker.test.js
+
+      - name: Run Cloud API Security, RBAC, 2FA, Locks, Dedupe & Restore Tests
+        run: node --test tests/m2a-api-security.test.js
+
+      - name: Run V2.1 D01-D12 & S01-S14 Directed Security + E2E Regression Suite
+        run: node tests/v21-d01-d12-verify.js
+
+      - name: Run V2.1 M2-A Cloud E2E Browser Suite
+        run: node tests/v21-m2a-verify.js
+
+      - name: Run V2.1 M1 F01-F12 Independent Audit Regression Suite
+        run: node tests/v21-m1-f01-f12-verify.js
+
+      - name: Run V2.1 M1 Core Browser Suite
+        run: node tests/v21-m1-verify.js
+
+      - name: Run V2.0 UX & Foreign-Trade Guardrails Browser Suite
+        run: node tests/v2-ux-verify.js
+
+      - name: Run Policy Shelf-Life Check
+        run: python3 scripts/check_policy_review.py

@@ -99,7 +99,7 @@ export async function handleLockRoutes(request, env, cors, url) {
           code: "LOCK_HELD_BY_OTHER",
           error: sameUserOtherDevice
             ? `🔒 你在另一台设备上正在处理联系「${comp.canonical_name}」（截止 ${holder.expires_at}），请勿跨设备重复发送`
-            : `🔒 同事「${(holder && holder.employee_name) || "其他员工"}」正在通过 ${(holder && holder.channel) || "沟通渠道"} 处理联系「${comp.canonical_name}」，请暂勿重复操作（锁定时效至 ${(holder && holder.expires_at) || ""}）`,
+            : `🔒 同事「${(holder && holder.employee_name) || "其他成员"}」正在通过 ${(holder && holder.channel) || "沟通渠道"} 处理联系「${comp.canonical_name}」，请暂勿重复操作（锁定时效至 ${(holder && holder.expires_at) || ""}）`,
           holder: holder
             ? {
                 employee_id: holder.employee_id,

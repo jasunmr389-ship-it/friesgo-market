@@ -22,10 +22,28 @@ export async function recomputeCompanyDerivedState(db, companyId) {
   const comp = await db.prepare("SELECT * FROM companies WHERE id = ?").bind(companyId).first();
   if (!comp) return null;
   const now = nowIso();
-  const activeLock = await db
-    .prepare("SELECT * FROM contact_locks WHERE company_id = ? AND expires_at > ?")
-    .bind(companyId, now)
+  const evRankRow = await db
+    .prepare(
+      `SELECT MAX(CASE WHEN action_outcome = 'unsubscribed' THEN 2 WHEN action_outcome = 'rejected' THEN 1 ELSE 0 END) AS max_opt_rank
+       FROM contact_events WHERE company_id = ?`
+    )
+    .bind(companyId)
     .first();
+  const maxEvRank = Number((evRankRow && evRankRow.max_opt_rank) || 0);
+  const evImpliedOptOut = maxEvRank >= 2 ? "all_blocked" : maxEvRank === 1 ? "marketing_blocked" : "none";
+  const authoritativeOptOut = monotonicOptOut(comp.opt_out_status, evImpliedOptOut);
+
+  if (authoritativeOptOut !== "none") {
+    await db.prepare("DELETE FROM contact_locks WHERE company_id = ?").bind(companyId).run();
+  }
+
+  const activeLock =
+    authoritativeOptOut === "none"
+      ? await db
+          .prepare("SELECT * FROM contact_locks WHERE company_id = ? AND expires_at > ?")
+          .bind(companyId, now)
+          .first()
+      : null;
   const evRows = await db
     .prepare(
       "SELECT event_id, employee_id, employee_name, channel, action_outcome, summary, next_action, next_follow_date, occurred_at FROM contact_events WHERE company_id = ? ORDER BY occurred_at DESC LIMIT 50"
@@ -34,7 +52,7 @@ export async function recomputeCompanyDerivedState(db, companyId) {
     .all();
   const events = evRows.results || [];
   const derived = deriveContactStatus({
-    optOutStatus: comp.opt_out_status,
+    optOutStatus: authoritativeOptOut,
     complianceStatus: comp.compliance_status,
     activeLock,
     events,
@@ -52,11 +70,20 @@ export async function recomputeCompanyDerivedState(db, companyId) {
     : {};
   await db
     .prepare(
-      "UPDATE companies SET derived_contact_status = ?, last_event_summary_json = ?, updated_at = ? WHERE id = ?"
+      `UPDATE companies
+       SET opt_out_status = CASE
+             WHEN ? = 'all_blocked' OR opt_out_status = 'all_blocked' THEN 'all_blocked'
+             WHEN ? = 'marketing_blocked' OR opt_out_status = 'marketing_blocked' THEN 'marketing_blocked'
+             ELSE opt_out_status
+           END,
+           derived_contact_status = ?,
+           last_event_summary_json = ?,
+           updated_at = ?
+       WHERE id = ?`
     )
-    .bind(derived, JSON.stringify(lastSummary), now, companyId)
+    .bind(authoritativeOptOut, authoritativeOptOut, derived, JSON.stringify(lastSummary), now, companyId)
     .run();
-  return { derived, lastSummary, activeLock, events };
+  return { derived, optOutStatus: authoritativeOptOut, lastSummary, activeLock, events };
 }
 
 /**
@@ -904,16 +931,109 @@ export async function handleCompanyRoutes(request, env, cors, url) {
     return json({ ok: true, tasks: rows.results || [] }, 200, cors);
   }
 
-  // 8. Company Detail / Update / Child Quotes & Compliance Logs
+  // 8. Company Detail / Update / Child Contacts, Quotes & Compliance Logs
+  const compContactMatch = path.match(/^\/api\/companies\/([^/]+)\/contacts$/);
+  if (compContactMatch && method === "POST") {
+    const auth = await requireAuth(request, env, cors);
+    if (!auth.ok) return auth.response;
+    const compId = decodeURIComponent(compContactMatch[1]);
+    const comp = await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
+    if (!comp) return json({ error: "企业不存在" }, 404, cors);
+    const body = await parseJsonBody(request, 16384);
+    const name = String(body.name || "").trim().slice(0, 80);
+    const role = String(body.role || "").trim().slice(0, 80);
+    const email = String(body.email || "").trim().toLowerCase().slice(0, 120);
+    const phoneDigits = normalizePhoneDigits(body.phone || body.phone_e164 || "");
+    if (!name && !email && !phoneDigits) {
+      return json({ error: "请至少填写联系人姓名、邮箱或电话之一" }, 400, cors);
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return json({ error: "联系人邮箱格式无效" }, 400, cors);
+    }
+    const verifyLevel = ["guessed", "mx_ok", "verified"].includes(body.email_verify_level) ? body.email_verify_level : "guessed";
+    const id = randomId("ct");
+    const now = nowIso();
+    await env.DB
+      .prepare(
+        `INSERT INTO company_contacts (id, company_id, name, role, email, email_verify_level, phone_e164, whatsapp_ok, source_type, verified_at, opt_out_flag, schema_version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, 0, 1, ?, ?)`
+      )
+      .bind(id, compId, name, role, email, verifyLevel, phoneDigits, body.whatsapp_ok ? 1 : 0, now, now, now)
+      .run();
+    const created = await env.DB.prepare("SELECT * FROM company_contacts WHERE id = ?").bind(id).first();
+    return json({ ok: true, contact: created }, 201, cors);
+  }
+
   const compQuoteMatch = path.match(/^\/api\/companies\/([^/]+)\/quotes$/);
   if (compQuoteMatch && method === "POST") {
     const auth = await requireAuth(request, env, cors);
     if (!auth.ok) return auth.response;
     const compId = decodeURIComponent(compQuoteMatch[1]);
-    const comp = await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
+    const comp = await env.DB
+      .prepare("SELECT id, canonical_name, compliance_status, opt_out_status FROM companies WHERE id = ? AND deleted_at IS NULL")
+      .bind(compId)
+      .first();
     if (!comp) return json({ error: "企业不存在" }, 404, cors);
+
     const body = await parseJsonBody(request, 65536);
+    const quoteTier = body.quote_tier === "formal" ? "formal" : body.quote_tier === "indicative" ? "indicative" : "";
+    if (!quoteTier) {
+      return json({ error: "quote_tier 必须为 indicative 或 formal" }, 400, cors);
+    }
+    const sentConfirmed = body.sent_confirmed ? 1 : 0;
+
+    // D06: Authoritative server-side business & compliance gates (cannot be bypassed by direct API calls!)
+    if (comp.compliance_status === "blocked") {
+      return json(
+        { error: "⛔ 该企业处于合规阻断状态（blocked），禁止保存正式或已发报价记录", code: "COMPLIANCE_BLOCKED_QUOTE_FORBIDDEN" },
+        403,
+        cors
+      );
+    }
+    if (comp.opt_out_status !== "none" && (quoteTier === "formal" || sentConfirmed === 1)) {
+      return json(
+        { error: "⛔ 该企业已登记拒绝/退订（" + comp.opt_out_status + "），禁止出具正式报价或标记已发送", code: "OPTOUT_QUOTE_FORBIDDEN" },
+        403,
+        cors
+      );
+    }
+    if (quoteTier === "formal" && comp.compliance_status !== "approved") {
+      return json(
+        { error: "⚠️ 出具正式报价（Formal）前须先完成客户背调并审批通过（approved），当前状态：" + comp.compliance_status, code: "DD_APPROVAL_REQUIRED" },
+        403,
+        cors
+      );
+    }
+
+    const payload = body.payload;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return json({ error: "缺少有效报价明细 payload 对象" }, 400, cors);
+    }
+    // Validate numeric integrity across all known pricing fields (reject negative, NaN, Infinity, qty <= 0)
+    const nonNegFields = ["fob", "cif", "fobTotal", "cifTotal", "unitPrice", "unitFob", "unitCif", "factoryRmb", "freightUsd", "localRmb", "marginPct", "price", "total", "amount"];
+    for (const k of nonNegFields) {
+      if (payload[k] !== undefined && payload[k] !== null && payload[k] !== "") {
+        const num = Number(payload[k]);
+        if (!Number.isFinite(num) || num < 0) {
+          return json({ error: `报价字段 ${k} 数值无效（严禁负数、NaN 或无穷大）`, code: "INVALID_QUOTE_PAYLOAD" }, 400, cors);
+        }
+      }
+    }
+    if (payload.qty !== undefined && payload.qty !== null && payload.qty !== "") {
+      const qNum = Number(payload.qty);
+      if (!Number.isFinite(qNum) || qNum <= 0) {
+        return json({ error: "报价数量 qty 必须大于 0", code: "INVALID_QUOTE_PAYLOAD" }, 400, cors);
+      }
+    }
+    if (payload.fx !== undefined && payload.fx !== null && payload.fx !== "") {
+      const fxNum = Number(payload.fx);
+      if (!Number.isFinite(fxNum) || fxNum <= 0) {
+        return json({ error: "核算汇率 fx 必须大于 0", code: "INVALID_QUOTE_PAYLOAD" }, 400, cors);
+      }
+    }
+
     const quoteId = String(body.quote_id || "").trim() || randomId("qt");
+    const refNo = String(body.ref_no || "").trim().slice(0, 64);
     const now = nowIso();
     await env.DB
       .prepare(
@@ -926,17 +1046,28 @@ export async function handleCompanyRoutes(request, env, cors, url) {
       .bind(
         quoteId,
         compId,
-        String(body.ref_no || ""),
-        body.quote_tier === "formal" ? "formal" : "indicative",
+        refNo,
+        quoteTier,
         parseInt(body.profile_version || 1, 10) || 1,
-        JSON.stringify(body.payload || {}),
-        body.sent_confirmed ? 1 : 0,
+        JSON.stringify(payload),
+        sentConfirmed,
         auth.actor.id,
         now,
         now
       )
       .run();
-    return json({ ok: true, quote_id: quoteId }, 201, cors);
+
+    if (quoteTier === "formal" || sentConfirmed === 1) {
+      await writeAuditLog(
+        env.DB,
+        auth.actor,
+        "SAVE_CLOUD_QUOTE",
+        "company",
+        compId,
+        `quote_id=${quoteId}; tier=${quoteTier}; sent=${sentConfirmed}; ref=${refNo}`
+      );
+    }
+    return json({ ok: true, quote_id: quoteId, quote_tier: quoteTier, sent_confirmed: sentConfirmed }, 201, cors);
   }
 
   const compLogMatch = path.match(/^\/api\/companies\/([^/]+)\/compliance-logs$/);
@@ -944,29 +1075,60 @@ export async function handleCompanyRoutes(request, env, cors, url) {
     const auth = await requireAuth(request, env, cors);
     if (!auth.ok) return auth.response;
     const compId = decodeURIComponent(compLogMatch[1]);
-    const comp = await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
+    const comp = await env.DB
+      .prepare("SELECT id, compliance_status FROM companies WHERE id = ? AND deleted_at IS NULL")
+      .bind(compId)
+      .first();
     if (!comp) return json({ error: "企业不存在" }, 404, cors);
+
     const body = await parseJsonBody(request, 65536);
+    const orderRef = String(body.order_ref || "").trim().slice(0, 80);
+    const decision = String(body.decision || "review").trim();
+    if (!["approved", "review", "blocked", "pending"].includes(decision)) {
+      return json({ error: "无效合规结论 decision（仅允许 approved / review / blocked / pending）" }, 400, cors);
+    }
+    const checks = body.checks;
+    const validChecksObj = checks && typeof checks === "object";
+    const confirmedCount = Array.isArray(checks)
+      ? checks.filter((c) => Boolean(c && (c === true || c.checked || c.ok || c.status === "ok" || c.passed))).length
+      : validChecksObj
+        ? Object.keys(checks).filter((k) => Boolean(checks[k])).length
+        : 0;
+
+    // D06: Reject empty/unverified approved compliance records and blocked-company approvals!
+    if (decision === "approved") {
+      if (comp.compliance_status === "blocked") {
+        return json({ error: "⛔ 该企业处于合规阻断状态，禁止归档为逐单合规通过（approved）", code: "COMPLIANCE_BLOCKED_APPROVAL_FORBIDDEN" }, 403, cors);
+      }
+      if (!orderRef || orderRef.length < 2) {
+        return json({ error: "归档逐单合规通过（approved）必须填写有效订单/报价编号 order_ref", code: "ORDER_REF_REQUIRED" }, 400, cors);
+      }
+      if (confirmedCount < 1) {
+        return json({ error: "归档逐单合规通过（approved）必须包含已核查确认项，禁止提交空 checks", code: "COMPLIANCE_CHECKS_REQUIRED" }, 400, cors);
+      }
+    }
+
     const logId = String(body.log_id || "").trim() || randomId("pcl");
     const now = nowIso();
     await env.DB
       .prepare(
         `INSERT INTO compliance_order_logs (log_id, order_ref, company_id, decision, checks_json, reviewer, saved_at, schema_version, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-         ON CONFLICT(log_id) DO UPDATE SET decision = excluded.decision, checks_json = excluded.checks_json, saved_at = excluded.saved_at`
+         ON CONFLICT(log_id) DO UPDATE SET order_ref = excluded.order_ref, decision = excluded.decision, checks_json = excluded.checks_json, reviewer = excluded.reviewer, saved_at = excluded.saved_at`
       )
       .bind(
         logId,
-        String(body.order_ref || ""),
+        orderRef,
         compId,
-        String(body.decision || "review"),
-        JSON.stringify(body.checks || {}),
+        decision,
+        JSON.stringify(validChecksObj ? checks : {}),
         auth.actor.display_name,
         now,
         now
       )
       .run();
-    return json({ ok: true, log_id: logId }, 201, cors);
+    await writeAuditLog(env.DB, auth.actor, "SAVE_COMPLIANCE_LOG", "company", compId, `log_id=${logId}; order=${orderRef}; decision=${decision}; checks=${confirmedCount}`);
+    return json({ ok: true, log_id: logId, decision }, 201, cors);
   }
 
   const compIdMatch = path.match(/^\/api\/companies\/([^/]+)$/);

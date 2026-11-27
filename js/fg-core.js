@@ -2003,7 +2003,7 @@
     var iso = (nowDateStr && /^\d{4}-\d{2}-\d{2}$/.test(nowDateStr))
       ? nowDateStr
       : new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
-    var maxDays = typeof horizonDays === "number" ? horizonDays : 65;
+    var maxDays = typeof horizonDays === "number" ? horizonDays : 60;
     var baseMs = Date.parse(iso + "T00:00:00Z");
     var activeOrSoon = [];
     var preStocking = [];

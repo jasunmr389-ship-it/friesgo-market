@@ -35,6 +35,7 @@ def main():
     today = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).date()
     bad = []
     missing_src = []
+    soon = []
     for it in items:
         pid = it.get("id", "?")
         url = str(it.get("url") or "").strip()
@@ -51,13 +52,21 @@ def main():
             if rev_raw
             else checked + datetime.timedelta(days=LIMIT.get(it.get("severity", "normal"), 60))
         )
-        if review < today:
+        days_left = (review - today).days
+        if days_left < 0:
             bad.append(
-                f"[已过复核期 {(today - review).days} 天 · {it.get('severity', 'normal')}] "
+                f"[已过复核期 {-days_left} 天 · {it.get('severity', 'normal')}] "
                 f"{pid}（{it.get('country', '')}）: {it.get('claim', '')[:48]} → {url}"
             )
+        elif days_left <= 7:
+            soon.append(
+                f"[临期预警：距复核截止仅剩 {days_left} 天 · {it.get('severity', 'normal')}] "
+                f"{pid}（{it.get('country', '')}）: {it.get('claim', '')[:48]} (reviewBy={review.isoformat()})"
+            )
 
-    print(f"共核查 {len(items)} 条政策/海关数据表述，待处理 {len(bad)} 条")
+    print(f"共核查 {len(items)} 条政策/海关数据表述，待处理 {len(bad)} 条，7天内临期 {len(soon)} 条")
+    for s in soon:
+        print("::warning::" + s)
     for b in bad:
         print("  " + b)
 

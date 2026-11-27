@@ -13,7 +13,7 @@ import {
   validatePasswordStrength,
   verifyPassword,
 } from "./crypto.js";
-import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from "./totp.js";
+import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode, verifyTotpCodeWithStep } from "./totp.js";
 import {
   addDaysIso,
   addSecondsIso,
@@ -28,8 +28,21 @@ import {
 const MAX_LOGIN_FAILS = 6;
 const LOCKOUT_SECONDS = 900; // 15 min lockout after 6 consecutive failures
 
+export function parseQuotaCapStrict(raw, fallbackVal = 250) {
+  if (raw === undefined || raw === null || raw === "") {
+    return { ok: true, value: fallbackVal };
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > 950) {
+    return { ok: false, error: "Google Maps 月度配额须为 0–950 之间的整数（0 代表禁用付费权限）" };
+  }
+  return { ok: true, value: n };
+}
+
 export function sanitizeEmployeePublic(row) {
   if (!row) return null;
+  const rawCap = row.gmaps_monthly_cap;
+  const cap = rawCap === undefined || rawCap === null || rawCap === "" ? 250 : Number(rawCap);
   return {
     id: row.id,
     login_id: row.login_id,
@@ -38,11 +51,22 @@ export function sanitizeEmployeePublic(row) {
     status: row.status,
     totp_enabled: Boolean(row.totp_enabled),
     must_reset_pwd: Boolean(row.must_reset_pwd),
-    gmaps_monthly_cap: Number(row.gmaps_monthly_cap || 250),
+    gmaps_monthly_cap: Number.isFinite(cap) ? cap : 250,
     created_at: row.created_at,
     updated_at: row.updated_at,
     disabled_at: row.disabled_at || null,
   };
+}
+
+export async function isSystemRestoreFrozen(db) {
+  try {
+    const row = await db
+      .prepare("SELECT state_value, meta_json FROM system_maintenance_state WHERE state_key = 'restore_freeze'")
+      .first();
+    return Boolean(row && row.state_value === "1");
+  } catch {
+    return false;
+  }
 }
 
 async function checkRateLimit(db, bucketKey) {
@@ -84,15 +108,35 @@ async function clearRateLimit(db, bucketKey) {
   await db.prepare("DELETE FROM login_rate_limits WHERE bucket_key = ?").bind(bucketKey).run();
 }
 
-export async function verifyEmployeeTotpOrRecovery(db, employeeRow, code, env) {
+export async function verifyEmployeeTotpOrRecovery(db, employeeRow, code, env, opts = {}) {
   const cleanCode = String(code || "").trim();
   if (!cleanCode) return { ok: false, error: "请输入 6 位动态验证码或一次性应急恢复码" };
   if (!employeeRow.totp_secret_enc) {
     return { ok: false, error: "当前账号尚未完成 2FA 密钥绑定" };
   }
   const secretBase32 = await decryptSecret(employeeRow.totp_secret_enc, env.TOTP_ENC_KEY);
-  const totpOk = await verifyTotpCode(secretBase32, cleanCode);
-  if (totpOk) return { ok: true, usedRecovery: false };
+  const totpRes = await verifyTotpCodeWithStep(secretBase32, cleanCode);
+  if (totpRes.ok) {
+    if (opts.enforceNoReplay) {
+      const prevStep = Number(employeeRow.last_totp_step || 0);
+      if (totpRes.step <= prevStep) {
+        return {
+          ok: false,
+          code: "TOTP_REPLAY_REJECTED",
+          error: "该 6 位动态验证码已用于登录，请等待手机验证器刷新下一组动态码后重试",
+        };
+      }
+      try {
+        await db
+          .prepare("UPDATE employees SET last_totp_step = ?, updated_at = ? WHERE id = ?")
+          .bind(totpRes.step, nowIso(), employeeRow.id)
+          .run();
+      } catch {
+        // Safe fallback if migration 0002 not yet applied on an older DB
+      }
+    }
+    return { ok: true, usedRecovery: false, step: totpRes.step };
+  }
 
   // Try single-use recovery code
   const hashedCodes = safeJsonParse(employeeRow.recovery_codes_hash_json, []);
@@ -134,7 +178,8 @@ async function issueSession(db, employeeId, deviceLabel, uaFingerprint, ttlDays 
 
 /**
  * Authoritative server-side auth middleware. Always queries D1 live state:
- * - revoked session or disabled employee -> immediate 401 SESSION_REVOKED_OR_DISABLED
+ * - revoked session or disabled member -> immediate 401 SESSION_REVOKED_OR_DISABLED
+ * - restore_freeze maintenance lock -> immediate 503 SYSTEM_RESTORE_FROZEN for all business routes
  * - super_admin without totp_enabled=1 -> restricted to TOTP enrollment routes only
  */
 export async function requireAuth(request, env, cors, opts = {}) {
@@ -143,7 +188,7 @@ export async function requireAuth(request, env, cors, opts = {}) {
   if (!m) {
     return {
       ok: false,
-      response: json({ error: "需要员工身份认证后方可访问", code: "AUTH_REQUIRED" }, 401, cors),
+      response: json({ error: "需要成员身份认证后方可访问", code: "AUTH_REQUIRED" }, 401, cors),
     };
   }
   const tokenHash = await sha256Hex(m[1]);
@@ -175,13 +220,31 @@ export async function requireAuth(request, env, cors, opts = {}) {
     };
   }
 
+  // D05: Persistent restore maintenance freeze gate blocks ALL business access until super_admin runs post-restore-verify
+  if (!opts.allowDuringRestoreFreeze) {
+    const frozen = await isSystemRestoreFrozen(env.DB);
+    if (frozen) {
+      return {
+        ok: false,
+        response: json(
+          {
+            error: "系统正处于备份恢复安全冻结期，须总负责人执行「恢复后安全重核验」方可恢复业务访问",
+            code: "SYSTEM_RESTORE_FROZEN",
+          },
+          503,
+          cors
+        ),
+      };
+    }
+  }
+
   // Mandatory 2FA gate for super_admin on all business/admin endpoints
   if (row.role === "super_admin" && !row.totp_enabled && !opts.allowPendingTotpSetup) {
     return {
       ok: false,
       response: json(
         {
-          error: "最高管理员账号必须先完成双重身份验证（2FA）绑定后方可使用系统",
+          error: "总负责人账号必须先完成双重身份验证（2FA）绑定后方可使用系统",
           code: "TOTP_SETUP_REQUIRED",
         },
         403,
@@ -309,19 +372,19 @@ export async function handleAuthRoutes(request, env, cors, url) {
       );
     }
 
-    // Super-admin mandatory 2FA enforcement
+    // Super-admin mandatory 2FA enforcement (with same-window login replay protection)
     if (emp.role === "super_admin" && emp.totp_enabled) {
       if (!totpCode) {
         return json(
-          { ok: false, requireTotp: true, message: "最高管理员账号请输入 6 位 TOTP 动态验证码（或一次性恢复码）" },
+          { ok: false, requireTotp: true, message: "总负责人账号请输入 6 位 TOTP 动态验证码（或一次性恢复码）" },
           200,
           cors
         );
       }
-      const totpRes = await verifyEmployeeTotpOrRecovery(env.DB, emp, totpCode, env);
+      const totpRes = await verifyEmployeeTotpOrRecovery(env.DB, emp, totpCode, env, { enforceNoReplay: true });
       if (!totpRes.ok) {
         await recordLoginFailure(env.DB, bucketKey);
-        return json({ error: totpRes.error, code: "INVALID_TOTP", requireTotp: true }, 401, cors);
+        return json({ error: totpRes.error, code: totpRes.code || "INVALID_TOTP", requireTotp: true }, 401, cors);
       }
     }
 
@@ -397,12 +460,14 @@ export async function handleAuthRoutes(request, env, cors, url) {
 
   // 5. Current authenticated profile
   if (path === "/api/auth/me" && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { allowPendingTotpSetup: true });
+    const auth = await requireAuth(request, env, cors, { allowPendingTotpSetup: true, allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
+    const restoreFrozen = await isSystemRestoreFrozen(env.DB);
     return json(
       {
         ok: true,
         sessionId: auth.sessionId,
+        restoreFrozen,
         requireTotpSetup: auth.actor.role === "super_admin" && !auth.actor.totp_enabled,
         employee: sanitizeEmployeePublic(auth.actor),
       },
@@ -413,7 +478,7 @@ export async function handleAuthRoutes(request, env, cors, url) {
 
   // 6. Logout (revoke current device session)
   if (path === "/api/auth/logout" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { allowPendingTotpSetup: true });
+    const auth = await requireAuth(request, env, cors, { allowPendingTotpSetup: true, allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     await env.DB
       .prepare("UPDATE sessions SET revoked_at = ? WHERE session_id = ?")
@@ -423,16 +488,36 @@ export async function handleAuthRoutes(request, env, cors, url) {
     return json({ ok: true }, 200, cors);
   }
 
-  // 7. Self password change (revokes other sessions so stolen tokens die)
+  // 7. Self password change (rate-limited against brute-force; revokes other sessions)
   if (path === "/api/auth/change-password" && method === "POST") {
     const auth = await requireAuth(request, env, cors);
     if (!auth.ok) return auth.response;
+    const chBucket = `chpwd|${auth.actor.id}`;
+    const chRl = await checkRateLimit(env.DB, chBucket);
+    if (chRl.blocked) {
+      return json(
+        { error: "原密码连续输错次数过多，已临时锁定 15 分钟，请稍后再试", code: "RATE_LIMITED", lockedUntil: chRl.lockedUntil },
+        429,
+        cors
+      );
+    }
     const body = await parseJsonBody(request, 8192);
     const oldPwd = String(body.old_password || "");
     const newPwd = String(body.new_password || "");
     const empFull = await env.DB.prepare("SELECT * FROM employees WHERE id = ?").bind(auth.actor.id).first();
     const okOld = await verifyPassword(oldPwd, env.AUTH_PEPPER, empFull.pwd_salt, empFull.pwd_hash, empFull.pwd_iter);
-    if (!okOld) return json({ error: "原密码不正确" }, 400, cors);
+    if (!okOld) {
+      const fail = await recordLoginFailure(env.DB, chBucket);
+      return json(
+        {
+          error: fail.lockedUntil ? "原密码连续输错次数过多，已临时锁定 15 分钟" : "原密码不正确",
+          code: fail.lockedUntil ? "RATE_LIMITED" : "INVALID_OLD_PASSWORD",
+        },
+        fail.lockedUntil ? 429 : 400,
+        cors
+      );
+    }
+    await clearRateLimit(env.DB, chBucket);
     const pwCheck = validatePasswordStrength(newPwd);
     if (!pwCheck.ok) return json({ error: pwCheck.error }, 400, cors);
 

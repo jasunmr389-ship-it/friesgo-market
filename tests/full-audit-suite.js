@@ -18,7 +18,7 @@ const assert = require("assert");
 const { spawn, execSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = require("./_chrome.cjs").findChrome();
 const EVIDENCE_DIR = path.join(ROOT, "docs/qa/evidence");
 
 function startServer() {

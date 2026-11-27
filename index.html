@@ -583,7 +583,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <span class="src-ok" id="globalProdProfileHint" style="white-space:normal">自动同步搜客/洗名单/写信/报价品名</span>
       <button type="button" class="pill" id="btnPinCurrentTool" title="收藏/取消收藏当前工具到首页常用栏" style="min-height:30px;padding:2px 9px;font-size:12px" hidden>☆ 收藏工具</button>
       <button type="button" class="pill" id="btnOpenFeedback" title="遇到报错、卡顿、步骤繁琐或数据有误？点此反馈建议（自动脱敏不含客户明细）" style="min-height:30px;padding:2px 9px;font-size:12px">💬 反馈</button>
-      <button type="button" class="pill" id="btnCloudAuth" title="公司员工独立账号登录 / 云端公海同步与设备安全" style="min-height:30px;padding:2px 9px;font-size:12px">🔒 员工登录</button>
+      <button type="button" class="pill" id="btnCloudAuth" title="团队成员独立账号登录 / 云端公海同步与设备安全" style="min-height:30px;padding:2px 9px;font-size:12px">🔒 成员登录</button>
       <div class="v2-qsearch-wrap" id="globalQuickSearchWrap">
         <input type="search" id="globalQuickSearch" class="v2-qsearch-inp" placeholder="🔍 速达功能 / 国家 / 客户 (Ctrl+K)" autocomplete="off" aria-label="全局快捷搜索功能、国家或客户">
         <div id="globalQuickDrop" class="v2-qsearch-drop" hidden></div>
@@ -617,6 +617,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
         </div>
       </div>
 
+      <div id="homeCloudPoolBanner" class="v2-guard-bar lv-green" hidden style="margin-bottom:10px"></div>
       <div id="homeTradeAlertBar" class="v2-guard-bar lv-yellow" style="margin-bottom:12px"></div>
 
       <div class="stats">
@@ -856,7 +857,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <div class="lead-links" id="lfButtons"></div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <label for="lfRoleSel" style="font-size:12px;font-weight:800;color:var(--brown)">👔 按采购决策人职位直搜（含西/葡/法/德/越本地职称）：</label>
-        <select id="lfRoleSel" style="min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:12px">
+        <select id="lfRoleSel" style="min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:12px;max-width:100%;min-width:0;flex:1 1 220px">
           <option value="procurement">采购负责人（Procurement / Compras / Achats）</option>
           <option value="epc_eng">工程总包 / 项目总监（EPC / Project / Engineering）</option>
           <option value="plant_maint">工厂厂长 / 设备维护（Plant / Maintenance）</option>
@@ -954,7 +955,7 @@ Best regards,
       </div>
 
       <div id="gmapsCfgBox" hidden style="margin-top:12px;padding:12px;border:1px dashed var(--line);border-radius:10px;background:var(--surface2)">
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">Google Places API 接入配置（正式公司团队作业请优先登录员工账号走认证代理，或配置受控团队代理；仅保存于当前浏览器本地）：</div>
+        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">Google Places API 接入配置（正式团队作业请优先登录成员账号走云端认证代理，受单成员 + 团队月度 D1 原子配额保护；仅保存于当前浏览器本地）：</div>
         <div class="form-grid">
           <div>
             <label for="msProxyUrl">方式 A（自定义团队代理）：Cloudflare Worker 代理地址</label>
@@ -969,8 +970,8 @@ Best regards,
             <input id="msGmapsKey" type="password" placeholder="AIzaSy...（仅限个人临时自费测试，禁用于公司统一作业）">
           </div>
         </div>
-        <div id="gmapsDirectBillingWarn" style="margin-top:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,var(--med) 14%,var(--surface));border:1px solid var(--med);font-size:12px;color:var(--brown);font-weight:700">⚠️ 计费与额度边界声明：正式公司团队作业须走经管理员核查的认证服务端代理（受团队/单员工月度硬上限保护）；若填写「方式 B：个人直连 API Key」，将直接走该 Key 所属 Google Cloud 账户<b>独立计费</b>，<b>不受团队服务端额度控制</b>！</div>
-        <p class="flag-note" id="msQuotaInfo" style="margin-top:6px">本浏览器本地已记录调用：0 / 950 次（仅代表当前浏览器本地计数，不等同团队服务端实时总用量；正式团队配额以服务端实时校验为准）。Google Cloud 控制台无原生月度 950 硬开关，启用付费 Key 前请同步在 Google Cloud 设置每日/每分钟限额与预算告警（Budget Alerts），且实际费用按请求字段触发的 SKU 计费。</p>
+        <div id="gmapsDirectBillingWarn" style="margin-top:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,var(--med) 14%,var(--surface));border:1px solid var(--med);font-size:12px;color:var(--brown);font-weight:700">⚠️ 计费与额度边界声明：正式团队作业须走经总负责人核查的认证服务端代理（受团队月度硬上限与单成员月度硬配额双重保护，配额设为 0 时自动禁用）；若填写「方式 B：个人直连 API Key」，将直接走该 Key 所属 Google Cloud 账户<b>独立计费</b>，<b>不受团队服务端额度控制</b>！</div>
+        <p class="flag-note" id="msQuotaInfo" style="margin-top:6px">本浏览器本地已记录调用：0 / 950 次（未登录时仅代表当前浏览器本地计数；登录团队成员账号后自动展示服务端 D1 个人+团队实时原子配额）。Google Cloud 控制台无原生月度 950 硬开关，启用付费 Key 前请同步在 Google Cloud 设置每日/每分钟限额与预算告警（Budget Alerts），且实际费用按请求字段触发的 SKU 计费。</p>
         <p class="flag-note" style="margin-top:4px">📜 法律与政策条款：使用 Google Maps / Places 功能即受 <a href="./terms.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">FriesGo 服务条款 (Terms)</a>、<a href="./privacy.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">隐私政策 (Privacy)</a> 以及 <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google Maps/Google Earth 附加服务条款</a> 与 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google 隐私政策</a> 约束（Powered by Google）。</p>
       </div>
 
@@ -984,7 +985,7 @@ Best regards,
         <button class="pill" id="btnIngestOsmCloud" type="button" hidden>📥 沉淀至 OSM 待核实线索池</button>
         <label class="pill" style="cursor:pointer;font-size:12px"><input type="checkbox" id="msHideNonBuyer" style="margin-right:4px"> 隐藏疑似货代/非工业主体</label>
       </div>
-      <div id="gmapsCloudAutoHint" class="flag-note" hidden style="margin-top:6px;color:var(--good)">✅ 已登录公司员工账号：使用 Google Maps 引擎时将自动通过公司认证代理转发（按个人与团队月度配额保护，无需填写共享口令）。</div>
+      <div id="gmapsCloudAutoHint" class="flag-note" hidden style="margin-top:6px;color:var(--good)">✅ 已登录团队成员账号：使用 Google Maps 引擎时将自动通过公司云端认证代理转发（按个人与团队 D1 月度硬配额保护，无需填写共享口令）。</div>
       <div id="gmapsTermsBanner" class="v2-guard-bar lv-yellow" hidden style="margin-top:8px;margin-bottom:0">
         <b>⚖️ Google Places 许可合规隔离（Powered by Google）：</b>Google 地图检索结果<b>仅限浏览器内实时展示与人工跳转官网核实</b>，已禁用一键导出 CSV、禁止送入批量洗名单及禁止自动复制其电话/地址进客户档案；请先点击「打开官网」或「Google 原页」确认有效联系方式后再通过「核实后手填建档」录入。详见 <a href="./terms.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">服务条款</a> · <a href="./privacy.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">隐私政策</a> · <a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google Maps 条款</a> · <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--orange);font-weight:700">Google 隐私政策</a>。
       </div>
@@ -2150,7 +2151,7 @@ Best regards,
         <div class="pills" id="cloudPoolModePills" style="margin:0">
           <button class="pill" type="button" data-cmode="pool" aria-pressed="true">🌐 全球公海库</button>
           <button class="pill" type="button" data-cmode="mine" aria-pressed="false">👤 我的跟进</button>
-          <button class="pill" type="button" data-cmode="team" aria-pressed="false">👥 全员跟进动态</button>
+          <button class="pill" type="button" data-cmode="team" aria-pressed="false">👥 团队跟进动态</button>
           <button class="pill" type="button" data-cmode="osm" aria-pressed="false">🗃️ OSM 待核实池</button>
           <button class="pill" type="button" data-cmode="local" aria-pressed="false">💻 本机草稿/旧档</button>
         </div>
@@ -2163,29 +2164,29 @@ Best regards,
 
     <div class="card" id="cloudPoolView" hidden style="margin-bottom:12px">
       <div id="cloudAddCompBox" hidden style="padding:12px;border:1px dashed var(--orange);border-radius:10px;background:var(--surface2);margin-bottom:12px">
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">新增公司云端公海企业主档（自动执行全员查重，防重复建档）</div>
+        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">新增公司云端公海企业主档（自动执行团队查重，防重复建档）</div>
         <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
-          <input id="cloudNewCompName" type="text" placeholder="企业名称（必填）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
-          <select id="cloudNewCompCountry" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)"></select>
-          <input id="cloudNewCompCity" type="text" placeholder="城市（如 Dammam）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
-          <input id="cloudNewCompWeb" type="text" placeholder="独立企业官网（如 https://...）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
-          <input id="cloudNewCompEmail" type="email" placeholder="联系人邮箱（选填）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
-          <input id="cloudNewCompProd" type="text" placeholder="需求产品（如 阀门/PE管道）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+          <input id="cloudNewCompName" type="text" placeholder="企业名称（必填）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:100%;min-width:0">
+          <select id="cloudNewCompCountry" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:100%;min-width:0"></select>
+          <input id="cloudNewCompCity" type="text" placeholder="城市（如 Dammam）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:100%;min-width:0">
+          <input id="cloudNewCompWeb" type="text" placeholder="独立企业官网（如 https://...）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:100%;min-width:0">
+          <input id="cloudNewCompEmail" type="email" placeholder="联系人邮箱（选填）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:100%;min-width:0">
+          <input id="cloudNewCompProd" type="text" placeholder="需求产品（如 阀门/PE管道）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);max-width:100%;min-width:0">
         </div>
         <div class="pills" style="margin-top:8px">
           <button type="button" class="pill primary" id="btnCloudSaveNewComp">保存至云端公海库</button>
         </div>
       </div>
 
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-        <select id="cloudPoolCountry" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px"><option value="ALL">🌍 全部国家公海</option></select>
-        <select id="cloudPoolStage" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;max-width:100%">
+        <select id="cloudPoolCountry" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px;max-width:100%;min-width:0;flex:1 1 135px"><option value="ALL">🌍 全部国家公海</option></select>
+        <select id="cloudPoolStage" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px;max-width:100%;min-width:0;flex:1 1 110px">
           <option value="all">全部线索层</option>
           <option value="raw_pending">待核实线索</option>
           <option value="verified_pool">有效公海</option>
           <option value="active">跟进中</option>
         </select>
-        <select id="cloudPoolStatus" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+        <select id="cloudPoolStatus" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px;max-width:100%;min-width:0;flex:1 1 120px">
           <option value="all">全部联系状态</option>
           <option value="uncontacted">未联系</option>
           <option value="preparing">准备联系（锁定中）</option>
@@ -2195,7 +2196,7 @@ Best regards,
           <option value="quoted">已报价</option>
           <option value="stopped">⛔ 停止联系/禁发</option>
         </select>
-        <input id="cloudPoolSearch" type="search" placeholder="搜公司名、城市、官网域名或产品…" style="flex:1;min-width:170px;min-height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+        <input id="cloudPoolSearch" type="search" placeholder="搜公司名、城市、官网域名或产品…" style="flex:1 1 170px;min-width:0;max-width:100%;min-height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
       </div>
 
       <div id="cloudPoolDetailBox" hidden style="padding:12px;border:2px solid var(--orange);border-radius:12px;background:var(--surface2);margin-bottom:12px"></div>
@@ -2647,7 +2648,7 @@ Best regards,
 
 <footer>
   <img class="js-logo" alt="FriesGo Global">
-  <div><b>FriesGo Global · 工业品外贸工作台</b><br>宏观统计参考（UN Comtrade，核查日 2026-11-25）：146 国 HS84+85 机电总盘（117 国 2025 / 29 国 2024*）· 120 国工业净口径（剔除 9 类消费/算力电子）· 143 国钢材钢构（HS72+73 剔除 7201–7205）· 76 国 2026 月度 YTD + 中国海关总署 2026.01–10｜宏观口径不等同于单一产品进口规模，签约前须按具体 HS 编码复核官方税则与制裁清单｜<a href="#sources" onclick="if(window.navigateTo){navigateTo('sources');return false;}" style="color:var(--orange);font-weight:700">口径、保质期与清洗说明</a> · <a href="./terms.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">服务条款 (Terms)</a> · <a href="./privacy.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">隐私政策 (Privacy)</a> <button type="button" class="pill" id="btnFooterFeedback" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">💬 反馈/提建议</button> <button type="button" class="pill" id="btnFooterCloudAuth" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">🔒 员工登录</button></div>
+  <div><b>FriesGo Global · 工业品外贸工作台</b> <span class="meta-pill" style="padding:1px 6px;font-size:10.5px;margin-left:4px">v2.1-m2a · Schema v2</span><br>宏观统计参考（UN Comtrade，核查日 2026-11-25）：146 国 HS84+85 机电总盘（117 国 2025 / 29 国 2024*）· 120 国工业净口径（剔除 9 类消费/算力电子）· 143 国钢材钢构（HS72+73 剔除 7201–7205）· 76 国 2026 月度 YTD + 中国海关总署 2026.01–10｜宏观口径不等同于单一产品进口规模，签约前须按具体 HS 编码复核官方税则与制裁清单｜<a href="#sources" onclick="if(window.navigateTo){navigateTo('sources');return false;}" style="color:var(--orange);font-weight:700">口径、保质期与清洗说明</a> · <a href="./terms.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">服务条款 (Terms)</a> · <a href="./privacy.html" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">隐私政策 (Privacy)</a> <button type="button" class="pill" id="btnFooterFeedback" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">💬 反馈/提建议</button> <button type="button" class="pill" id="btnFooterCloudAuth" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">🔒 成员登录</button></div>
 </footer>
   </main>
 </div>
@@ -2663,10 +2664,10 @@ Best regards,
 <div id="feedbackModal" class="fg-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="fbModalTitle" hidden>
   <div class="fg-modal-dialog">
     <div class="fg-modal-head">
-      <h3 id="fbModalTitle">💬 员工共建反馈与整改建议</h3>
+      <h3 id="fbModalTitle">💬 团队共建反馈与整改建议</h3>
       <button type="button" class="pill" id="btnCloseFeedback" aria-label="关闭反馈弹窗" style="min-height:28px;padding:2px 9px;font-size:12px">× 关闭</button>
     </div>
-    <p class="flag-note" style="margin:0 0 10px">使用中遇到报错卡顿、步骤繁琐、数据口径存疑或想要更好用的功能，用一句话写下来发到团队群、暂存本机，或登录员工账号直交公司共创整改榜。<b>请勿在此输入客户真实姓名、公司名、邮箱、电话、报价金额或任何密码/口令。</b></p>
+    <p class="flag-note" style="margin:0 0 10px">使用中遇到报错卡顿、步骤繁琐、数据口径存疑或想要更好用的功能，用一句话写下来发到团队群、暂存本机，或登录成员账号直交团队云端共建整改榜。<b>请勿在此输入客户真实姓名、公司名、邮箱、电话、报价金额或任何密码/口令。</b></p>
     <div style="display:grid;gap:8px">
       <div>
         <label for="fbCategory" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">问题 / 建议类型</label>
@@ -2698,8 +2699,8 @@ Best regards,
     </div>
     <div id="fbCloudSection" hidden style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--orange)">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <span style="font-size:12.5px;font-weight:800;color:var(--brown)">🚀 团队云端共创整改榜（仅登录员工可见/提交）</span>
-        <button type="button" class="pill primary" id="btnFbSubmitCloud" style="min-height:28px;padding:3px 10px;font-size:12px">☁️ 提交到公司共创整改榜</button>
+        <span style="font-size:12.5px;font-weight:800;color:var(--brown)">🚀 团队云端共建整改榜（仅登录成员可见/提交）</span>
+        <button type="button" class="pill primary" id="btnFbSubmitCloud" style="min-height:28px;padding:3px 10px;font-size:12px">☁️ 提交到团队共建整改榜</button>
       </div>
       <div id="fbCloudBoardList" class="fb-log-list" style="margin-top:6px"></div>
     </div>
@@ -4375,9 +4376,28 @@ function renderHomeWorkspace(){
   var kToday = document.getElementById("homeKpiToday");
   if(!kToday) return;
 
+  var cloudBanner = document.getElementById("homeCloudPoolBanner");
+  if(cloudBanner && window.FG_CLOUD){
+    var cst = window.FG_CLOUD.getState();
+    if(cst.loggedIn && !cst.requireTotpSetup && window.FG_CLOUD_UI){
+      var cTot = Number(window.FG_CLOUD_UI.getCachedCloudTotal ? window.FG_CLOUD_UI.getCachedCloudTotal() : 0);
+      var cArr = window.FG_CLOUD_UI.getCachedCloudCompanies ? window.FG_CLOUD_UI.getCachedCloudCompanies() : [];
+      var cActive = cArr.filter(function(x){ return x && x.derived_contact_status !== "stopped"; }).length;
+      cloudBanner.hidden = false;
+      cloudBanner.innerHTML = '☁️ <b>团队云端公海已接入：</b>当前共 <b>' + cTot + '</b> 家云端公海企业'
+        + (cArr.length ? ('（近期活跃可开发 ' + cActive + ' 家）') : '')
+        + ' · 登录成员：<b>' + esc(cst.employee ? cst.employee.display_name : "") + '</b>'
+        + ' <button type="button" class="pill primary" id="btnHomeJumpCloudPool" style="min-height:24px;padding:1px 9px;font-size:11.5px;margin-left:6px">进入团队云端公海 →</button>';
+      var jBtn = document.getElementById("btnHomeJumpCloudPool");
+      if(jBtn) jBtn.addEventListener("click", function(){ navigateTo("client-list"); });
+    } else {
+      cloudBanner.hidden = true;
+    }
+  }
+
   var alertBar = document.getElementById("homeTradeAlertBar");
   if(alertBar && window.FG_CORE && typeof window.FG_CORE.getUpcomingGlobalTradeAlerts === "function"){
-    var al = window.FG_CORE.getUpcomingGlobalTradeAlerts(localDateStr(), 70);
+    var al = window.FG_CORE.getUpcomingGlobalTradeAlerts(localDateStr(), 60);
     var partsAl = [];
     if(al.activeOrSoon && al.activeOrSoon.length){
       partsAl.push('<div><b style="color:var(--danger)">🛑 近期停工/防骚扰窗口：</b>' + al.activeOrSoon.map(function(x){
@@ -5713,6 +5733,7 @@ window.getRepSignature = function(){
 /* ===== Unified Overseas Country Grouping, Quick-Search, Hub Cities & Cross-Jump Guard ===== */
 window.FG_GEO = (function(){
   var EXTRA_CN = {
+    "Oman":"阿曼","Ghana":"加纳","Bangladesh":"孟加拉国",
     "Cameroon":"喀麦隆","Democratic Republic of the Congo":"刚果（金）","Solomon Islands":"所罗门群岛",
     "Vanuatu":"瓦努阿图","Burundi":"布隆迪","Guinea-Bissau":"几内亚比绍","Tuvalu":"图瓦卢",
     "West Bank and Gaza":"巴勒斯坦地区","Cote d'Ivoire":"科特迪瓦","Zambia":"赞比亚","Zimbabwe":"津巴布韦",
@@ -5720,6 +5741,11 @@ window.FG_GEO = (function(){
     "Gabon":"加蓬","Guinea":"几内亚","Sierra Leone":"塞拉利昂","Benin":"贝宁","Eswatini":"斯威士兰",
     "Tajikistan":"塔吉克斯坦","Turkmenistan":"土库曼斯坦"
   };
+  var EXTRA_SELECT_MARKETS = [
+    { country: "Oman", region: "Western Asia" },
+    { country: "Bangladesh", region: "South Asia" },
+    { country: "Ghana", region: "Western Africa" }
+  ];
   Object.keys(EXTRA_CN).forEach(function(k){ if(!CN[k]) CN[k] = EXTRA_CN[k]; });
 
   var HUB_CITIES = {
@@ -5782,7 +5808,15 @@ window.FG_GEO = (function(){
     if(!sel) return;
     sel.innerHTML = "";
     var used = {};
-    var pool = DATA.filter(function(d){ return d.country !== "China"; });
+    var seenInData = {};
+    var pool = DATA.filter(function(d){
+      if(d.country === "China") return false;
+      seenInData[d.country] = 1;
+      return true;
+    });
+    EXTRA_SELECT_MARKETS.forEach(function(em){
+      if(!seenInData[em.country]) pool.push(em);
+    });
     MACRO_GROUPS.forEach(function(g){
       var list = pool.filter(function(d){ return !used[d.country] && g.match(d); });
       if(!list.length) return;
@@ -6109,10 +6143,83 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     return Promise.resolve(info.seq);
   }
 
-  /* Customer Due Diligence Gate: separates Indicative Quotation vs Formal Quotation vs Hard-Lock (P1-4) */
+  function findCloudCompanyByBindValue(val){
+    if(!val || String(val).indexOf("cloud:") !== 0) return null;
+    var cid = String(val).slice(6);
+    var list = (window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.getCachedCloudCompanies === "function")
+      ? window.FG_CLOUD_UI.getCachedCloudCompanies()
+      : [];
+    for(var i = 0; i < list.length; i++){
+      if(list[i] && list[i].id === cid) return list[i];
+    }
+    return null;
+  }
+
+  /* Customer Due Diligence Gate: separates Indicative Quotation vs Formal Quotation vs Hard-Lock (P1-4 + V2.1 Cloud D09) */
   function evaluateQuoteDdGate(){
     var sel = document.getElementById("qcBindClient");
     var cid = sel ? sel.value : "";
+    if(cid && cid.indexOf("cloud:") === 0){
+      var cComp = findCloudCompanyByBindValue(cid);
+      if(!cComp){
+        return {
+          hardLocked: false,
+          quoteTier: "indicative",
+          level: "pending_warn",
+          lead: null,
+          cloudCompany: { id: cid.slice(6), canonical_name: "云端公海企业" },
+          msg: "⚠️ 正在同步云端公海企业背调状态，当前暂按初步参考报价 (Indicative) 处理。"
+        };
+      }
+      var cLeadLike = {
+        id: cid,
+        cloudId: cComp.id,
+        company: cComp.canonical_name,
+        country: cComp.country_en,
+        isCloud: true
+      };
+      if(cComp.compliance_status === "blocked" || cComp.opt_out_status !== "none"){
+        var blockWhy = cComp.compliance_status === "blocked"
+          ? "合规结论为【禁止交易 / blocked】"
+          : ("客户已登记拒绝/退订（" + cComp.opt_out_status + "）");
+        return {
+          hardLocked: true,
+          quoteTier: "locked",
+          level: "blocked",
+          lead: cLeadLike,
+          cloudCompany: cComp,
+          msg: "⛔ 云端公海硬拦截：客户「" + cComp.canonical_name + "」" + blockWhy + "。已锁定正式报价生成、复制与云端归档！"
+        };
+      }
+      if(cComp.compliance_status === "review"){
+        return {
+          hardLocked: true,
+          quoteTier: "locked",
+          level: "review",
+          lead: cLeadLike,
+          cloudCompany: cComp,
+          msg: "🔒 云端公海硬拦截（🟡 存疑待审核）：客户「" + cComp.canonical_name + "」处于复核中（review），审批通过前禁止对外出具正式报价！"
+        };
+      }
+      if(cComp.compliance_status === "approved"){
+        return {
+          hardLocked: false,
+          quoteTier: "formal",
+          level: "approved",
+          lead: cLeadLike,
+          cloudCompany: cComp,
+          msg: "✅ 云端公海背调已核准（准予出具 Formal Quotation）：关联企业「" + cComp.canonical_name + "」已通过云端背调审批（approved），归档将直接写入公司云端 D1 跨成员同步。"
+        };
+      }
+      return {
+        hardLocked: false,
+        quoteTier: "indicative",
+        level: "pending_warn",
+        lead: cLeadLike,
+        cloudCompany: cComp,
+        msg: "⚠️ 云端企业待背调（仅限初步参考报价 Indicative Quotation）：企业「" + cComp.canonical_name + "」云端背调尚未通过，当前可存档 Indicative 参考价；完成云端背调审批（approved）后解锁 Formal 正式报价！"
+      };
+    }
     var lead = (cid && typeof findLeadById === "function") ? findLeadById(cid) : null;
     if(!lead){
       return {
@@ -6788,16 +6895,36 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       var foundPrev = findLeadById(prev);
       if(foundPrev) slice = [foundPrev].concat(slice);
     }
-    var opts = '<option value="">— 选择客户以关联背调状态 / 归档报价版本'+(all.length>300?('（显示最近 300 / 共 '+all.length+' 家，亦可在客户详情点「去报价」带入）'):'')+' —</option>';
-    slice.forEach(function(l){
-      var ddTag = "";
-      if(l.ddRecord && l.ddRecord.decision === "blocked") ddTag = " [🔴禁止交易]";
-      else if(l.ddRecord && l.ddRecord.decision === "review") ddTag = " [🟡存疑待审]";
-      else if(l.ddRecord && l.ddRecord.decision === "approved") ddTag = " [🟢背调通过]";
-      opts += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')'+ddTag+'</option>';
-    });
+    var cloudList = (window.FG_CLOUD && window.FG_CLOUD.getState().loggedIn && window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.getCachedCloudCompanies === "function")
+      ? window.FG_CLOUD_UI.getCachedCloudCompanies()
+      : [];
+    var opts = '<option value="">— 选择客户以关联背调状态 / 归档报价版本'+(all.length>300?('（本机最近 300 / 共 '+all.length+' 家）'):'')+' —</option>';
+    if(cloudList.length){
+      opts += '<optgroup label="☁️ 团队云端公海企业（全成员实时同步）">';
+      cloudList.forEach(function(c){
+        var cTag = "";
+        if(c.opt_out_status && c.opt_out_status !== "none") cTag = " [⛔已退订]";
+        else if(c.compliance_status === "blocked") cTag = " [🔴合规阻断]";
+        else if(c.compliance_status === "review") cTag = " [🟡复核中]";
+        else if(c.compliance_status === "approved") cTag = " [🟢背调通过]";
+        opts += '<option value="cloud:'+esc(c.id)+'">☁️ '+esc(c.canonical_name)+' ('+esc(CN[c.country_en]||c.country_en)+')'+cTag+'</option>';
+      });
+      opts += '</optgroup>';
+    }
+    if(slice.length){
+      if(cloudList.length) opts += '<optgroup label="💾 本机草稿客户（仅当前浏览器）">';
+      slice.forEach(function(l){
+        var ddTag = "";
+        if(l.ddRecord && l.ddRecord.decision === "blocked") ddTag = " [🔴禁止交易]";
+        else if(l.ddRecord && l.ddRecord.decision === "review") ddTag = " [🟡存疑待审]";
+        else if(l.ddRecord && l.ddRecord.decision === "approved") ddTag = " [🟢背调通过]";
+        opts += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')'+ddTag+'</option>';
+      });
+      if(cloudList.length) opts += '</optgroup>';
+    }
     sel.innerHTML = opts;
-    if(prev && slice.some(function(l){ return l.id === prev; })) sel.value = prev;
+    var validCloudPrev = prev && prev.indexOf("cloud:") === 0 && cloudList.some(function(c){ return ("cloud:" + c.id) === prev; });
+    if(validCloudPrev || (prev && slice.some(function(l){ return l.id === prev; }))) sel.value = prev;
     renderQuoteDdGateUI(_lastQuoteState && _lastQuoteState.belowProfitFloor);
   };
   window.refreshQuoteClientSelect();
@@ -6821,9 +6948,74 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       }
       var sel = document.getElementById("qcBindClient");
       var cid = sel ? sel.value : "";
+
+      // D09/S01: Direct cloud quote persistence when bound to a Cloud Company Pool record
+      if(cid && cid.indexOf("cloud:") === 0 && window.FG_CLOUD && window.FG_CLOUD.getState().loggedIn){
+        var cloudCompId = cid.slice(6);
+        var cloudComp = findCloudCompanyByBindValue(cid) || { id: cloudCompId, canonical_name: "云端企业" };
+        var qDateC = localDateStr();
+        var snapStateC = Object.assign({}, s);
+        var draftQidC = _currentDraftQuoteId || window.FG_CORE.genStableId("qt");
+        _currentDraftQuoteId = window.FG_CORE.genStableId("qt");
+        commitQuoteSeqAsync(qDateC).then(function(seqUsed){
+          var refNoC = window.FG_CORE.formatQuoteRef({
+            dateStr: qDateC,
+            clientName: cloudComp.canonical_name,
+            deviceTag: getQuoteDeviceTag(),
+            seq: seqUsed,
+            version: 1
+          });
+          var tierC = gate.quoteTier === "formal" ? "formal" : "indicative";
+          var tierLabelC = tierC === "formal" ? "Formal" : "Indicative";
+          return window.FG_CLOUD.saveQuoteRecord(cloudCompId, {
+            quote_id: draftQidC,
+            ref_no: refNoC,
+            quote_tier: tierC,
+            profile_version: "v2.1-m2a",
+            sent_confirmed: 0,
+            payload: {
+              prod: snapStateC.prod,
+              qty: Number(snapStateC.qty || 1),
+              fx: Number(snapStateC.fx || 7.1),
+              unitFob: Number(snapStateC.unitFobUsd || 0),
+              fobTotal: Number(snapStateC.fobUsd || 0),
+              unitCif: Number(snapStateC.unitCifUsd || 0),
+              cifTotal: Number(snapStateC.cifUsd || 0),
+              freightUsd: Number(snapStateC.freightUsd || 0),
+              marginPct: Number(snapStateC.actualMarginPct || snapStateC.marginPct || 0),
+              country: snapStateC.country,
+              port: snapStateC.port,
+              payTerms: snapStateC.payTerms || "",
+              fobStr: snapStateC.fobStr,
+              cifStr: snapStateC.cifStr,
+              summary: snapStateC.prod + " (" + snapStateC.qty + " " + (snapStateC.unitPlural || "units") + ") FOB " + snapStateC.fobStr + " / CIF " + snapStateC.cifStr
+            }
+          }).then(function(res){
+            if(!res.ok){
+              showToast("❌ 云端归档被拒绝：" + ((res.data && res.data.error) || ("HTTP " + res.status)));
+              return;
+            }
+            updateCalc();
+            if(window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.loadCloudActiveTab === "function"){
+              window.FG_CLOUD_UI.loadCloudActiveTab();
+            }
+            showToast("☁️ 已为「" + cloudComp.canonical_name + "」归档 " + tierLabelC + " 报价到公司云端（" + refNoC + " · 全团队可见）", {
+              label: "查看云端企业",
+              onClick: function(){
+                navigateTo("client-list");
+                if(window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.openCloudCompanyDetail === "function"){
+                  window.FG_CLOUD_UI.openCloudCompanyDetail(cloudCompId);
+                }
+              }
+            });
+          });
+        });
+        return;
+      }
+
       var lead = cid ? findLeadById(cid) : null;
       if(!lead){
-        showToast("请先在左侧选择要绑定的客户（如尚未建档，请先到「客户跟进」新增客户）");
+        showToast("请先在左侧选择要绑定的客户（云端公海企业或本机客户；如尚未建档，请先到「客户跟进」新增）");
         if(sel) sel.focus();
         return;
       }
@@ -6924,8 +7116,11 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     syncCountryDuty();
     if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
     var cSel = document.getElementById("qcBindClient");
-    if(cSel) cSel.value = clientId || "";
-    var boundLd = (clientId && typeof findLeadById === "function") ? findLeadById(clientId) : null;
+    if(cSel){
+      cSel.value = clientId || "";
+      renderQuoteDdGateUI(_lastQuoteState && _lastQuoteState.belowProfitFloor);
+    }
+    var boundLd = (clientId && String(clientId).indexOf("cloud:") !== 0 && typeof findLeadById === "function") ? findLeadById(clientId) : null;
     if(boundLd && typeof window.setActiveClientContext === "function") window.setActiveClientContext(boundLd);
     if(quoteSnap && typeof quoteSnap === "object"){
       if(quoteSnap.priceMode && quoteSnap.priceMode !== qcPriceMode && modePills){
@@ -8775,6 +8970,40 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
     var comp = document.getElementById("ddCompany").value.trim() || ((CN[c]||c) + " 待核验客户");
     var dom = cleanDomain(document.getElementById("ddDomain").value);
     var em = document.getElementById("ddEmail").value.trim();
+
+    // D09/S01: If jumped from a Cloud Company Pool record while logged in, sync compliance_status directly to Cloud D1!
+    if(window._activeCloudDdCompany && window.FG_CLOUD && window.FG_CLOUD.getState().loggedIn){
+      var targetCloud = window._activeCloudDdCompany;
+      var mappedStatus = ["approved","review","blocked"].indexOf(rec.decision) >= 0 ? rec.decision : "unchecked";
+      window.FG_CLOUD.getCompany(targetCloud.id).then(function(gr){
+        if(!gr.ok || !gr.data || !gr.data.company){
+          showToast("❌ 云端同步背调失败：" + ((gr.data && gr.data.error) || "企业不存在"));
+          return;
+        }
+        var prevNote = String(gr.data.company.note || "").trim();
+        var mergedNote = prevNote && prevNote.indexOf(rec.summary) === -1 ? (prevNote + "\n" + rec.summary) : (prevNote || rec.summary);
+        return window.FG_CLOUD.updateCompany(targetCloud.id, {
+          expected_version: gr.data.company.version,
+          compliance_status: mappedStatus,
+          dd_json: rec,
+          note: mergedNote
+        }).then(function(ur){
+          if(!ur.ok){
+            showToast("❌ 云端保存背调结论失败：" + ((ur.data && ur.data.error) || "请刷新重试"));
+            return;
+          }
+          showToast("☁️ 已将背调结论（「" + mappedStatus + "」）同步至云端企业「" + gr.data.company.canonical_name + "」（全团队生效）");
+          if(window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.fetchCloudCompaniesForBinding === "function"){
+            window.FG_CLOUD_UI.fetchCloudCompaniesForBinding(true);
+          }
+          if(window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.loadCloudActiveTab === "function"){
+            window.FG_CLOUD_UI.loadCloudActiveTab();
+          }
+        });
+      });
+      return;
+    }
+
     var stageByDec = rec.decision === "blocked" ? "暂缓/淘汰" : (rec.decision === "review" ? "背调复核中" : "重点跟进");
     if(typeof window.addCustomerToCrm === "function"){
       var savedLead = window.addCustomerToCrm({
@@ -8806,7 +9035,8 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
     else { var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); showToast("已复制背调摘要"); }
   });
 
-  window.loadIntoDd = function(country, company, domain, email){
+  window.loadIntoDd = function(country, company, domain, email, cloudComp){
+    window._activeCloudDdCompany = cloudComp || null;
     navigateTo("duediligence");
     selectDdCountry(country);
     var cEl = document.getElementById("ddCompany"); if(cEl) cEl.value = company || "";
@@ -9520,12 +9750,27 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
       var foundPrev = findLeadById(prev);
       if(foundPrev) slice = [foundPrev].concat(slice);
     }
-    var html = '<option value="">— 选择已建档客户自动带入'+(all.length>300?('（显示最近 300 / 共 '+all.length+' 家，或下方手动填写）'):'（或下方手动填写订单信息）')+' —</option>';
-    slice.forEach(function(l){
-      html += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')</option>';
-    });
+    var cloudList = (window.FG_CLOUD && window.FG_CLOUD.getState().loggedIn && window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.getCachedCloudCompanies === "function")
+      ? window.FG_CLOUD_UI.getCachedCloudCompanies()
+      : [];
+    var html = '<option value="">— 选择已建档客户自动带入'+(all.length>300?('（本机最近 300 / 共 '+all.length+' 家）'):'（云端公海或本机客户，亦可手动填）')+' —</option>';
+    if(cloudList.length){
+      html += '<optgroup label="☁️ 团队云端公海企业（全成员实时同步）">';
+      cloudList.forEach(function(c){
+        html += '<option value="cloud:'+esc(c.id)+'">☁️ '+esc(c.canonical_name)+' ('+esc(CN[c.country_en]||c.country_en)+')</option>';
+      });
+      html += '</optgroup>';
+    }
+    if(slice.length){
+      if(cloudList.length) html += '<optgroup label="💾 本机草稿客户">';
+      slice.forEach(function(l){
+        html += '<option value="'+esc(l.id)+'">'+esc(l.company)+' ('+esc(CN[l.country]||l.country)+')</option>';
+      });
+      if(cloudList.length) html += '</optgroup>';
+    }
     pcBindEl.innerHTML = html;
-    if(prev && slice.some(function(l){ return l.id === prev; })) pcBindEl.value = prev;
+    var validCloudPrev = prev && prev.indexOf("cloud:") === 0 && cloudList.some(function(c){ return ("cloud:" + c.id) === prev; });
+    if(validCloudPrev || (prev && slice.some(function(l){ return l.id === prev; }))) pcBindEl.value = prev;
   };
 
   var pcDecEl = document.getElementById("pcDecision");
@@ -9550,12 +9795,28 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
   if(pcBindEl){
     pcBindEl.addEventListener("change", function(){
       var cid = pcBindEl.value;
-      var l = cid ? findLeadById(cid) : null;
       // Switching client/order ALWAYS resets orderRef, evidence, endUser, decision, and checkmarks!
       ["pcOrderRef","pcEndUser","pcEvidence"].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = "";
       });
       resetChecklistBoxes();
+      if(cid && cid.indexOf("cloud:") === 0){
+        var cList = (window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.getCachedCloudCompanies === "function") ? window.FG_CLOUD_UI.getCachedCloudCompanies() : [];
+        var cComp = cList.filter(function(x){ return x && ("cloud:" + x.id) === cid; })[0];
+        if(cComp){
+          var nmElC = document.getElementById("pcClientName");
+          var hsElC = document.getElementById("pcProductHs");
+          var revElC = document.getElementById("pcReviewer");
+          if(nmElC) nmElC.value = cComp.canonical_name || "";
+          if(pcCountryEl && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(pcCountryEl, cComp.country_en || "Saudi Arabia", false);
+          if(hsElC && cComp.product_summary) hsElC.value = cComp.product_summary;
+          var cst = window.FG_CLOUD && window.FG_CLOUD.getState();
+          if(revElC && !revElC.value) revElC.value = (cst && cst.employee && cst.employee.display_name) || defaultOwner || "";
+        }
+        updateChk();
+        return;
+      }
+      var l = cid ? findLeadById(cid) : null;
       if(l){
         var nmEl = document.getElementById("pcClientName");
         var hsEl = document.getElementById("pcProductHs");
@@ -9674,6 +9935,38 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
         checksComplete: done === allCbs.length,
         allPassed: decision === "approved" && done === allCbs.length
       };
+
+      // D09/S01: When bound to a Cloud Company Pool enterprise, save directly to Cloud D1!
+      if(rec.clientId && rec.clientId.indexOf("cloud:") === 0 && window.FG_CLOUD && window.FG_CLOUD.getState().loggedIn){
+        var cloudCompId = rec.clientId.slice(6);
+        window.FG_CLOUD.saveComplianceLog(cloudCompId, {
+          log_id: rec.logId,
+          order_ref: rec.orderRef,
+          decision: rec.decision,
+          reviewer: rec.reviewer,
+          saved_at: new Date().toISOString(),
+          checks: {
+            items: rec.checks,
+            doneCount: rec.doneCount,
+            totalCount: rec.totalCount,
+            productHs: rec.productHs,
+            endUserPurpose: rec.endUserPurpose,
+            evidence: rec.evidence,
+            country: rec.country
+          }
+        }).then(function(res){
+          if(!res.ok){
+            showToast("❌ 云端合规归档被拒绝：" + ((res.data && res.data.error) || ("HTTP " + res.status)));
+            return;
+          }
+          if(window.FG_STORE){
+            window.FG_STORE.saveComplianceLog(rec).then(function(){ return reloadCrmFromStore(); }).catch(function(){});
+          }
+          showToast("☁️ 已将订单 [" + orderRef + "] 合规台账归档至公司云端（" + (DEC_LABELS[decision] || decision) + " · 全团队可查）");
+        });
+        return;
+      }
+
       if(window.FG_STORE){
         window.FG_STORE.saveComplianceLog(rec).then(function(){
           var boundLead = rec.clientId ? findLeadById(rec.clientId) : null;
@@ -9694,6 +9987,37 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
       }
     });
   }
+
+  // D09/S01/S05: Cross-module refresh & 1-click workflow jump hooks for FG_CLOUD_UI
+  window._refreshCloudBoundModules = function(){
+    if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
+    if(typeof window.refreshPrecheckClientSelect === "function") window.refreshPrecheckClientSelect();
+    if(typeof renderHomeWorkspace === "function") renderHomeWorkspace();
+  };
+
+  window._jumpFromCloudCompany = function(c, contacts, targetTool){
+    if(!c || !c.id) return;
+    var firstCt = (Array.isArray(contacts) && contacts[0]) || {};
+    var bindVal = "cloud:" + c.id;
+    if(targetTool === "email-gen" && typeof window.loadIntoEmailGen === "function"){
+      window.loadIntoEmailGen(c.country_en, guessLang(c.country_en), c.product_summary || "", c.canonical_name, firstCt.email || "", { emType: "first" });
+      showToast("✉️ 已带入云端企业「" + c.canonical_name + "」信息到开发信生成器");
+    } else if(targetTool === "quote-calc" && typeof window.loadIntoCalc === "function"){
+      window.loadIntoCalc(c.country_en, c.product_summary || "", bindVal);
+      showToast("🧮 已关联云端企业「" + c.canonical_name + "」到报价计算器（归档将直存公司云端）");
+    } else if((targetTool === "due-diligence" || targetTool === "duediligence") && typeof window.loadIntoDd === "function"){
+      window.loadIntoDd(c.country_en, c.canonical_name, c.website || c.website_domain || "", firstCt.email || "", c);
+      showToast("🛡️ 已带入云端企业「" + c.canonical_name + "」到背调模块（保存将同步更新云端合规状态）");
+    } else if(targetTool === "precheck"){
+      navigateTo("precheck");
+      if(typeof window.refreshPrecheckClientSelect === "function") window.refreshPrecheckClientSelect();
+      if(pcBindEl){
+        pcBindEl.value = bindVal;
+        pcBindEl.dispatchEvent(new Event("change"));
+      }
+      showToast("📦 已关联云端企业「" + c.canonical_name + "」到发货前 6 步合规自查（归档将直存公司云端）");
+    }
+  };
 
   window.renderPrecheckHistory = function(){
     var hBox = document.getElementById("pcHistoryBox");
@@ -11433,23 +11757,57 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     try { localStorage.setItem(getQuotaKey(), String(n)); } catch(e){}
     updateQuotaUI(n, serverCap);
   }
-  function updateQuotaUI(cnt, capOverride){
-    var n = typeof cnt === "number" ? cnt : getQuotaCount();
-    var cap = (typeof capOverride === "number" && capOverride > 0) ? capOverride : 950;
+  function updateQuotaUI(cnt, capOverride, cloudMeta){
     var el = document.getElementById("msQuotaInfo");
     if(!el) return;
+    if(cloudMeta && typeof cloudMeta === "object"){
+      var eUsed = Number(cloudMeta.empUsed || 0);
+      var eCap = Number(cloudMeta.empCap || 0);
+      var tUsed = Number(cloudMeta.teamUsed || 0);
+      var tCap = Number(cloudMeta.teamCap || 950);
+      var keyOk = Boolean(cloudMeta.apiKeyConfigured);
+      var cNote = "";
+      if(eCap <= 0){
+        cNote = "⛔ 个人配额已禁用（0 次/月）：总负责人已为您关闭公司 Google 代理权限（不触发上游 Google API，请使用开源 OSM 地图）。";
+      } else if(!keyOk){
+        cNote = "ℹ️ 公司云端认证代理（D1 原子配额）：本月个人已用 " + eUsed + " / " + eCap + " 次 · 团队已用 " + tUsed + " / " + tCap + " 次（总负责人尚未配置服务端 Google API Key，当前保持免费 0 成本）。";
+      } else if(tUsed >= tCap || eUsed >= eCap){
+        cNote = "⛔ 云端硬熔断：本月个人 " + eUsed + " / " + eCap + " 次 · 团队 " + tUsed + " / " + tCap + " 次（已达 D1 原子配额上限）。";
+      } else if(tUsed >= 900){
+        cNote = "⚠️ 高水位预警（D1 原子配额）：本月个人 " + eUsed + " / " + eCap + " 次 · 团队 " + tUsed + " / " + tCap + " 次（≥900 预警，满 " + tCap + " 自动熔断）。";
+      } else {
+        cNote = "🟢 公司云端认证代理（D1 个人+团队原子配额）：本月个人已用 " + eUsed + " / " + eCap + " 次 · 团队已用 " + tUsed + " / " + tCap + " 次（700 提醒 / 900 预警 / " + tCap + " 硬熔断）。";
+      }
+      el.textContent = cNote + " 说明：Google Cloud 控制台仅支持按日/按分钟限额与预算告警（Budget Alerts），请同步配置每日限额；结果仅限实时展示与人工核实（Powered by Google）。";
+      return;
+    }
+    var n = typeof cnt === "number" ? cnt : getQuotaCount();
+    var cap = (typeof capOverride === "number" && capOverride > 0) ? capOverride : 950;
     var tierNote = "";
     if(n >= cap){
-      tierNote = "⛔ 熔断拦截：本月已记录调用 " + n + " / " + cap + " 次（已达团队月度硬上限 " + cap + " 次），已暂停请求。";
+      tierNote = "⛔ 熔断拦截：本浏览器本月已记录调用 " + n + " / " + cap + " 次（已达上限），已暂停请求。";
     } else if(n >= 900){
-      tierNote = "⚠️ 高水位预警：本月已记录调用 " + n + " / " + cap + " 次（≥900 次预警线，满 " + cap + " 次自动熔断）。";
+      tierNote = "⚠️ 高水位预警：本浏览器本月已记录调用 " + n + " / " + cap + " 次（≥900 次预警线，满 " + cap + " 次自动熔断）。";
     } else if(n >= 700){
-      tierNote = "ℹ️ 用量提醒：本月已记录调用 " + n + " / " + cap + " 次（≥700 次提醒线）。";
+      tierNote = "ℹ️ 用量提醒：本浏览器本月已记录调用 " + n + " / " + cap + " 次（≥700 次提醒线）。";
     } else {
-      tierNote = "本月已记录调用：" + n + " / " + cap + " 次（700 提醒 / 900 预警 / " + cap + " 硬上限，由 Cloudflare Durable Object 原子预扣）。";
+      tierNote = "本浏览器本地已记录调用：" + n + " / " + cap + " 次（未登录时仅代表当前浏览器本地计数；登录团队成员账号后自动切换为服务端 D1 个人+团队实时原子配额）。";
     }
     el.textContent = tierNote + " 说明：Google Cloud 控制台仅支持按日/按分钟接口限额与账单预算告警（Budget Alerts，无月度 950 硬开关），请同步配置每日限额；结果仅限实时展示与人工核实（Powered by Google）。";
   }
+
+  window._refreshCloudGmapsQuota = function(){
+    if(!window.FG_CLOUD || !window.FG_CLOUD.getState().loggedIn || window.FG_CLOUD.getState().requireTotpSetup){
+      updateQuotaUI();
+      return;
+    }
+    if(typeof window.FG_CLOUD.getGmapsQuota !== "function") return;
+    window.FG_CLOUD.getGmapsQuota().then(function(r){
+      if(r.ok && r.data){
+        updateQuotaUI(r.data.teamUsed, r.data.teamCap, r.data);
+      }
+    });
+  };
   updateQuotaUI();
 
   /* Switch OSM vs Google Maps engine */
@@ -11463,6 +11821,9 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       });
     }
     document.getElementById("gmapsCfgBox").hidden = (msEngine !== "gmaps");
+    if(msEngine === "gmaps" && typeof window._refreshCloudGmapsQuota === "function"){
+      window._refreshCloudGmapsQuota();
+    }
     document.getElementById("btnMapNextPage").hidden = true;
     var osmMoreBtn = document.getElementById("btnOsmMore");
     if(osmMoreBtn && msEngine !== "osm") osmMoreBtn.hidden = true;
@@ -11658,6 +12019,16 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     }
     if(r._source === "gmaps"){
       openCleanManualCrmEntry();
+      return;
+    }
+    var mCloudSt = (window.FG_CLOUD && typeof window.FG_CLOUD.getState === "function") ? window.FG_CLOUD.getState() : null;
+    if(mCloudSt && mCloudSt.loggedIn && !mCloudSt.requireTotpSetup && window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.saveMapLeadToCloud === "function"){
+      window.FG_CLOUD_UI.saveMapLeadToCloud({
+        company: r.company, country: r.country, city: r.city || "", address: r.address || "",
+        email: r.email || "", phone: r.phone || "", website: r.website || "",
+        product: document.getElementById("msKeyword").value.trim(),
+        note: r.address || r.category || "", source: "osm"
+      });
       return;
     }
     if(typeof window.addCustomerToCrm === "function"){
@@ -12207,7 +12578,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       return;
     }
     if(getQuotaCount() >= 950){
-      st.textContent = "本应用本月已记录调用达 950 次团队硬上限，已自动熔断拦截请求。请核对 Cloudflare Worker Durable Object 配额与 Google Cloud 每日限额/预算告警。";
+      st.textContent = "本应用本月已记录调用达 950 次硬上限，已自动熔断拦截请求。请核对云端 D1 团队/成员配额与 Google Cloud 每日限额/预算告警。";
       updateQuotaUI(getQuotaCount());
       return;
     }
@@ -12217,7 +12588,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var cloudSt = (window.FG_CLOUD && typeof window.FG_CLOUD.getState === "function") ? window.FG_CLOUD.getState() : null;
     var useCloudAuthProxy = !proxyUrl && !directKey && !!(cloudSt && cloudSt.loggedIn && !cloudSt.requireTotpSetup);
     if(!proxyUrl && !directKey && !useCloudAuthProxy){
-      st.textContent = "请先登录公司员工账号使用团队认证代理，或填写「Cloudflare Worker 代理地址」/「本机 API Key」。";
+      st.textContent = "请先登录团队成员账号使用云端认证代理，或填写「Cloudflare Worker 代理地址」/「本机 API Key」。";
       document.getElementById("gmapsCfgBox").hidden = false;
       return;
     }
@@ -12703,11 +13074,20 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     showToast("已清空名单");
   });
   var waProdEl = document.getElementById("csvWaProd");
-  if(waProdEl){ waProdEl.addEventListener("input", renderCsvTable); }
+  if(waProdEl){
+    var waDebounce = null;
+    waProdEl.addEventListener("input", function(){
+      clearTimeout(waDebounce);
+      waDebounce = setTimeout(renderCsvTable, 200);
+    });
+  }
   document.getElementById("csvFilterPills").addEventListener("click", function(e){
     var b = e.target.closest("button[data-csvf]"); if(!b) return;
     csvFilter = b.getAttribute("data-csvf");
     this.querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", x===b ? "true" : "false"); });
+    if(csvLeads.length > 2000 && window.innerWidth <= 640){
+      showToast("📱 当前名单较大（" + csvLeads.length + " 条），仅渲染前 200 条预览以保持手机流畅");
+    }
     renderCsvTable();
   });
 
@@ -12805,13 +13185,24 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var bCrm = e.target.closest("button[data-csv-crm]");
     if(bCrm){
       var rC = csvLeads[+bCrm.getAttribute("data-csv-crm")]; if(!rC) return;
+      var csvNote = (rC.customsInfo ? ("提单记录：" + rC.customsInfo + "｜") : "") + (rC.suspectLabel ? (rC.suspectLabel + "｜") : "") + (rC.mxDetail ? ("邮局状态：" + rC.mxDetail) : "");
+      var csvProd = ((document.getElementById("csvWaProd")||{}).value||"").trim();
+      var cCloudSt = (window.FG_CLOUD && typeof window.FG_CLOUD.getState === "function") ? window.FG_CLOUD.getState() : null;
+      if(cCloudSt && cCloudSt.loggedIn && !cCloudSt.requireTotpSetup && window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.saveMapLeadToCloud === "function"){
+        window.FG_CLOUD_UI.saveMapLeadToCloud({
+          company: rC.company, country: rC.country || "Vietnam", email: rC.email || "",
+          phone: rC.phone || "", website: rC.website || "", product: csvProd,
+          note: csvNote, source: "customs_csv"
+        });
+        return;
+      }
       if(typeof window.addCustomerToCrm === "function"){
         window.addCustomerToCrm({
           company: rC.company, country: rC.country || "Vietnam", email: rC.email || "",
           phone: rC.phone || "", website: rC.website || "",
-          product: ((document.getElementById("csvWaProd")||{}).value||"").trim(),
+          product: csvProd,
           source: rC.customsInfo ? "海关提单清洗" : "导入与洗名单",
-          note: (rC.customsInfo ? ("提单记录：" + rC.customsInfo + "｜") : "") + (rC.suspectLabel ? (rC.suspectLabel + "｜") : "") + (rC.mxDetail ? ("邮局状态：" + rC.mxDetail) : "")
+          note: csvNote
         });
       }
       return;
@@ -12824,10 +13215,11 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   });
 });
 
-/* ===== V2.1 M1/M2-A: Lightweight In-App Employee Feedback & Co-Creation Modal ===== */
+/* ===== V2.1 M1/M2-A: Lightweight In-App Team Feedback & Co-Creation Modal ===== */
+window.FG_BUILD_META = { version: "v2.1-m2a", schemaVersion: 2, buildDate: "2026-11-27" };
 window.FG_CORE.safeInit("FeedbackModal", function(){
   var FB_STORAGE_KEY = "friesgo_m1_feedback_v1";
-  var APP_VER = "v2.1-m2a";
+  var APP_VER = window.FG_BUILD_META.version;
   var lastSanitizedErr = "";
 
   function captureSanitizedErr(raw){

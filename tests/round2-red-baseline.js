@@ -11,7 +11,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = require("./_chrome.cjs").findChrome();
 
 function startServer() {
   return new Promise((resolve) => {

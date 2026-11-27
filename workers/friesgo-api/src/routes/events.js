@@ -47,8 +47,24 @@ export async function handleEventRoutes(request, env, cors, url) {
     const occurredAt = String(body.occurred_at || "").trim() || nowIso();
     const now = nowIso();
 
-    // Idempotent insert: duplicate retries from offline queue never create duplicate history rows!
-    const ins = await env.DB
+    const reqOptOut =
+      outcome === "unsubscribed"
+        ? "all_blocked"
+        : outcome === "rejected"
+          ? "marketing_blocked"
+          : "none";
+    const nextOptMeta =
+      reqOptOut !== "none"
+        ? JSON.stringify({
+            updated_by: auth.actor.display_name,
+            updated_at: now,
+            channel,
+            outcome,
+            summary,
+          })
+        : "";
+
+    const insStmt = env.DB
       .prepare(
         `INSERT OR IGNORE INTO contact_events (
            event_id, company_id, contact_id, employee_id, employee_name, channel,
@@ -68,69 +84,72 @@ export async function handleEventRoutes(request, env, cors, url) {
         nextFollowDate,
         occurredAt,
         now
+      );
+
+    // SQL-level monotonic CASE guarantees concurrent stale requests can NEVER downgrade opt_out_status (D03)
+    const updStmt = env.DB
+      .prepare(
+        `UPDATE companies
+         SET pool_stage = 'active',
+             next_follow_date = CASE WHEN ? != '' THEN ? ELSE next_follow_date END,
+             opt_out_status = CASE
+               WHEN ? = 'all_blocked' OR opt_out_status = 'all_blocked' THEN 'all_blocked'
+               WHEN ? = 'marketing_blocked' OR opt_out_status = 'marketing_blocked' THEN 'marketing_blocked'
+               ELSE opt_out_status
+             END,
+             opt_out_meta_json = CASE WHEN ? != '' THEN ? ELSE opt_out_meta_json END,
+             version = version + 1,
+             updated_by = ?,
+             updated_at = ?
+         WHERE id = ?`
       )
-      .run();
+      .bind(nextFollowDate, nextFollowDate, reqOptOut, reqOptOut, nextOptMeta, nextOptMeta, auth.actor.id, now, companyId);
 
-    const wasDuplicate = !(ins && ins.meta && ins.meta.changes > 0);
-
-    if (!wasDuplicate) {
-      // Promote company from raw_pending -> active once real outreach occurs; upgrade opt-out monotonically
-      let nextOptOut = comp.opt_out_status;
-      if (outcome === "unsubscribed") nextOptOut = monotonicOptOut(comp.opt_out_status, "all_blocked");
-      else if (outcome === "rejected") nextOptOut = monotonicOptOut(comp.opt_out_status, "marketing_blocked");
-
-      const nextOptMeta =
-        nextOptOut !== comp.opt_out_status
-          ? JSON.stringify({
-              updated_by: auth.actor.display_name,
-              updated_at: now,
-              channel,
-              outcome,
-              summary,
-            })
-          : null;
-
-      await env.DB
-        .prepare(
-          `UPDATE companies
-           SET pool_stage = CASE WHEN pool_stage = 'raw_pending' THEN 'active' ELSE 'active' END,
-               next_follow_date = CASE WHEN ? != '' THEN ? ELSE next_follow_date END,
-               opt_out_status = ?,
-               opt_out_meta_json = COALESCE(?, opt_out_meta_json),
-               version = version + 1,
-               updated_by = ?,
-               updated_at = ?
-           WHERE id = ?`
-        )
-        .bind(nextFollowDate, nextFollowDate, nextOptOut, nextOptMeta, auth.actor.id, now, companyId)
-        .run();
-
-      // Release lock ONLY if lock_id matches current employee & device session
-      if (body.release_lock_id) {
-        await env.DB
-          .prepare("DELETE FROM contact_locks WHERE company_id = ? AND lock_id = ? AND employee_id = ? AND session_id = ?")
-          .bind(companyId, String(body.release_lock_id), auth.actor.id, auth.sessionId)
-          .run();
-      }
-
-      if (outcome === "rejected" || outcome === "unsubscribed" || outcome === "coordinated") {
-        await writeAuditLog(
-          env.DB,
-          auth.actor,
-          `EVENT_${outcome.toUpperCase()}`,
-          "company",
-          companyId,
-          `${channel}: ${summary}`
-        );
+    let wasDuplicate = false;
+    if (typeof env.DB.batch === "function") {
+      // Atomic D1 batch transaction: event insert + monotonic company projection commit or fail together (D04)
+      const batchRes = await env.DB.batch([insStmt, updStmt]);
+      const ins = batchRes && batchRes[0];
+      wasDuplicate = !(ins && ins.meta && ins.meta.changes > 0);
+    } else {
+      // Fallback for single-statement adapters: insert then monotonic update; retry heals any mid-failure projection
+      const ins = await insStmt.run();
+      wasDuplicate = !(ins && ins.meta && ins.meta.changes > 0);
+      if (!wasDuplicate || reqOptOut !== "none") {
+        await updStmt.run();
       }
     }
 
+    // Release lock ONLY if lock_id matches current member & device session (also safe on idempotent retry)
+    if (body.release_lock_id) {
+      await env.DB
+        .prepare("DELETE FROM contact_locks WHERE company_id = ? AND lock_id = ? AND employee_id = ? AND session_id = ?")
+        .bind(companyId, String(body.release_lock_id), auth.actor.id, auth.sessionId)
+        .run();
+    }
+    if (reqOptOut !== "none") {
+      await env.DB.prepare("DELETE FROM contact_locks WHERE company_id = ?").bind(companyId).run();
+    }
+
+    if (!wasDuplicate && (outcome === "rejected" || outcome === "unsubscribed" || outcome === "coordinated")) {
+      await writeAuditLog(
+        env.DB,
+        auth.actor,
+        `EVENT_${outcome.toUpperCase()}`,
+        "company",
+        companyId,
+        `${channel}: ${summary}`
+      );
+    }
+
+    // Always reconcile & self-heal authoritative opt_out_status + derived_contact_status from persisted events (D04)
     const derivedState = await recomputeCompanyDerivedState(env.DB, companyId);
     return json(
       {
         ok: true,
         event_id: eventId,
         idempotentDuplicate: wasDuplicate,
+        opt_out_status: derivedState ? derivedState.optOutStatus : comp.opt_out_status,
         derived_contact_status: derivedState ? derivedState.derived : "uncontacted",
       },
       wasDuplicate ? 200 : 201,

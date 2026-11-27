@@ -47,26 +47,70 @@ async function reserveQuotaAtomic(db, quotaKey, ym, scope, cap) {
 }
 
 export async function handleGmapsRoutes(request, env, cors, url) {
+  // Authoritative server-side quota status for logged-in members (D12)
+  if (url.pathname === "/api/gmaps/quota" && request.method === "GET") {
+    const auth = await requireAuth(request, env, cors);
+    if (!auth.ok) return auth.response;
+    const ym = nowIso().slice(0, 7);
+    const teamCap = Math.min(2000, Math.max(1, parseInt(env.GMAPS_TEAM_MONTHLY_CAP || "950", 10) || 950));
+    const rawEmpCap = auth.actor.gmaps_monthly_cap;
+    const empCap = rawEmpCap === undefined || rawEmpCap === null || rawEmpCap === ""
+      ? Math.min(teamCap, parseInt(env.GMAPS_EMP_MONTHLY_CAP || "250", 10) || 250)
+      : Math.min(teamCap, Math.max(0, Number(rawEmpCap)));
+    const empRow = await env.DB
+      .prepare("SELECT used FROM gmaps_quota_usage WHERE quota_key = ?")
+      .bind(`emp:${auth.actor.id}:${ym}`)
+      .first();
+    const teamRow = await env.DB
+      .prepare("SELECT used FROM gmaps_quota_usage WHERE quota_key = ?")
+      .bind(`team:${ym}`)
+      .first();
+    const empUsed = Number((empRow && empRow.used) || 0);
+    const teamUsed = Number((teamRow && teamRow.used) || 0);
+    return json(
+      {
+        ok: true,
+        ym,
+        model: "d1_atomic_member_and_team",
+        apiKeyConfigured: Boolean(env.GOOGLE_MAPS_API_KEY),
+        empUsed,
+        empCap,
+        empRemaining: Math.max(0, empCap - empUsed),
+        teamUsed,
+        teamCap,
+        teamRemaining: Math.max(0, teamCap - teamUsed),
+        warnThreshold: Math.floor(teamCap * 0.73),
+        highThreshold: Math.floor(teamCap * 0.94),
+      },
+      200,
+      cors
+    );
+  }
+
   if (url.pathname !== "/api/gmaps/search" || request.method !== "POST") return null;
 
   const auth = await requireAuth(request, env, cors);
   if (!auth.ok) return auth.response;
 
+  const ym = nowIso().slice(0, 7);
+  const teamCap = Math.min(2000, Math.max(1, parseInt(env.GMAPS_TEAM_MONTHLY_CAP || "950", 10) || 950));
+  const rawEmpCap = auth.actor.gmaps_monthly_cap;
+  const empCap = rawEmpCap === undefined || rawEmpCap === null || rawEmpCap === ""
+    ? Math.min(teamCap, parseInt(env.GMAPS_EMP_MONTHLY_CAP || "250", 10) || 250)
+    : Math.min(teamCap, Math.max(0, Number(rawEmpCap)));
+
+  // D07: Enforce 0 quota strictly BEFORE checking upstream key or making ANY Google request!
+  if (empCap <= 0) {
+    return json({ error: "当前账号 Google Maps 月度可用额度为 0（已禁用付费权限），请联系总负责人开通", code: "EMP_QUOTA_DISABLED" }, 403, cors);
+  }
+
   if (!env.GOOGLE_MAPS_API_KEY) {
-    return json({ error: "服务端尚未配置 GOOGLE_MAPS_API_KEY 密钥，请联系最高管理员配置后使用", code: "GMAPS_NOT_CONFIGURED" }, 503, cors);
+    return json({ error: "服务端尚未配置 GOOGLE_MAPS_API_KEY 密钥，请联系总负责人配置后使用", code: "GMAPS_NOT_CONFIGURED" }, 503, cors);
   }
 
   const body = await parseJsonBody(request, 16384);
   const textQuery = String(body.textQuery || "").trim().slice(0, 180);
   if (!textQuery) return json({ error: "缺少搜索关键词 textQuery" }, 400, cors);
-
-  const ym = nowIso().slice(0, 7);
-  const teamCap = Math.min(2000, Math.max(1, parseInt(env.GMAPS_TEAM_MONTHLY_CAP || "950", 10) || 950));
-  const empCap = Math.min(teamCap, Math.max(0, Number(auth.actor.gmaps_monthly_cap ?? (env.GMAPS_EMP_MONTHLY_CAP || 250))));
-
-  if (empCap <= 0) {
-    return json({ error: "当前账号 Google Maps 月度可用额度为 0，请联系管理员开通", code: "EMP_QUOTA_DISABLED" }, 403, cors);
-  }
 
   // Reserve per-employee quota first, then team quota
   const empRes = await reserveQuotaAtomic(env.DB, `emp:${auth.actor.id}:${ym}`, ym, `employee:${auth.actor.login_id}`, empCap);

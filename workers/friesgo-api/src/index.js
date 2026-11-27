@@ -27,11 +27,12 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    // Minimal public health endpoint (exposes zero private data, only service readiness & environment)
+    // Minimal public health endpoint (exposes zero private data, only service readiness, environment & build identity)
     if (url.pathname === "/api/health" && request.method === "GET") {
       const hasDb = Boolean(env && env.DB);
       const hasSecrets = Boolean(env && env.AUTH_PEPPER && env.TOTP_ENC_KEY);
       let bootstrapped = false;
+      let restoreFrozen = false;
       if (hasDb) {
         try {
           const row = await env.DB.prepare("SELECT COUNT(*) AS cnt FROM employees").first();
@@ -39,14 +40,25 @@ export default {
         } catch {
           // Schema not migrated yet
         }
+        try {
+          const fRow = await env.DB
+            .prepare("SELECT state_value FROM system_maintenance_state WHERE state_key = 'restore_freeze'")
+            .first();
+          restoreFrozen = Boolean(fRow && fRow.state_value === "1");
+        } catch {
+          // Migration 0002 optional on older DBs
+        }
       }
       return json(
         {
           ok: hasDb && hasSecrets,
           service: "friesgo-api",
           version: "v2.1-m2a",
+          buildCommit: (env && env.BUILD_COMMIT) || "dev-local",
+          schemaVersion: 2,
           environment: (env && env.ENVIRONMENT) || "unknown",
           bootstrapped,
+          restoreFrozen,
           timestamp: nowIso(),
         },
         hasDb && hasSecrets ? 200 : 503,

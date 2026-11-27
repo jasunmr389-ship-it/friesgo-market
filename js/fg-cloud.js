@@ -7,7 +7,10 @@
   var DEFAULT_API_BASE = "https://friesgo-api.ntigravity-project.workers.dev";
   var SESSION_KEY = "friesgo_cloud_session_v1";
   var PENDING_KEY = "friesgo_cloud_pending_v1";
+  var FAILED_KEY = "friesgo_cloud_failed_v1";
   var API_URL_KEY = "friesgo_cloud_api_url_v1";
+  var MAX_PENDING_QUEUE = 200;
+  var MAX_FAILED_QUEUE = 100;
 
   var listeners = [];
   var activeLocks = Object.create(null); // { [companyId]: { lock_id, expires_at, channel } }
@@ -17,6 +20,8 @@
     lastSyncedAt: "",
     lastError: "",
     pendingCount: 0,
+    failedCount: 0,
+    restoreFrozen: false,
   };
 
   function getApiBase() {
@@ -72,25 +77,67 @@
   }
 
   function savePendingQueue(arr) {
-    var list = Array.isArray(arr) ? arr.slice(0, 200) : [];
-    state.pendingCount = list.length;
+    var list = Array.isArray(arr) ? arr : [];
+    if (list.length > MAX_PENDING_QUEUE) {
+      return { ok: false, queueFull: true, error: "待同步离线队列已达上限（" + MAX_PENDING_QUEUE + " 条），请先恢复联网同步" };
+    }
     try {
       if (list.length) localStorage.setItem(PENDING_KEY, JSON.stringify(list));
       else localStorage.removeItem(PENDING_KEY);
-    } catch (_) {}
+      state.pendingCount = list.length;
+      return { ok: true, count: list.length };
+    } catch (err) {
+      return {
+        ok: false,
+        storageFull: true,
+        error: "浏览器本地存储写入失败（空间不足或被禁用）：" + ((err && err.message) || "QuotaExceeded"),
+      };
+    }
+  }
+
+  function loadFailedQueue() {
+    try {
+      var arr = JSON.parse(localStorage.getItem(FAILED_KEY) || "[]");
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveFailedQueue(arr) {
+    var list = Array.isArray(arr) ? arr.slice(-MAX_FAILED_QUEUE) : [];
+    try {
+      if (list.length) localStorage.setItem(FAILED_KEY, JSON.stringify(list));
+      else localStorage.removeItem(FAILED_KEY);
+      state.failedCount = list.length;
+      return { ok: true, count: list.length };
+    } catch (_) {
+      state.failedCount = list.length;
+      return { ok: false };
+    }
+  }
+
+  function computeHealthySyncStatus() {
+    if (!state.session) return "guest";
+    if (state.restoreFrozen) return "error";
+    if (state.failedCount > 0) return "error";
+    if (state.pendingCount > 0) return "offline";
+    return "synced";
   }
 
   /**
-   * Immediately wipe all controllable private caches, tokens, pending queue & active locks
+   * Immediately wipe all controllable private caches, tokens, pending/failed queues & active locks
    * on logout OR server 401 SESSION_REVOKED_OR_DISABLED.
    */
   function clearAllPrivateState(reason) {
     saveSession(null);
     savePendingQueue([]);
+    saveFailedQueue([]);
     activeLocks = Object.create(null);
     state.syncStatus = "guest";
     state.lastSyncedAt = "";
     state.lastError = reason || "";
+    state.restoreFrozen = false;
     emitChange("cleared");
   }
 
@@ -123,6 +170,9 @@
       lastSyncedAt: state.lastSyncedAt,
       lastError: state.lastError,
       pendingCount: state.pendingCount,
+      failedCount: state.failedCount,
+      restoreFrozen: state.restoreFrozen,
+      maxPendingQueue: MAX_PENDING_QUEUE,
       activeLocks: Object.assign({}, activeLocks),
     };
   }
@@ -183,21 +233,30 @@
             clearAllPrivateState(data.error || "会话已失效或账号已停用");
             return { ok: false, status: 401, revoked: true, data: data };
           }
+          if (res.status === 503 && data && data.code === "SYSTEM_RESTORE_FROZEN") {
+            state.restoreFrozen = true;
+            state.lastError = data.error || "系统处于恢复后安全冻结期";
+            if (state.session) {
+              state.syncStatus = "error";
+              emitChange("restore_frozen");
+            }
+            return { ok: false, status: 503, restoreFrozen: true, data: data };
+          }
           if (res.ok) {
             if (state.session && o.trackSync !== false) {
               state.lastSyncedAt = new Date().toISOString();
-              state.lastError = "";
-              state.syncStatus = state.pendingCount > 0 ? "offline" : "synced";
+              if (!state.failedCount && !state.pendingCount && !state.restoreFrozen) state.lastError = "";
+              state.syncStatus = computeHealthySyncStatus();
               emitChange("synced");
             }
             return { ok: true, status: res.status, data: data };
           }
-          if (state.session && o.trackSync !== false && res.status >= 500) {
+          if (state.session && o.trackSync !== false && (res.status >= 500 || res.status === 429 || res.status === 408)) {
             state.lastError = data.error || ("HTTP " + res.status);
             state.syncStatus = "error";
             emitChange("error");
           } else if (state.session && o.trackSync !== false) {
-            state.syncStatus = state.pendingCount > 0 ? "offline" : "synced";
+            state.syncStatus = computeHealthySyncStatus();
             emitChange("update");
           }
           return { ok: false, status: res.status, data: data };
@@ -212,6 +271,10 @@
         }
         return { ok: false, status: 0, networkError: true, data: { error: "无法连接云端服务：" + msg } };
       });
+  }
+
+  function getHealth() {
+    return apiFetch("/api/health", { method: "GET", auth: false, trackSync: false });
   }
 
   // ===== Auth & 2FA =====
@@ -235,7 +298,8 @@
           employee: r.data.employee,
           requireTotpSetup: Boolean(r.data.requireTotpSetup),
         });
-        state.syncStatus = "synced";
+        state.restoreFrozen = Boolean(r.data.restoreFrozen);
+        state.syncStatus = computeHealthySyncStatus();
         state.lastSyncedAt = new Date().toISOString();
         state.lastError = "";
         emitChange("login");
@@ -269,6 +333,8 @@
       if (r.ok && r.data && r.data.employee && state.session) {
         state.session.employee = r.data.employee;
         state.session.requireTotpSetup = Boolean(r.data.requireTotpSetup);
+        state.restoreFrozen = Boolean(r.data.restoreFrozen);
+        state.syncStatus = computeHealthySyncStatus();
         saveSession(state.session);
         emitChange("me");
       }
@@ -289,6 +355,13 @@
     return apiFetch("/api/auth/change-password", {
       method: "POST",
       body: { old_password: oldPassword, new_password: newPassword },
+    }).then(function (r) {
+      if (r.ok && state.session && state.session.employee) {
+        state.session.employee.must_reset_pwd = false;
+        saveSession(state.session);
+        emitChange("password_changed");
+      }
+      return r;
     });
   }
 
@@ -328,10 +401,30 @@
   function exportBackup(totpCode) {
     return apiFetch("/api/admin/export-backup", { method: "POST", body: { totp_code: totpCode } });
   }
+  function restoreBackup(totpCode, confirmPhrase, tables) {
+    return apiFetch("/api/admin/restore-backup", {
+      method: "POST",
+      body: { totp_code: totpCode, confirmPhrase: confirmPhrase || "", tables: tables || {} },
+    }).then(function (r) {
+      if (r.ok) {
+        state.restoreFrozen = true;
+        state.syncStatus = "error";
+        emitChange("restore_frozen");
+      }
+      return r;
+    });
+  }
   function postRestoreVerify(totpCode, revokeOtherSessions) {
     return apiFetch("/api/admin/post-restore-verify", {
       method: "POST",
       body: { totp_code: totpCode, revokeOtherSessions: revokeOtherSessions !== false },
+    }).then(function (r) {
+      if (r.ok) {
+        state.restoreFrozen = false;
+        state.syncStatus = computeHealthySyncStatus();
+        emitChange("restore_unfrozen");
+      }
+      return r;
     });
   }
 
@@ -361,12 +454,20 @@
     return apiFetch("/api/companies/" + encodeURIComponent(id), { method: "PATCH", body: payload });
   }
 
+  function addCompanyContact(companyId, payload) {
+    return apiFetch("/api/companies/" + encodeURIComponent(companyId) + "/contacts", { method: "POST", body: payload });
+  }
+
   function dedupeBatch(items) {
     return apiFetch("/api/companies/dedupe-batch", { method: "POST", body: { items: items || [] } });
   }
 
   function mergeCompanies(sourceId, targetId) {
     return apiFetch("/api/companies/merge", { method: "POST", body: { source_id: sourceId, target_id: targetId } });
+  }
+
+  function unmergeCompany(auditId) {
+    return apiFetch("/api/companies/unmerge", { method: "POST", body: { audit_id: auditId } });
   }
 
   function listOsmPool(country) {
@@ -403,7 +504,7 @@
         status: 0,
         data: {
           code: "OFFLINE_LOCK_FORBIDDEN",
-          error: "🟡 当前处于离线状态，无法核对全员最新联系记录与防撞单锁，请联网确认后再主动触达客户！",
+          error: "🟡 当前处于离线状态，无法核对团队最新联系记录与防撞单锁，请联网确认后再主动触达客户！",
         },
       });
     }
@@ -418,7 +519,7 @@
           status: 0,
           data: {
             code: "OFFLINE_LOCK_FORBIDDEN",
-            error: "🟡 无法连接云端校验全员联系状态（防撞单锁未成功），请联网后再主动触达！",
+            error: "🟡 无法连接云端校验团队联系状态（防撞单锁未成功），请联网后再主动触达！",
           },
         };
       }
@@ -443,7 +544,30 @@
     });
   }
 
-  // ===== Append-Only Contact Events + Idempotent Offline Queue =====
+  // ===== Append-Only Contact Events + Lossless Idempotent Offline Queue (D01 & D02) =====
+  function isTransientFailure(r) {
+    if (!r) return true;
+    if (r.revoked) return false;
+    if (r.restoreFrozen || (r.data && r.data.code === "SYSTEM_RESTORE_FROZEN")) return false;
+    return Boolean(r.networkError || r.status === 0 || r.status >= 500 || r.status === 429 || r.status === 408);
+  }
+
+  function enqueuePendingEvent(ev) {
+    var q = loadPendingQueue();
+    if (q.some(function (x) { return x && x.event_id === ev.event_id; })) {
+      return { ok: true, count: q.length, duplicate: true };
+    }
+    if (q.length >= MAX_PENDING_QUEUE) {
+      return {
+        ok: false,
+        queueFull: true,
+        error: "⚠️ 本地离线待同步队列已满（上限 " + MAX_PENDING_QUEUE + " 条），禁止继续丢弃写入！请先恢复联网并点击「立即补传同步」。",
+      };
+    }
+    q.push(ev);
+    return savePendingQueue(q);
+  }
+
   function recordEvent(payload) {
     var ev = Object.assign({}, payload || {});
     if (!ev.event_id) ev.event_id = genStableEventId();
@@ -459,20 +583,37 @@
         emitChange("event_saved");
         return r;
       }
-      if (r.networkError) {
-        var q = loadPendingQueue();
-        if (!q.some(function (x) { return x.event_id === ev.event_id; })) {
-          q.push(ev);
-          savePendingQueue(q);
+      if (isTransientFailure(r)) {
+        var enq = enqueuePendingEvent(ev);
+        if (!enq.ok) {
+          state.syncStatus = "error";
+          state.lastError = enq.error;
+          emitChange("queue_error");
+          return {
+            ok: false,
+            queueFull: Boolean(enq.queueFull),
+            storageFull: Boolean(enq.storageFull),
+            status: r.status || 0,
+            data: {
+              code: enq.queueFull ? "OFFLINE_QUEUE_FULL" : "OFFLINE_STORAGE_FULL",
+              error: enq.error,
+            },
+          };
         }
-        state.syncStatus = "offline";
+        state.syncStatus = r.networkError ? "offline" : "error";
+        if (!r.networkError && r.data && r.data.error) state.lastError = r.data.error;
         emitChange("queued_offline");
         return {
           ok: false,
           queuedOffline: true,
+          transientServerError: !r.networkError,
+          status: r.status || 0,
           data: {
             event_id: ev.event_id,
-            message: "当前离线，已暂存为「待同步记录」（尚未写入公司云端库，恢复联网后将按唯一 ID 自动幂等补传）",
+            pendingCount: state.pendingCount,
+            message: r.networkError
+              ? "当前离线，已安全暂存为「待同步记录」（尚未写入云端库，恢复联网后按唯一 ID 幂等补传）"
+              : "云端服务暂时异常（HTTP " + r.status + "），记录已安全保留在本地待同步队列，绝不丢失，稍后将自动补传",
           },
         };
       }
@@ -481,36 +622,118 @@
   }
 
   function flushPendingQueue() {
-    if (!state.session) return Promise.resolve({ flushed: 0, remaining: 0 });
+    if (!state.session) return Promise.resolve({ flushed: 0, remaining: 0, failed: state.failedCount });
     var q = loadPendingQueue();
+    var failed = loadFailedQueue();
     if (!q.length) {
       state.pendingCount = 0;
-      if (state.syncStatus === "offline") {
-        state.syncStatus = "synced";
-        emitChange("synced");
-      }
-      return Promise.resolve({ flushed: 0, remaining: 0 });
+      state.failedCount = failed.length;
+      state.syncStatus = computeHealthySyncStatus();
+      emitChange("queue_flushed");
+      return Promise.resolve({ flushed: 0, remaining: 0, failed: failed.length });
     }
     var remaining = [];
     var flushed = 0;
+    var hadTransientError = false;
+    var lastErr = "";
+    var abortedByRevoke = false;
+
     return q
       .reduce(function (chain, item) {
         return chain.then(function () {
-          return apiFetch("/api/events", { method: "POST", body: item }).then(function (r) {
-            if (r.ok) flushed++;
-            else if (r.networkError) remaining.push(item);
+          if (abortedByRevoke || !state.session) return;
+          return apiFetch("/api/events", { method: "POST", body: item, trackSync: false }).then(function (r) {
+            if (r.revoked) {
+              abortedByRevoke = true;
+              return;
+            }
+            if (r.ok) {
+              flushed++;
+            } else if (isTransientFailure(r) || r.restoreFrozen) {
+              // D01: NEVER drop on 500/502/503/504/429/408/network error!
+              remaining.push(item);
+              if (!r.networkError) {
+                hadTransientError = true;
+                lastErr = (r.data && r.data.error) || ("云端暂时异常 (HTTP " + r.status + ")");
+              }
+            } else {
+              // Permanent 4xx business rejection: move to visible failed queue so user can inspect/fix/dismiss, NEVER silently delete!
+              var exists = failed.some(function (f) { return f && f.event && f.event.event_id === item.event_id; });
+              if (!exists) {
+                failed.push({
+                  event: item,
+                  status: r.status || 400,
+                  code: (r.data && r.data.code) || "SYNC_REJECTED",
+                  error: (r.data && r.data.error) || ("服务端拒绝该记录 (HTTP " + r.status + ")"),
+                  failedAt: new Date().toISOString(),
+                });
+              }
+              lastErr = (r.data && r.data.error) || ("HTTP " + r.status);
+            }
           });
         });
       }, Promise.resolve())
       .then(function () {
+        if (abortedByRevoke || !state.session) {
+          return { flushed: flushed, remaining: 0, failed: 0, revoked: true };
+        }
         savePendingQueue(remaining);
-        if (!remaining.length && state.session) {
-          state.syncStatus = "synced";
+        saveFailedQueue(failed);
+        if (remaining.length > 0) {
+          state.syncStatus = hadTransientError || state.restoreFrozen ? "error" : "offline";
+          if (lastErr) state.lastError = lastErr;
+        } else if (failed.length > 0) {
+          state.syncStatus = "error";
+          state.lastError = "有 " + failed.length + " 条离线记录同步被服务端拒绝，请点击查看详情";
+        } else {
+          state.syncStatus = state.restoreFrozen ? "error" : "synced";
           state.lastSyncedAt = new Date().toISOString();
+          state.lastError = "";
         }
         emitChange("queue_flushed");
-        return { flushed: flushed, remaining: remaining.length };
+        return { flushed: flushed, remaining: remaining.length, failed: failed.length };
       });
+  }
+
+  function getPendingQueue() {
+    return loadPendingQueue();
+  }
+
+  function getFailedQueue() {
+    return loadFailedQueue();
+  }
+
+  function retryFailedQueue() {
+    var failed = loadFailedQueue();
+    if (!failed.length) return Promise.resolve({ flushed: 0, remaining: state.pendingCount, failed: 0 });
+    var pending = loadPendingQueue();
+    var moved = 0;
+    var keptFailed = [];
+    failed.forEach(function (f) {
+      if (f && f.event && pending.length < MAX_PENDING_QUEUE) {
+        if (!pending.some(function (p) { return p && p.event_id === f.event.event_id; })) {
+          pending.push(f.event);
+        }
+        moved++;
+      } else {
+        keptFailed.push(f);
+      }
+    });
+    var saved = savePendingQueue(pending);
+    if (!saved.ok) return Promise.resolve({ ok: false, error: saved.error, flushed: 0, remaining: state.pendingCount, failed: failed.length });
+    saveFailedQueue(keptFailed);
+    emitChange("failed_requeued");
+    return flushPendingQueue();
+  }
+
+  function dismissFailedItem(eventId) {
+    var failed = loadFailedQueue();
+    var next = failed.filter(function (f) { return !(f && f.event && f.event.event_id === eventId); });
+    saveFailedQueue(next);
+    state.syncStatus = computeHealthySyncStatus();
+    if (!next.length && !state.pendingCount && !state.restoreFrozen) state.lastError = "";
+    emitChange("failed_dismissed");
+    return next.length;
   }
 
   function listRecentEvents(onlyMine) {
@@ -549,7 +772,7 @@
     return apiFetch("/api/feedback/" + encodeURIComponent(id), { method: "PATCH", body: payload });
   }
 
-  // ===== Authenticated Paid Google Maps Proxy =====
+  // ===== Authenticated Paid Google Maps Proxy & Quota =====
   function searchGmaps(textQuery, pageSize, pageToken) {
     return apiFetch("/api/gmaps/search", {
       method: "POST",
@@ -557,14 +780,20 @@
     });
   }
 
-  // Boot initialization: restore session & pending count (never dumps full company DB!)
+  function getGmapsQuota() {
+    return apiFetch("/api/gmaps/quota", { method: "GET", trackSync: false });
+  }
+
+  // Boot initialization: restore session & pending/failed counts (never dumps full company DB!)
   (function init() {
     var sess = loadSession();
     var pending = loadPendingQueue();
+    var failed = loadFailedQueue();
     state.pendingCount = pending.length;
+    state.failedCount = failed.length;
     if (sess) {
       state.session = sess;
-      state.syncStatus = pending.length ? "offline" : "syncing";
+      state.syncStatus = failed.length ? "error" : pending.length ? "offline" : "syncing";
     } else {
       state.syncStatus = "guest";
     }
@@ -584,6 +813,7 @@
   global.FG_CLOUD = {
     getApiBase: getApiBase,
     setApiBase: setApiBase,
+    getHealth: getHealth,
     getState: getState,
     subscribe: subscribe,
     clearAllPrivateState: clearAllPrivateState,
@@ -603,13 +833,16 @@
     revokeEmployeeSessions: revokeEmployeeSessions,
     listAuditLogs: listAuditLogs,
     exportBackup: exportBackup,
+    restoreBackup: restoreBackup,
     postRestoreVerify: postRestoreVerify,
     listCompanies: listCompanies,
     getCompany: getCompany,
     createCompany: createCompany,
     updateCompany: updateCompany,
+    addCompanyContact: addCompanyContact,
     dedupeBatch: dedupeBatch,
     mergeCompanies: mergeCompanies,
+    unmergeCompany: unmergeCompany,
     listOsmPool: listOsmPool,
     ingestOsmPool: ingestOsmPool,
     promoteOsmLead: promoteOsmLead,
@@ -620,6 +853,10 @@
     releaseLock: releaseLock,
     recordEvent: recordEvent,
     flushPendingQueue: flushPendingQueue,
+    getPendingQueue: getPendingQueue,
+    getFailedQueue: getFailedQueue,
+    retryFailedQueue: retryFailedQueue,
+    dismissFailedItem: dismissFailedItem,
     listRecentEvents: listRecentEvents,
     migrateDryRun: migrateDryRun,
     migrateCommit: migrateCommit,
@@ -627,5 +864,6 @@
     submitCloudFeedback: submitCloudFeedback,
     updateCloudFeedback: updateCloudFeedback,
     searchGmaps: searchGmaps,
+    getGmapsQuota: getGmapsQuota,
   };
 })(typeof window !== "undefined" ? window : globalThis);
