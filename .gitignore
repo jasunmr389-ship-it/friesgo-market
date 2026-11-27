@@ -4,3 +4,11 @@ Quan Qiu Gong Ye Pin Guo Jia Yi Lan
 *.tmp
 .DS_Store
 tests/artifacts/
+.wrangler/
+.dev.vars
+workers/friesgo-api/wrangler.toml
+workers/friesgo-api/wrangler.staging.toml
+workers/friesgo-api/.dev.vars
+backups/
+*.sqlite
+*.sql.bak

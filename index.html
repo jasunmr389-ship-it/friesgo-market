@@ -583,6 +583,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <span class="src-ok" id="globalProdProfileHint" style="white-space:normal">自动同步搜客/洗名单/写信/报价品名</span>
       <button type="button" class="pill" id="btnPinCurrentTool" title="收藏/取消收藏当前工具到首页常用栏" style="min-height:30px;padding:2px 9px;font-size:12px" hidden>☆ 收藏工具</button>
       <button type="button" class="pill" id="btnOpenFeedback" title="遇到报错、卡顿、步骤繁琐或数据有误？点此反馈建议（自动脱敏不含客户明细）" style="min-height:30px;padding:2px 9px;font-size:12px">💬 反馈</button>
+      <button type="button" class="pill" id="btnCloudAuth" title="公司员工独立账号登录 / 云端公海同步与设备安全" style="min-height:30px;padding:2px 9px;font-size:12px">🔒 员工登录</button>
       <div class="v2-qsearch-wrap" id="globalQuickSearchWrap">
         <input type="search" id="globalQuickSearch" class="v2-qsearch-inp" placeholder="🔍 速达功能 / 国家 / 客户 (Ctrl+K)" autocomplete="off" aria-label="全局快捷搜索功能、国家或客户">
         <div id="globalQuickDrop" class="v2-qsearch-drop" hidden></div>
@@ -979,8 +980,10 @@ Best regards,
         <button class="pill" id="btnMapNextPage" type="button" hidden>加载下一页（+20 家）</button>
         <button class="pill good-btn" id="btnPushToCsv" type="button" hidden>送入导入与洗名单</button>
         <button class="pill" id="btnExportMapCsv" type="button" hidden>导出 CSV（OSM）</button>
+        <button class="pill" id="btnIngestOsmCloud" type="button" hidden>📥 沉淀至 OSM 待核实线索池</button>
         <label class="pill" style="cursor:pointer;font-size:12px"><input type="checkbox" id="msHideNonBuyer" style="margin-right:4px"> 隐藏疑似货代/非工业主体</label>
       </div>
+      <div id="gmapsCloudAutoHint" class="flag-note" hidden style="margin-top:6px;color:var(--good)">✅ 已登录公司员工账号：使用 Google Maps 引擎时将自动通过公司认证代理转发（按个人与团队月度配额保护，无需填写共享口令）。</div>
       <div id="gmapsTermsBanner" class="v2-guard-bar lv-yellow" hidden style="margin-top:8px;margin-bottom:0">
         <b>⚖️ Google Places 许可合规隔离（Google Maps Platform Terms）：</b>Google 地图检索结果<b>仅限浏览器内实时展示与人工跳转官网核实</b>，已禁用一键导出 CSV、禁止送入批量洗名单及禁止自动复制其电话/地址进客户档案；请先点击「打开官网」或「Google 原页」确认有效联系方式后再通过「核实后手填建档」录入。如需批量导出/洗名单，请使用开源地图 OSM 或自行导入企业名录。
       </div>
@@ -2140,7 +2143,66 @@ Best regards,
       </div>
     </div>
 
-    <div class="card">
+    <div id="cloudPoolBar" hidden style="margin-bottom:10px">
+      <div id="cloudSyncStatusLine" class="v2-guard-bar lv-green" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+        <div class="pills" id="cloudPoolModePills" style="margin:0">
+          <button class="pill" type="button" data-cmode="pool" aria-pressed="true">🌐 全球公海库</button>
+          <button class="pill" type="button" data-cmode="mine" aria-pressed="false">👤 我的跟进</button>
+          <button class="pill" type="button" data-cmode="team" aria-pressed="false">👥 全员跟进动态</button>
+          <button class="pill" type="button" data-cmode="osm" aria-pressed="false">🗃️ OSM 待核实池</button>
+          <button class="pill" type="button" data-cmode="local" aria-pressed="false">💻 本机草稿/旧档</button>
+        </div>
+        <div class="pills" style="margin:0">
+          <button class="pill primary" type="button" id="btnCloudNewCompany" style="min-height:30px;padding:3px 10px;font-size:12px">＋ 新增公海企业</button>
+          <button class="pill" type="button" id="btnCloudOpenMigrate" style="min-height:30px;padding:3px 10px;font-size:12px">📤 6 步迁入本机客户</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="cloudPoolView" hidden style="margin-bottom:12px">
+      <div id="cloudAddCompBox" hidden style="padding:12px;border:1px dashed var(--orange);border-radius:10px;background:var(--surface2);margin-bottom:12px">
+        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">新增公司云端公海企业主档（自动执行全员查重，防重复建档）</div>
+        <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+          <input id="cloudNewCompName" type="text" placeholder="企业名称（必填）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+          <select id="cloudNewCompCountry" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)"></select>
+          <input id="cloudNewCompCity" type="text" placeholder="城市（如 Dammam）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+          <input id="cloudNewCompWeb" type="text" placeholder="独立企业官网（如 https://...）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+          <input id="cloudNewCompEmail" type="email" placeholder="联系人邮箱（选填）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+          <input id="cloudNewCompProd" type="text" placeholder="需求产品（如 阀门/PE管道）" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">
+        </div>
+        <div class="pills" style="margin-top:8px">
+          <button type="button" class="pill primary" id="btnCloudSaveNewComp">保存至云端公海库</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <select id="cloudPoolCountry" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px"><option value="ALL">🌍 全部国家公海</option></select>
+        <select id="cloudPoolStage" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+          <option value="all">全部线索层</option>
+          <option value="raw_pending">待核实线索</option>
+          <option value="verified_pool">有效公海</option>
+          <option value="active">跟进中</option>
+        </select>
+        <select id="cloudPoolStatus" style="min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+          <option value="all">全部联系状态</option>
+          <option value="uncontacted">未联系</option>
+          <option value="preparing">准备联系（锁定中）</option>
+          <option value="contacted_no_reply">已联系未回复</option>
+          <option value="following_up">跟进中</option>
+          <option value="inquired">已询盘</option>
+          <option value="quoted">已报价</option>
+          <option value="stopped">⛔ 停止联系/禁发</option>
+        </select>
+        <input id="cloudPoolSearch" type="search" placeholder="搜公司名、城市、官网域名或产品…" style="flex:1;min-width:170px;min-height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+      </div>
+
+      <div id="cloudPoolDetailBox" hidden style="padding:12px;border:2px solid var(--orange);border-radius:12px;background:var(--surface2);margin-bottom:12px"></div>
+      <div id="cloudPoolListBody"></div>
+      <div id="cloudPoolPager" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="localCrmCardWrap">
       <!-- Add Customer / Channel Agent Form (Collapsed by default to keep workspace clean!) -->
       <div id="crmAddBox" hidden style="padding:12px;border:1px dashed var(--orange);border-radius:10px;background:var(--surface2);margin-bottom:12px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line)">
@@ -2584,7 +2646,7 @@ Best regards,
 
 <footer>
   <img class="js-logo" alt="FriesGo Global">
-  <div><b>FriesGo Global · 工业品外贸工作台</b><br>宏观统计参考（UN Comtrade，核查日 2026-11-25）：146 国 HS84+85 机电总盘（117 国 2025 / 29 国 2024*）· 120 国工业净口径（剔除 9 类消费/算力电子）· 143 国钢材钢构（HS72+73 剔除 7201–7205）· 76 国 2026 月度 YTD + 中国海关总署 2026.01–10｜宏观口径不等同于单一产品进口规模，签约前须按具体 HS 编码复核官方税则与制裁清单｜<a href="#sources" onclick="if(window.navigateTo){navigateTo('sources');return false;}" style="color:var(--orange);font-weight:700">口径、保质期与清洗说明</a> <button type="button" class="pill" id="btnFooterFeedback" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">💬 反馈/提建议</button></div>
+  <div><b>FriesGo Global · 工业品外贸工作台</b><br>宏观统计参考（UN Comtrade，核查日 2026-11-25）：146 国 HS84+85 机电总盘（117 国 2025 / 29 国 2024*）· 120 国工业净口径（剔除 9 类消费/算力电子）· 143 国钢材钢构（HS72+73 剔除 7201–7205）· 76 国 2026 月度 YTD + 中国海关总署 2026.01–10｜宏观口径不等同于单一产品进口规模，签约前须按具体 HS 编码复核官方税则与制裁清单｜<a href="#sources" onclick="if(window.navigateTo){navigateTo('sources');return false;}" style="color:var(--orange);font-weight:700">口径、保质期与清洗说明</a> <button type="button" class="pill" id="btnFooterFeedback" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">💬 反馈/提建议</button> <button type="button" class="pill" id="btnFooterCloudAuth" style="min-height:24px;padding:1px 8px;font-size:11.5px;margin-left:4px">🔒 员工登录</button></div>
 </footer>
   </main>
 </div>
@@ -2600,10 +2662,10 @@ Best regards,
 <div id="feedbackModal" class="fg-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="fbModalTitle" hidden>
   <div class="fg-modal-dialog">
     <div class="fg-modal-head">
-      <h3 id="fbModalTitle">💬 员工共建反馈与整改建议（M1 试用版）</h3>
+      <h3 id="fbModalTitle">💬 员工共建反馈与整改建议</h3>
       <button type="button" class="pill" id="btnCloseFeedback" aria-label="关闭反馈弹窗" style="min-height:28px;padding:2px 9px;font-size:12px">× 关闭</button>
     </div>
-    <p class="flag-note" style="margin:0 0 10px">使用中遇到报错卡顿、步骤繁琐、数据口径存疑或想要更好用的功能，用一句话写下来发到团队群或暂存本机，我们会汇总持续优化。<b>请勿在此输入客户真实邮箱、电话或报价明细。</b></p>
+    <p class="flag-note" style="margin:0 0 10px">使用中遇到报错卡顿、步骤繁琐、数据口径存疑或想要更好用的功能，用一句话写下来发到团队群、暂存本机，或登录员工账号直交公司共创整改榜。<b>请勿在此输入客户真实邮箱、电话或报价明细。</b></p>
     <div style="display:grid;gap:8px">
       <div>
         <label for="fbCategory" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">问题 / 建议类型</label>
@@ -2627,6 +2689,13 @@ Best regards,
       <button type="button" class="pill primary" id="btnFbCopyCard">📋 生成并复制反馈卡片（发群）</button>
       <button type="button" class="pill good-btn" id="btnFbSaveLocal">💾 存入本机试用记录</button>
       <button type="button" class="pill" id="btnFbExportAll">📤 导出全部试用反馈</button>
+    </div>
+    <div id="fbCloudSection" hidden style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--orange)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12.5px;font-weight:800;color:var(--brown)">🚀 团队云端共创整改榜（仅登录员工可见/提交）</span>
+        <button type="button" class="pill primary" id="btnFbSubmitCloud" style="min-height:28px;padding:3px 10px;font-size:12px">☁️ 提交到公司共创整改榜</button>
+      </div>
+      <div id="fbCloudBoardList" class="fb-log-list" style="margin-top:6px"></div>
     </div>
     <div id="fbLocalSection" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -2655,6 +2724,7 @@ Best regards,
 <script src="data/policy_sources.js"></script>
 <script src="js/fg-core.js"></script>
 <script src="js/fg-store.js"></script>
+<script src="js/fg-cloud.js"></script>
 
 <script>
 /* ===== Single compressed Logo (128x128) ===== */
@@ -11469,6 +11539,19 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
       + '<div class="ms-card-list" aria-label="手机端客户卡片流">'+cardsHtml+'</div>'
       + (indexed.length > 80 ? '<p class="flag-note">预览前 80 条（当前共 '+indexed.length+' 条'+(isGmapsResults?'':'，可导出 CSV 或送入「导入与洗名单」处理全部')+'）。</p>' : '')
       + footerAttr;
+
+    if(window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.onMapResultsRendered === "function"){
+      window.FG_CLOUD_UI.onMapResultsRendered(
+        isGmapsResults ? "gmaps" : "osm",
+        shownSlice.map(function(o){ return o.r; }),
+        {
+          country: msCountry ? msCountry.value : "",
+          city: msCityInp ? msCityInp.value.trim() : "",
+          radiusKm: Math.round((parseInt((document.getElementById("msRadius")||{}).value, 10) || 30000) / 1000),
+          keyword: (document.getElementById("msKeyword")||{}).value || ""
+        }
+      );
+    }
   }
 
   document.getElementById("msResultWrap").addEventListener("click", function(e){
@@ -11850,8 +11933,10 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var proxyUrl = document.getElementById("msProxyUrl").value.trim();
     var proxyPass = document.getElementById("msProxyPass").value.trim();
     var directKey = document.getElementById("msGmapsKey").value.trim();
-    if(!proxyUrl && !directKey){
-      st.textContent = "请先填写「Cloudflare Worker 代理地址与团队口令」或「本机 Google Maps API Key」。";
+    var cloudSt = (window.FG_CLOUD && typeof window.FG_CLOUD.getState === "function") ? window.FG_CLOUD.getState() : null;
+    var useCloudAuthProxy = !proxyUrl && !directKey && !!(cloudSt && cloudSt.loggedIn && !cloudSt.requireTotpSetup);
+    if(!proxyUrl && !directKey && !useCloudAuthProxy){
+      st.textContent = "请先登录公司员工账号使用团队认证代理，或填写「Cloudflare Worker 代理地址」/「本机 API Key」。";
       document.getElementById("gmapsCfgBox").hidden = false;
       return;
     }
@@ -11884,7 +11969,9 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
 
     var sig = gmapsAbortCtrl ? gmapsAbortCtrl.signal : undefined;
     var reqPromise;
-    if(proxyUrl){
+    if(useCloudAuthProxy){
+      reqPromise = window.FG_CLOUD.searchGmaps(textQuery, 20, appendPage ? gmapsNextToken : "");
+    } else if(proxyUrl){
       var hdr = {"Content-Type":"application/json"};
       if(proxyPass) hdr["X-Team-Pass"] = proxyPass;
       reqPromise = fetch(proxyUrl, {
@@ -12687,5 +12774,6 @@ if(window.FG_STORE){
   } catch(e){}
 })();
 </script>
+<script src="js/fg-cloud-ui.js"></script>
 </body>
 </html>
