@@ -939,7 +939,7 @@
     var st = global.FG_CLOUD.getState();
     var isSuper = st.employee && st.employee.role === "super_admin";
     body.innerHTML =
-      '<div class="v2-guard-bar lv-yellow"><b>🛡️ 最高管理员 2FA 校验：</b>执行开通/停用员工、重置密码、踢设备、导出备份或恢复校验前，请在此填入手机验证器当前 6 位动态码：'
+      '<div class="v2-guard-bar lv-yellow"><b>🛡️ 敏感操作动态校验（停用员工 / 踢下线 / 备份恢复用）：</b>操作前再看手机填入当前 6 位动态码（开通新员工请直接填在下方提交按钮旁）：'
       + ' <input id="inpAdminTotp" type="text" inputmode="numeric" maxlength="12" placeholder="6位动态码" style="width:125px;min-height:28px;padding:2px 8px;border:1px solid var(--orange);border-radius:6px;background:var(--surface);color:var(--ink);font-weight:800"></div>'
       + '<div class="pills" style="margin:8px 0">'
       + '  <button type="button" class="pill primary" data-admtab="emps">👥 员工账号与设备</button>'
@@ -1016,8 +1016,12 @@
       var createForm = isSuper
         ? ('<div style="padding:10px;border:1px dashed var(--line);border-radius:10px;background:var(--surface2);margin-bottom:10px">'
             + '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-bottom:6px">'
-            + '  <span style="font-size:12.5px;font-weight:800;color:var(--brown)">＋ 开通新员工独立账号（支持一次填多位，只需输入 1 次上方 2FA 动态码）</span>'
-            + '  <button type="button" class="pill" id="btnAdmTogglePwdVis" style="min-height:24px;padding:1px 8px;font-size:11.5px">👁️ 显示密码</button>'
+            + '  <span style="font-size:12.5px;font-weight:800;color:var(--brown)">第 1 步 · 先填好要开通的员工信息（可一次填多位）</span>'
+            + '  <div class="pills" style="margin:0">'
+            + '    <button type="button" class="pill" id="btnAdmAddRow" style="min-height:24px;padding:1px 8px;font-size:11.5px">＋ 加 1 行</button>'
+            + '    <button type="button" class="pill" id="btnAdmAdd5Rows" style="min-height:24px;padding:1px 8px;font-size:11.5px">⚡ 补齐 5 行</button>'
+            + '    <button type="button" class="pill" id="btnAdmTogglePwdVis" style="min-height:24px;padding:1px 8px;font-size:11.5px">👁️ 显示密码</button>'
+            + '  </div>'
             + '</div>'
             + '<div id="admBatchRows" style="display:grid;gap:6px">'
             + '  <div class="adm-emp-row form-grid-4" style="gap:6px;align-items:center">'
@@ -1027,10 +1031,10 @@
             + '    <select id="admNewRole" data-f="role" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)"><option value="staff">业务员 (staff)</option><option value="manager">主管 (manager)</option></select>'
             + '  </div>'
             + '</div>'
-            + '<div class="pills" style="margin-top:8px">'
-            + '  <button type="button" class="pill primary" id="btnAdmCreateEmp" style="min-height:30px;padding:3px 12px;font-size:12px">✅ 一次验证 2FA 并开通以上账号</button>'
-            + '  <button type="button" class="pill" id="btnAdmAddRow" style="min-height:30px;padding:3px 10px;font-size:12px">＋ 再加 1 位员工</button>'
-            + '  <button type="button" class="pill" id="btnAdmAdd5Rows" style="min-height:30px;padding:3px 10px;font-size:12px">⚡ 补齐至 5 行</button>'
+            + '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+            + '  <span style="font-size:12px;font-weight:800;color:var(--brown)">第 2 步 · 全部填完后，再看手机填当前 6 位动态码：</span>'
+            + '  <input id="inpAdmCreateTotp" type="text" inputmode="numeric" maxlength="12" placeholder="6位动态码" style="width:125px;min-height:32px;padding:3px 8px;border:1px solid var(--orange);border-radius:6px;background:var(--surface);color:var(--ink);font-weight:800">'
+            + '  <button type="button" class="pill primary" id="btnAdmCreateEmp" style="min-height:32px;padding:4px 14px;font-size:12.5px">✅ 确认开通以上账号</button>'
             + '</div>'
             + '<div id="admCreateMsg" style="margin-top:6px;font-size:12px;font-weight:700"></div>'
             + '</div>')
@@ -1118,14 +1122,22 @@
             }
           });
           if (!filled.length) {
-            toast("请至少填写 1 位员工的登录名、姓名与初始密码");
+            toast("请先在第 1 步填写至少 1 位员工的登录名、姓名与初始密码");
+            return;
+          }
+          var inlineTotpEl = document.getElementById("inpAdmCreateTotp");
+          var totpVal = (inlineTotpEl && inlineTotpEl.value.trim()) || getAdminTotp();
+          if (!totpVal) {
+            if (msgEl) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "请看手机验证器，在第 2 步填入当前 6 位动态验证码后再点确认开通"; }
+            toast("请先在第 2 步输入当前 6 位动态验证码");
+            if (inlineTotpEl) inlineTotpEl.focus();
             return;
           }
           if (msgEl) { msgEl.style.color = "var(--muted)"; msgEl.textContent = "正在验证 2FA 并开通 " + filled.length + " 位员工账号…"; }
           btnCr.disabled = true;
           var req = filled.length === 1
-            ? global.FG_CLOUD.createEmployee(Object.assign({}, filled[0], { totp_code: getAdminTotp() }))
-            : global.FG_CLOUD.createEmployeesBatch(filled, getAdminTotp());
+            ? global.FG_CLOUD.createEmployee(Object.assign({}, filled[0], { totp_code: totpVal }))
+            : global.FG_CLOUD.createEmployeesBatch(filled, totpVal);
           req.then(function (res) {
             btnCr.disabled = false;
             if (!res.ok) {
@@ -1134,6 +1146,7 @@
               toast(errTxt);
               return;
             }
+            if (inlineTotpEl) inlineTotpEl.value = "";
             if (filled.length === 1) {
               toast("✅ 已开通独立员工账号：" + (res.data.employee && res.data.employee.display_name));
             } else {
