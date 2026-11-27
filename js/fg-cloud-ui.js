@@ -308,8 +308,14 @@
         + '<details class="adv-drawer" style="margin-top:10px">'
         + '  <summary>🔑 修改我的登录密码（修改后自动踢下线其他设备）</summary>'
         + '  <div class="adv-body" style="display:grid;gap:8px">'
-        + '    <input id="inpOldPwd" type="password" placeholder="当前原密码" style="min-height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">'
-        + '    <input id="inpNewPwd" type="password" placeholder="新密码（8 位以上，须含字母与数字）" style="min-height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">'
+        + '    <div style="display:flex;gap:6px;align-items:center">'
+        + '      <input id="inpOldPwd" type="password" placeholder="当前原密码" style="flex:1;min-width:0;min-height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">'
+        + '      <button type="button" class="pill" data-toggle-pwd="inpOldPwd" style="min-height:34px;padding:3px 9px;font-size:12px;white-space:nowrap">👁️ 显示</button>'
+        + '    </div>'
+        + '    <div style="display:flex;gap:6px;align-items:center">'
+        + '      <input id="inpNewPwd" type="password" placeholder="新密码（8 位以上，须含字母与数字）" style="flex:1;min-width:0;min-height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">'
+        + '      <button type="button" class="pill" data-toggle-pwd="inpNewPwd" style="min-height:34px;padding:3px 9px;font-size:12px;white-space:nowrap">👁️ 显示</button>'
+        + '    </div>'
         + '    <button type="button" class="pill primary" id="btnDoChangePwd">确认修改密码</button>'
         + '  </div>'
         + '</details>'
@@ -317,6 +323,16 @@
         + '  <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">📱 我当前在线的设备会话（可随时逐台踢下线）：</div>'
         + '  <div id="ownSessionsList" class="fb-log-list"><div class="src-ok">加载中…</div></div>'
         + '</div>';
+
+      body.querySelectorAll("[data-toggle-pwd]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var inp = document.getElementById(btn.getAttribute("data-toggle-pwd"));
+          if (!inp) return;
+          var showing = inp.type === "text";
+          inp.type = showing ? "password" : "text";
+          btn.textContent = showing ? "👁️ 显示" : "🙈 隐藏";
+        });
+      });
 
       document.getElementById("btnOpenMigrateFromAuth").addEventListener("click", function () {
         document.getElementById("cloudAuthModal").hidden = true;
@@ -359,7 +375,10 @@
       + '  <div><label for="inpCloudLoginId" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:3px">员工登录名（公司统一开通，不开放自注册）</label>'
       + '    <input id="inpCloudLoginId" type="text" autocomplete="username" value="' + esc(preLoginId) + '" placeholder="例如：boss / zhangsan" style="width:100%;min-height:36px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)"></div>'
       + '  <div><label for="inpCloudPwd" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:3px">登录密码</label>'
-      + '    <input id="inpCloudPwd" type="password" autocomplete="current-password" placeholder="输入个人专属密码" style="width:100%;min-height:36px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)"></div>'
+      + '    <div style="display:flex;gap:6px;align-items:center">'
+      + '      <input id="inpCloudPwd" type="password" autocomplete="current-password" placeholder="输入个人专属密码" style="flex:1;min-width:0;min-height:36px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)">'
+      + '      <button type="button" class="pill" data-toggle-pwd="inpCloudPwd" style="min-height:36px;padding:4px 10px;font-size:12px;white-space:nowrap">👁️ 显示</button>'
+      + '    </div></div>'
       + '  <div id="cloudLoginTotpWrap"' + (showTotp ? '' : ' hidden') + '>'
       + '    <label for="inpCloudTotp" style="display:block;font-size:12px;font-weight:800;color:var(--brown);margin-bottom:3px">最高管理员 2FA 动态验证码（6 位数字或一次性恢复码）</label>'
       + '    <input id="inpCloudTotp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="输入手机验证器 6 位动态码" style="width:100%;min-height:36px;padding:5px 10px;border:1px solid var(--orange);border-radius:8px;background:var(--surface);color:var(--ink)">'
@@ -369,6 +388,16 @@
       + '    <button type="submit" class="pill primary" id="btnCloudDoLogin">🔓 登录公司云端工作台</button>'
       + '  </div>'
       + '</form>';
+
+    body.querySelectorAll("[data-toggle-pwd]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var inp = document.getElementById(btn.getAttribute("data-toggle-pwd"));
+        if (!inp) return;
+        var showing = inp.type === "text";
+        inp.type = showing ? "password" : "text";
+        btn.textContent = showing ? "👁️ 显示" : "🙈 隐藏";
+      });
+    });
 
     var form = document.getElementById("cloudLoginForm");
     form.addEventListener("submit", function (e) {
@@ -986,14 +1015,24 @@
       var emps = r.data.employees || [];
       var createForm = isSuper
         ? ('<div style="padding:10px;border:1px dashed var(--line);border-radius:10px;background:var(--surface2);margin-bottom:10px">'
-            + '<div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">＋ 开通新员工独立账号（需上方 2FA 动态码）</div>'
-            + '<div class="form-grid-4" style="gap:6px">'
-            + '  <input id="admNewLogin" type="text" placeholder="登录名（如 lisi）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
-            + '  <input id="admNewName" type="text" placeholder="真实姓名（如 李四）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
-            + '  <input id="admNewPwd" type="password" placeholder="初始密码（8位+字母数字）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
-            + '  <select id="admNewRole" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)"><option value="staff">业务员 (staff)</option><option value="manager">主管 (manager)</option></select>'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-bottom:6px">'
+            + '  <span style="font-size:12.5px;font-weight:800;color:var(--brown)">＋ 开通新员工独立账号（支持一次填多位，只需输入 1 次上方 2FA 动态码）</span>'
+            + '  <button type="button" class="pill" id="btnAdmTogglePwdVis" style="min-height:24px;padding:1px 8px;font-size:11.5px">👁️ 显示密码</button>'
             + '</div>'
-            + '<button type="button" class="pill primary" id="btnAdmCreateEmp" style="margin-top:8px;min-height:30px;padding:3px 12px;font-size:12px">开通独立账号</button>'
+            + '<div id="admBatchRows" style="display:grid;gap:6px">'
+            + '  <div class="adm-emp-row form-grid-4" style="gap:6px;align-items:center">'
+            + '    <input id="admNewLogin" data-f="login" type="text" placeholder="登录名（如 lisi）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
+            + '    <input id="admNewName" data-f="name" type="text" placeholder="真实姓名（如 李四）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
+            + '    <input id="admNewPwd" data-f="pwd" type="password" placeholder="初始密码（8位+字母数字）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
+            + '    <select id="admNewRole" data-f="role" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)"><option value="staff">业务员 (staff)</option><option value="manager">主管 (manager)</option></select>'
+            + '  </div>'
+            + '</div>'
+            + '<div class="pills" style="margin-top:8px">'
+            + '  <button type="button" class="pill primary" id="btnAdmCreateEmp" style="min-height:30px;padding:3px 12px;font-size:12px">✅ 一次验证 2FA 并开通以上账号</button>'
+            + '  <button type="button" class="pill" id="btnAdmAddRow" style="min-height:30px;padding:3px 10px;font-size:12px">＋ 再加 1 位员工</button>'
+            + '  <button type="button" class="pill" id="btnAdmAdd5Rows" style="min-height:30px;padding:3px 10px;font-size:12px">⚡ 补齐至 5 行</button>'
+            + '</div>'
+            + '<div id="admCreateMsg" style="margin-top:6px;font-size:12px;font-weight:700"></div>'
             + '</div>')
         : '';
 
@@ -1015,18 +1054,91 @@
           }).join("")
         + '</div>';
 
+      var pwdShowing = false;
+      function appendEmpRow() {
+        var rowsWrap = document.getElementById("admBatchRows");
+        if (!rowsWrap) return;
+        if (rowsWrap.querySelectorAll(".adm-emp-row").length >= 20) {
+          toast("单次批量最多添加 20 位员工");
+          return;
+        }
+        var row = document.createElement("div");
+        row.className = "adm-emp-row form-grid-4";
+        row.style.cssText = "gap:6px;align-items:center";
+        row.innerHTML =
+          '<input data-f="login" type="text" placeholder="登录名（英文/拼音）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
+          + '<input data-f="name" type="text" placeholder="真实姓名" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
+          + '<input data-f="pwd" type="' + (pwdShowing ? "text" : "password") + '" placeholder="初始密码（8位+字母数字）" style="min-height:32px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">'
+          + '<div style="display:flex;gap:4px;align-items:center">'
+          + '  <select data-f="role" style="flex:1;min-width:0;min-height:32px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)"><option value="staff">业务员 (staff)</option><option value="manager">主管 (manager)</option></select>'
+          + '  <button type="button" class="pill" data-rm-row="1" title="移除此行" style="min-height:30px;padding:2px 7px;font-size:12px">×</button>'
+          + '</div>';
+        row.querySelector("[data-rm-row]").addEventListener("click", function () { row.remove(); });
+        rowsWrap.appendChild(row);
+      }
+
+      var btnTogPwd = document.getElementById("btnAdmTogglePwdVis");
+      if (btnTogPwd) {
+        btnTogPwd.addEventListener("click", function () {
+          pwdShowing = !pwdShowing;
+          btnTogPwd.textContent = pwdShowing ? "🙈 隐藏密码" : "👁️ 显示密码";
+          var rowsWrap = document.getElementById("admBatchRows");
+          if (rowsWrap) {
+            rowsWrap.querySelectorAll('input[data-f="pwd"]').forEach(function (el) {
+              el.type = pwdShowing ? "text" : "password";
+            });
+          }
+        });
+      }
+      var btnAddRow = document.getElementById("btnAdmAddRow");
+      if (btnAddRow) btnAddRow.addEventListener("click", appendEmpRow);
+      var btnAdd5 = document.getElementById("btnAdmAdd5Rows");
+      if (btnAdd5) {
+        btnAdd5.addEventListener("click", function () {
+          var rowsWrap = document.getElementById("admBatchRows");
+          if (!rowsWrap) return;
+          while (rowsWrap.querySelectorAll(".adm-emp-row").length < 5) appendEmpRow();
+        });
+      }
+
       var btnCr = document.getElementById("btnAdmCreateEmp");
       if (btnCr) {
         btnCr.addEventListener("click", function () {
-          global.FG_CLOUD.createEmployee({
-            login_id: document.getElementById("admNewLogin").value.trim(),
-            display_name: document.getElementById("admNewName").value.trim(),
-            password: document.getElementById("admNewPwd").value,
-            role: document.getElementById("admNewRole").value,
-            totp_code: getAdminTotp(),
-          }).then(function (res) {
-            if (!res.ok) { toast((res.data && res.data.error) || "开通失败"); return; }
-            toast("✅ 已开通独立员工账号：" + res.data.employee.display_name);
+          var msgEl = document.getElementById("admCreateMsg");
+          var rowsWrap = document.getElementById("admBatchRows");
+          var rows = rowsWrap ? Array.prototype.slice.call(rowsWrap.querySelectorAll(".adm-emp-row")) : [];
+          var filled = [];
+          rows.forEach(function (row) {
+            var lid = (row.querySelector('[data-f="login"]') || {}).value || "";
+            var nm = (row.querySelector('[data-f="name"]') || {}).value || "";
+            var pw = (row.querySelector('[data-f="pwd"]') || {}).value || "";
+            var rl = (row.querySelector('[data-f="role"]') || {}).value || "staff";
+            if (lid.trim() || nm.trim() || pw.trim()) {
+              filled.push({ login_id: lid.trim(), display_name: nm.trim(), password: pw, role: rl });
+            }
+          });
+          if (!filled.length) {
+            toast("请至少填写 1 位员工的登录名、姓名与初始密码");
+            return;
+          }
+          if (msgEl) { msgEl.style.color = "var(--muted)"; msgEl.textContent = "正在验证 2FA 并开通 " + filled.length + " 位员工账号…"; }
+          btnCr.disabled = true;
+          var req = filled.length === 1
+            ? global.FG_CLOUD.createEmployee(Object.assign({}, filled[0], { totp_code: getAdminTotp() }))
+            : global.FG_CLOUD.createEmployeesBatch(filled, getAdminTotp());
+          req.then(function (res) {
+            btnCr.disabled = false;
+            if (!res.ok) {
+              var errTxt = (res.data && res.data.error) || "开通失败";
+              if (msgEl) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "❌ " + errTxt; }
+              toast(errTxt);
+              return;
+            }
+            if (filled.length === 1) {
+              toast("✅ 已开通独立员工账号：" + (res.data.employee && res.data.employee.display_name));
+            } else {
+              toast("✅ 一次 2FA 验证成功！已批量开通 " + (res.data.count || filled.length) + " 位员工独立账号");
+            }
             loadAdminTab("emps");
           });
         });

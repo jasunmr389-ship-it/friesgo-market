@@ -93,6 +93,91 @@ export async function handleAdminRoutes(request, env, cors, url) {
     return json({ ok: true, employee: sanitizeEmployeePublic(created) }, 201, cors);
   }
 
+  // 2b. Batch create employees (super_admin + single TOTP 2FA verification for up to 20 staff)
+  if (path === "/api/admin/employees/batch" && method === "POST") {
+    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    if (!auth.ok) return auth.response;
+    const body = await parseJsonBody(request, 65536);
+    const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
+    if (totpErr) return totpErr;
+
+    const rawList = Array.isArray(body.employees) ? body.employees : [];
+    if (!rawList.length) {
+      return json({ error: "请至少填写 1 位员工信息" }, 400, cors);
+    }
+    if (rawList.length > 20) {
+      return json({ error: "单次批量最多开通 20 位员工账号" }, 400, cors);
+    }
+
+    const prepared = [];
+    const seenLogin = new Set();
+    const errors = [];
+    for (let i = 0; i < rawList.length; i++) {
+      const row = rawList[i] || {};
+      const rowNo = i + 1;
+      const loginId = String(row.login_id || "").trim().toLowerCase();
+      const displayName = String(row.display_name || "").trim();
+      const role = row.role === "manager" ? "manager" : "staff";
+      const password = String(row.password || "");
+      const gmapsCap = Math.min(950, Math.max(0, parseInt(row.gmaps_monthly_cap ?? 250, 10) || 250));
+
+      if (!/^[a-z0-9._-]{3,32}$/.test(loginId)) {
+        errors.push(`第 ${rowNo} 行：登录名须为 3–32 位小写字母、数字、点或下划线`);
+        continue;
+      }
+      if (seenLogin.has(loginId)) {
+        errors.push(`第 ${rowNo} 行：登录名「${loginId}」在本次列表中重复`);
+        continue;
+      }
+      seenLogin.add(loginId);
+      if (!displayName || displayName.length > 40) {
+        errors.push(`第 ${rowNo} 行：请填写 1–40 字的员工显示姓名`);
+        continue;
+      }
+      const pwCheck = validatePasswordStrength(password);
+      if (!pwCheck.ok) {
+        errors.push(`第 ${rowNo} 行（${displayName}）：${pwCheck.error}`);
+        continue;
+      }
+      const dup = await env.DB.prepare("SELECT id FROM employees WHERE login_id = ?").bind(loginId).first();
+      if (dup) {
+        errors.push(`第 ${rowNo} 行：登录名「${loginId}」已存在`);
+        continue;
+      }
+      prepared.push({ loginId, displayName, role, password, gmapsCap });
+    }
+
+    if (errors.length) {
+      return json({ error: errors.join("；"), errors }, 400, cors);
+    }
+
+    const createdList = [];
+    const now = nowIso();
+    for (const item of prepared) {
+      const hashed = await hashPassword(item.password, env.AUTH_PEPPER);
+      const id = randomId("emp");
+      await env.DB
+        .prepare(
+          `INSERT INTO employees (id, login_id, display_name, role, status, pwd_hash, pwd_salt, pwd_iter, totp_secret_enc, totp_enabled, recovery_codes_hash_json, must_reset_pwd, gmaps_monthly_cap, schema_version, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'active', ?, ?, ?, '', 0, '[]', 1, ?, 1, ?, ?)`
+        )
+        .bind(id, item.loginId, item.displayName, item.role, hashed.hashHex, hashed.saltHex, hashed.iterations, item.gmapsCap, now, now)
+        .run();
+      const created = await env.DB.prepare("SELECT * FROM employees WHERE id = ?").bind(id).first();
+      createdList.push(sanitizeEmployeePublic(created));
+    }
+
+    await writeAuditLog(
+      env.DB,
+      auth.actor,
+      "BATCH_CREATE_EMPLOYEES",
+      "employee",
+      "batch",
+      `count=${createdList.length}, logins=${createdList.map((e) => e.login_id).join(",")}`
+    );
+    return json({ ok: true, count: createdList.length, employees: createdList }, 201, cors);
+  }
+
   // 3. Update employee (disable / enable / reset password / change role / change quota cap)
   const empMatch = path.match(/^\/api\/admin\/employees\/([^/]+)$/);
   if (empMatch && method === "PATCH") {

@@ -307,6 +307,12 @@
   function createEmployee(payload) {
     return apiFetch("/api/admin/employees", { method: "POST", body: payload });
   }
+  function createEmployeesBatch(employees, totpCode) {
+    return apiFetch("/api/admin/employees/batch", {
+      method: "POST",
+      body: { employees: employees || [], totp_code: totpCode || "" },
+    });
+  }
   function updateEmployee(id, payload) {
     return apiFetch("/api/admin/employees/" + encodeURIComponent(id), { method: "PATCH", body: payload });
   }
@@ -591,6 +597,7 @@
     revokeOwnSession: revokeOwnSession,
     listEmployees: listEmployees,
     createEmployee: createEmployee,
+    createEmployeesBatch: createEmployeesBatch,
     updateEmployee: updateEmployee,
     listEmployeeSessions: listEmployeeSessions,
     revokeEmployeeSessions: revokeEmployeeSessions,
