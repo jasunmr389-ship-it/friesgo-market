@@ -465,11 +465,41 @@ tbody tr:hover td{transition:background .12s}
   thead th{background:#eee!important;color:#000!important}
 }
 
+.v2-topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:7px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);max-width:100%}
+.v2-qsearch-wrap{position:relative;flex:1 1 210px;min-width:170px;max-width:360px;margin-left:auto}
+.v2-qsearch-inp{width:100%;min-height:32px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:12.5px}
+.v2-qsearch-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:90;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 26px rgba(35,20,5,.16);max-height:290px;overflow-y:auto;padding:4px}
+.v2-qsearch-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:transparent;color:var(--ink);padding:7px 9px;border-radius:7px;font-size:12.5px;cursor:pointer}
+.v2-qsearch-item:hover,.v2-qsearch-item.active{background:var(--orange-soft);color:var(--brown)}
+.v2-active-client{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:7px 12px;border:1px solid color-mix(in srgb,var(--orange) 45%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--orange-soft) 55%,var(--surface));font-size:12.5px;max-width:100%}
+.v2-guard-bar{padding:8px 11px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-size:12px;line-height:1.5;margin-bottom:10px;max-width:100%}
+.v2-guard-bar.lv-green{border-left:4px solid #16a34a}
+.v2-guard-bar.lv-yellow{border-left:4px solid #d97706}
+.v2-guard-bar.lv-red{border-left:4px solid var(--danger);background:color-mix(in srgb,var(--danger) 6%,var(--surface2))}
+details.adv-drawer{margin-top:10px;border:1px dashed var(--line);border-radius:10px;background:var(--surface2);padding:0}
+details.adv-drawer>summary{list-style:none;cursor:pointer;padding:8px 12px;font-size:12.5px;font-weight:800;color:var(--brown);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;user-select:none}
+details.adv-drawer>summary::-webkit-details-marker{display:none}
+details.adv-drawer>summary::before{content:"▸ ";color:var(--orange);font-weight:900}
+details.adv-drawer[open]>summary::before{content:"▾ "}
+details.adv-drawer>.adv-body{padding:8px 12px 12px;border-top:1px dashed var(--line)}
+.v2-email-split{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:1120px){
+  .v2-email-split{grid-template-columns:minmax(0,0.96fr) minmax(0,1.04fr);align-items:start}
+  .v2-email-preview-col{position:sticky;top:12px}
+}
+.v2-crm-split{display:block}
+@media(min-width:1200px){
+  .v2-crm-split.has-detail{display:grid;grid-template-columns:minmax(360px,0.95fr) minmax(0,1.15fr);gap:14px;align-items:start}
+  .v2-crm-split.has-detail #crmDetailPanel{margin-top:0!important;position:sticky;top:12px;max-height:calc(100vh - 28px);overflow-y:auto}
+}
+.v2-step-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)}
+.v2-step-tag{font-size:11.5px;font-weight:800;color:var(--brown);background:var(--orange-soft);padding:2px 8px;border-radius:999px}
+
 footer{margin-top:32px;border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 footer img{height:38px;width:auto;object-fit:contain;display:block;background:transparent;border:none;border-radius:0;padding:0}
 
 @media print{
-  .sidebar,.mobile-subbar,.mobile-bottom-nav,.inner-tool-bar,.preset-bar,.controls,.pills,.icon-btn,.toast,.back-top{display:none!important}
+  .sidebar,.mobile-subbar,.mobile-bottom-nav,.inner-tool-bar,.preset-bar,.controls,.pills,.icon-btn,.toast,.back-top,.v2-topbar,.v2-active-client{display:none!important}
   .main-stage{padding:0!important;max-width:100%!important}
   .card,.table-card{box-shadow:none;break-inside:avoid}
 }
@@ -493,7 +523,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <button class="ws-btn" role="tab" data-ws="home" aria-selected="true"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span>今日工作台</span></button>
       <button class="ws-btn" role="tab" data-ws="find" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span>找客户</span></button>
       <button class="ws-btn" role="tab" data-ws="clients" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>客户跟进</span><span class="tab-badge" id="followBadge" hidden>0</span></button>
-      <button class="ws-btn" role="tab" data-ws="quote" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h2M14 11h2M8 15h2M14 15h2M8 19h8"/></svg></span><span>报价工具</span></button>
+      <button class="ws-btn" role="tab" data-ws="quote" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h2M14 11h2M8 15h2M14 15h2M8 19h8"/></svg></span><span>报价与出运</span></button>
       <button class="ws-btn" role="tab" data-ws="market" aria-selected="false"><span class="ws-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8"/><path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18z"/></svg></span><span>市场资料</span></button>
     </nav>
 
@@ -507,8 +537,8 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
 
   <main class="main-stage" id="mainStage">
     <div class="storage-warn-banner" id="storageWarnBanner" hidden></div>
-    <div id="globalProdProfileBar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:7px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);max-width:100%">
-      <label for="globalProdProfile" style="font-size:12.5px;font-weight:800;color:var(--brown);white-space:nowrap">🎯 当前主推品类档位：</label>
+    <div id="globalProdProfileBar" class="v2-topbar">
+      <label for="globalProdProfile" style="font-size:12.5px;font-weight:800;color:var(--brown);white-space:nowrap">🎯 主推品类：</label>
       <select id="globalProdProfile" style="min-height:32px;padding:3px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);font-size:12.5px;font-weight:700;max-width:100%">
         <option value="all">全品类工业打包（默认）</option>
         <option value="valve_pump">阀门 · 水泵 · 管道法兰</option>
@@ -518,8 +548,25 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
         <option value="mining">矿山选矿 · 渣浆泵 · 耐磨件</option>
         <option value="agri">农业机械 · 光伏/柴油灌溉</option>
       </select>
-      <span class="src-ok" id="globalProdProfileHint" style="white-space:normal">切换后自动同步搜客词、地图找客、洗名单破冰、开发信与报价默认品名</span>
+      <span class="src-ok" id="globalProdProfileHint" style="white-space:normal">自动同步搜客/洗名单/写信/报价品名</span>
+      <button type="button" class="pill" id="btnPinCurrentTool" title="收藏/取消收藏当前工具到首页常用栏" style="min-height:30px;padding:2px 9px;font-size:12px" hidden>☆ 收藏工具</button>
+      <div class="v2-qsearch-wrap" id="globalQuickSearchWrap">
+        <input type="search" id="globalQuickSearch" class="v2-qsearch-inp" placeholder="🔍 速达功能 / 国家 / 客户 (Ctrl+K)" autocomplete="off" aria-label="全局快捷搜索功能、国家或客户">
+        <div id="globalQuickDrop" class="v2-qsearch-drop" hidden></div>
+      </div>
     </div>
+
+    <div id="activeClientBar" class="v2-active-client" hidden>
+      <div id="activeClientInfo" style="min-width:0;flex:1 1 220px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="pill" data-ac-act="email" style="min-height:28px;padding:2px 9px;font-size:12px">✉️ 写开发信</button>
+        <button type="button" class="pill" data-ac-act="dd" style="min-height:28px;padding:2px 9px;font-size:12px">🛡️ 做背调</button>
+        <button type="button" class="pill" data-ac-act="quote" style="min-height:28px;padding:2px 9px;font-size:12px">💰 去报价</button>
+        <button type="button" class="pill" data-ac-act="detail" style="min-height:28px;padding:2px 9px;font-size:12px">📂 客户详情</button>
+        <button type="button" class="pill" data-ac-act="clear" title="清除当前锁定客户上下文" style="min-height:28px;padding:2px 8px;font-size:12px">× 切换</button>
+      </div>
+    </div>
+
     <div class="inner-tool-bar" id="innerToolBar" hidden></div>
 
     <!-- ==================== WORKSPACE 1: 今日工作台 ==================== -->
@@ -527,7 +574,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <div class="home-head">
         <div>
           <h1>今日工作台</h1>
-          <div class="sub-line" id="homeDateSub">打开先看今天要联系谁、有哪些新标讯，点一下直接进入处理。</div>
+          <div class="sub-line" id="homeDateSub">打开先看今天要联系谁、现在哪些国家正在上班、近期有哪些大假与标讯。</div>
         </div>
         <div class="home-ctas">
           <button class="pill primary" id="homeBtnAddClient" type="button">＋ 新增客户</button>
@@ -535,6 +582,8 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
           <button class="pill" id="homeBtnQuote" type="button">去做报价</button>
         </div>
       </div>
+
+      <div id="homeTradeAlertBar" class="v2-guard-bar lv-yellow" style="margin-bottom:12px"></div>
 
       <div class="stats">
         <div class="stat" style="cursor:pointer" data-home-jump="client-list"><div class="k">今日待跟进</div><div class="v" id="homeKpiToday">0</div><div class="d">今天到期的客户提醒</div></div>
@@ -545,60 +594,67 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
 
       <div class="home-grid">
         <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
             <h3 style="margin:0">今天该联系的客户</h3>
-            <button class="pill" type="button" data-home-jump="client-list" style="min-height:30px;padding:3px 10px;font-size:12px">全部客户 →</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <label class="check-pill" style="min-height:28px;padding:2px 8px;font-size:11.5px;border-radius:999px" title="上午打东南亚/澳新、下午打中东/欧非、晚间打拉美/北美">
+                <input type="checkbox" id="homeOnlyWorkingCb">
+                <span>🟢 仅看当前上班中国家</span>
+              </label>
+              <button class="pill" type="button" data-home-jump="client-list" style="min-height:28px;padding:2px 9px;font-size:12px">全部客户 →</button>
+            </div>
           </div>
           <div id="homeDueList"></div>
         </div>
 
         <div class="card">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-            <h3 style="margin:0">最近使用的工具</h3>
-            <span class="src-ok">点击直达</span>
+            <h3 style="margin:0">常用收藏 &amp; 最近使用</h3>
+            <span class="src-ok">点顶部「☆ 收藏工具」可固定</span>
           </div>
           <div class="recent-chips" id="homeRecentTools"></div>
           <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
-            <div style="font-size:12.5px;font-weight:700;color:var(--brown);margin-bottom:6px">常用业务入口</div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--brown);margin-bottom:6px">高频业务快捷直达</div>
             <div class="pills" style="margin-top:0">
               <button class="pill" type="button" data-home-jump="map-scraper">地图找客户</button>
               <button class="pill" type="button" data-home-jump="lead-finder">搜索找客户</button>
-              <button class="pill" type="button" data-home-jump="radar-weather">突发刚需与备货日历</button>
-              <button class="pill" type="button" data-home-jump="duediligence">客户背调</button>
+              <button class="pill" type="button" data-home-jump="csv-workbench">导入与洗名单</button>
               <button class="pill" type="button" data-home-jump="email-gen">写开发信</button>
-              <button class="pill" type="button" data-home-jump="local-agents">找当地销售代理</button>
+              <button class="pill" type="button" data-home-jump="duediligence">客户背调</button>
               <button class="pill" type="button" data-home-jump="market-table">国家速查（146 国）</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="card" id="homeWeeklyFunnelCard" style="margin-top:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-          <div>
-            <h3 style="margin:0">📊 本地获客转化漏斗（近 7 天实战复盘）</h3>
-            <div class="src-ok" style="white-space:normal">完全基于本地 IndexedDB 真实档案与跟进记录自动汇总，无虚假点击率或外部追踪</div>
-          </div>
-          <button class="pill" type="button" data-home-jump="client-list" style="min-height:28px;padding:2px 10px;font-size:12px">去维护客户阶段 →</button>
-        </div>
-        <div id="homeFunnelBody"></div>
-      </div>
-
       <div class="card" style="margin-top:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-          <h3 style="margin:0">精选商机</h3>
+          <h3 style="margin:0">精选商机（刚中标总包买家优先）</h3>
           <button class="pill" type="button" data-home-jump="radar-live" style="min-height:30px;padding:3px 10px;font-size:12px">查看全部 →</button>
         </div>
         <div class="radar-feed-grid" id="homeRadarGrid" style="margin-top:8px"></div>
       </div>
 
-      <details class="method-note" style="margin-top:14px">
+      <details class="adv-drawer" id="homeWeeklyFunnelCard" style="margin-top:14px" open>
+        <summary>
+          <span>📊 本地获客转化漏斗（近 7 天实战复盘 · 点击可收起）</span>
+          <span class="src-ok">真实 IndexedDB 统计 · 零虚假追踪</span>
+        </summary>
+        <div class="adv-body">
+          <div id="homeFunnelBody"></div>
+          <div style="margin-top:8px;text-align:right">
+            <button class="pill" type="button" data-home-jump="client-list" style="min-height:28px;padding:2px 10px;font-size:12px">去维护客户阶段 →</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="method-note" style="margin-top:12px">
         <summary>新同事 30 秒上手说明（点击展开）</summary>
         <ul>
-          <li><b>找客户：</b>先在「今日商机情报」看世行招标、新建厂和灾害急单，或直接用「地图找客户」「搜索找客户」找目标企业。</li>
-          <li><b>客户跟进：</b>把有潜力的公司或当地销售代理存入「客户列表与详情」，点开客户即可维护跟进记录、查看背调、写开发信和做报价。</li>
-          <li><b>报价工具：</b>先核汇率与装柜，再在「成本与报价计算」核算出口退税、FOB/CIF 和英文正式报价单。</li>
-          <li><b>市场资料：</b>在「146 国市场总表」按潜力、增速和中国占比选国家，发货前用「发货合规与制裁表」逐项自查。</li>
+          <li><b>找客户：</b>先在「今日商机情报」看世行刚中标总包商和在投招标，或用「地图找客户」「搜索找客户」挖买家。</li>
+          <li><b>客户跟进：</b>支持粘贴客户签名档一键建档；宽屏左列表右详情连续跟进，系统自动按目的国真实工作周排期。</li>
+          <li><b>写信与防呆：</b>自动提示对方当前是否上班/斋月/节假、换算北京时间定时发送，并提示目的国 50/60Hz 电压与管道标准。</li>
+          <li><b>报价与出运：</b>默认仅需填 4 个核心数即可出价，高级税费参数按需展开；发货前用「6 步合规自查」留痕。</li>
         </ul>
       </details>
     </section>
@@ -892,45 +948,46 @@ Best regards,
   <!-- Batch CSV Lead Cleaner + MX Verifier -->
   <section class="block" id="csv-workbench">
     <h2>导入与洗名单</h2>
-    <p class="sub">导入展会名片、海关提单导出表、地图结果或 Excel 名单：自动去重、识别疑似货代/物流与泛邮箱、批量核验域名邮局（MX）真伪，再一键写信或存入客户跟进。</p>
+    <p class="sub">按「<b>① 导入名单 → ② 洗货代 &amp; 核验邮局 → ③ 写信/存客户</b>」三步完成：自动识别海关提单列与 WhatsApp 当地上班/深夜状态灯，防止深夜误扰封号。</p>
     <div class="card">
-      <div class="pills" style="margin:0">
+      <div class="v2-step-bar">
+        <span class="v2-step-tag">第 1 步 · 导入</span>
         <button class="pill primary" id="btnUploadCsv" type="button">上传 CSV 名单</button>
         <input type="file" id="csvFileInput" accept=".csv,.txt" hidden>
-        <button class="pill" id="btnParseCsv" type="button">解析粘贴内容</button>
-        <button class="pill" id="btnLoadSampleCsv" type="button">加载示例名单</button>
-        <button class="pill" id="btnClearCsv" type="button">清空名单</button>
+        <button class="pill" id="btnParseCsv" type="button">解析下方粘贴内容</button>
+        <button class="pill" id="btnLoadSampleCsv" type="button">试玩示例名单</button>
+        <button class="pill" id="btnClearCsv" type="button" style="margin-left:auto">清空</button>
       </div>
-      <div class="csv-drop">
-        <label for="csvPasteInput" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">也可直接粘贴 Excel / CSV 行（支持单行无表头、逗号或制表符分隔）：</label>
+      <div class="csv-drop" style="margin-top:8px">
+        <label for="csvPasteInput" style="display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px">直接粘贴 Excel / 海关提单 / CSV 行（自动识别公司、国家、邮箱、电话、HS Code、票数）：</label>
         <textarea id="csvPasteInput" placeholder="Company,Country,Email,Phone,Website&#10;Saigon Valve Trading Co.,Vietnam,sales@saigonvalve.vn,+84 28 3899 1122,https://saigonvalve.vn"></textarea>
       </div>
 
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <label style="font-size:12px;font-weight:700;color:var(--brown);display:inline-flex;align-items:center;gap:6px;flex:1;min-width:240px;flex-wrap:wrap">
-          WhatsApp 破冰主推品（英文）：
-          <input id="csvWaProd" type="text" value="industrial valves, pumps & steel structures" placeholder="如：industrial valves / power cables / steel structures" style="flex:1;min-width:160px;min-height:32px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
-        </label>
-      </div>
-
-      <div id="csvBar" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div id="csvBar" class="v2-step-bar" style="margin-top:10px">
+        <span class="v2-step-tag">第 2 步 · 清洗验邮</span>
         <span id="csvStats" style="font-size:12.5px;font-weight:800;color:var(--brown)">尚未导入名单</span>
         <button class="pill danger" id="btnPurgeSuspect" type="button" hidden style="min-height:32px;padding:4px 10px;font-size:12px">🧹 一键剔除疑似货代/非工业主体</button>
-        <button class="pill good-btn" id="btnVerifyAllMx" type="button" style="margin-left:auto">批量核验企业邮局（MX）</button>
+        <button class="pill good-btn" id="btnVerifyAllMx" type="button" style="margin-left:auto">⚡ 批量核验企业邮局（MX）</button>
         <button class="pill danger" id="btnStopMx" type="button" hidden style="min-height:32px;padding:4px 10px;font-size:12px">⏹ 停止核验</button>
         <button class="pill" id="btnExportCleanCsv" type="button">导出清洗后 CSV</button>
       </div>
-      <div class="pills" id="csvFilterPills" style="margin-top:8px">
-        <button class="pill" type="button" data-csvf="all" aria-pressed="true">全部</button>
-        <button class="pill" type="button" data-csvf="clean" aria-pressed="false">✨ 排除疑似货代/非工业</button>
-        <button class="pill" type="button" data-csvf="corp" aria-pressed="false">🟢 已验证域名可收信</button>
-        <button class="pill" type="button" data-csvf="wa" aria-pressed="false">💬 有电话可发 WhatsApp</button>
-        <button class="pill" type="button" data-csvf="free" aria-pressed="false">🟡 免费邮箱（需核查）</button>
-        <button class="pill" type="button" data-csvf="suspect" aria-pressed="false">⚠️ 疑似货代/非终端 (<span id="csvSuspectCnt">0</span>)</button>
+
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+        <div class="pills" id="csvFilterPills" style="margin:0">
+          <button class="pill" type="button" data-csvf="all" aria-pressed="true">全部</button>
+          <button class="pill" type="button" data-csvf="clean" aria-pressed="false">✨ 非货代工业客户</button>
+          <button class="pill" type="button" data-csvf="corp" aria-pressed="false">🟢 域名可收信</button>
+          <button class="pill" type="button" data-csvf="wa" aria-pressed="false">💬 可发 WhatsApp</button>
+          <button class="pill" type="button" data-csvf="free" aria-pressed="false">🟡 免费邮箱</button>
+          <button class="pill" type="button" data-csvf="suspect" aria-pressed="false">⚠️ 疑似货代 (<span id="csvSuspectCnt">0</span>)</button>
+        </div>
+        <label style="font-size:12px;font-weight:700;color:var(--muted);display:inline-flex;align-items:center;gap:6px;min-width:220px">
+          WA 主推品：<input id="csvWaProd" type="text" value="industrial valves, pumps & steel structures" placeholder="英文品名" style="width:195px;min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px">
+        </label>
       </div>
       <div class="mini-scroll" style="margin-top:10px">
         <table>
-          <thead><tr><th>公司 / 客户名</th><th>国家</th><th>邮箱 &amp; 邮局 MX 状态</th><th>电话 / WhatsApp（自动补国码）</th><th>官网</th><th>一键行动</th></tr></thead>
+          <thead><tr><th>公司 / 客户名</th><th>国家</th><th>邮箱 &amp; 邮局 MX 状态</th><th>电话 / WhatsApp（含当地时段灯）</th><th>官网</th><th>第 3 步 · 行动</th></tr></thead>
           <tbody id="csvTbody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">暂无客户数据。上传 CSV、粘贴 Excel 内容，或在「地图找客户」抓取后点「送入导入与洗名单」。</td></tr></tbody>
         </table>
       </div>
@@ -1038,95 +1095,112 @@ Best regards,
   <!-- FOB / CIF & Landed Cost Quote Calculator + Formal RFQ Email Generator -->
   <section class="block" id="quote-calc">
     <h2>成本与报价计算</h2>
-    <p class="sub">采用定点数精算引擎：默认按<b>小规模纳税人免税不退税 / 未确认退税保守模式</b>核定保底售价，同步并列展示「不计退税保底净利」与「预计退税后净利」；支持 2–6 位智能保利单价精度与 CIF 佣金双模式。<b>最终税务与退税规则须经财务人员确认。</b></p>
+    <p class="sub">极简快速出价：日常仅需填<b>目的国、品名、工厂价、数量与目标利润率</b>即可秒算 FOB/CIF；税务退税、海运杂费与精度红线已按保守安全规则预置，可随时展开微调。<b>最终税务与退税规则须经财务确认。</b></p>
     <div class="card">
+      <div id="qcSpecGuardBar" class="v2-guard-bar"></div>
+      <div id="qcDdGateBanner" style="margin-bottom:10px;padding:9px 12px;border-radius:10px;border:1px solid var(--med);font-size:12.5px;font-weight:700"></div>
+      <div id="qcValidationErr" class="storage-warn-banner" hidden></div>
+      <div id="qcPrecisionWarn" hidden style="margin-bottom:10px;padding:8px 12px;border-radius:10px;background:var(--orange-soft);border:1px solid var(--line);font-size:12.5px;color:var(--brown);font-weight:700"></div>
+
       <div class="pills" style="margin:0 0 10px" id="qcModePills">
         <button class="pill primary" type="button" data-qcmode="unit" aria-pressed="true">按单件工厂价 × 数量算（推荐）</button>
         <button class="pill" type="button" data-qcmode="total" aria-pressed="false">按整单工厂总价算</button>
         <span class="flag-note" id="qcFacTotalHint" style="margin:0 0 0 auto;font-weight:700;color:var(--brown)"></span>
       </div>
 
-      <div id="qcDdGateBanner" style="margin-bottom:10px;padding:9px 12px;border-radius:10px;border:1px solid var(--med);font-size:12.5px;font-weight:700"></div>
-      <div id="qcValidationErr" class="storage-warn-banner" hidden></div>
-      <div id="qcPrecisionWarn" hidden style="margin-bottom:10px;padding:8px 12px;border-radius:10px;background:var(--orange-soft);border:1px solid var(--line);font-size:12.5px;color:var(--brown);font-weight:700"></div>
-
+      <!-- Layer 1: 6 High-Frequency Core Inputs -->
       <div class="form-grid-4">
-        <div><label for="qcCountry">目的国（自动带入参考估算关税）</label><select id="qcCountry"></select></div>
-        <div><label for="qcProdName">报价品名（英文，用于正式报价）</label><input id="qcProdName" type="text" value="Industrial Valves & Water Pumps"></div>
+        <div><label for="qcCountry">目的国（联动关税与机电标准）</label><select id="qcCountry"></select></div>
+        <div><label for="qcProdName">报价品名（英文）</label><input id="qcProdName" type="text" value="Industrial Valves & Water Pumps"></div>
         <div><label for="qcFactoryRmb" id="qcFacLabel">实付采购单价（RMB·小规模不退税）</label><input id="qcFactoryRmb" type="number" value="1000" min="0" step="10"></div>
-        <div><label for="qcQty">数量（须大于 0）</label><input id="qcQty" type="number" value="100" min="1" step="1"></div>
-        <div>
-          <label for="qcUnitName">计量单位（正式报价用）</label>
-          <select id="qcUnitName">
-            <option value="units" selected>units（台/件）</option>
-            <option value="pcs">pcs（个/支/紧固件）</option>
-            <option value="sets">sets（套）</option>
-            <option value="tons">MT（公吨）</option>
-            <option value="meters">meters（米/线缆）</option>
-          </select>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:6px">
+          <div><label for="qcQty">数量</label><input id="qcQty" type="number" value="100" min="1" step="1"></div>
+          <div>
+            <label for="qcUnitName">单位</label>
+            <select id="qcUnitName">
+              <option value="units" selected>units(台/件)</option>
+              <option value="pcs">pcs(个/支)</option>
+              <option value="sets">sets(套)</option>
+              <option value="tons">MT(公吨)</option>
+              <option value="meters">meters(米)</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label for="qcTaxMode">税务与出口退税模式（须经财务确认）</label>
-          <select id="qcTaxMode">
-            <option value="small_exempt" selected>小规模纳税人自营 · 免税不退税（默认保底）</option>
-            <option value="vat_unconfirmed">含税采购 · 退税资格待确认（按0退税定保底价）</option>
-            <option value="vat_rebate">一般纳税人专票 · 已确认退税资格（按净成本）</option>
-            <option value="ex_tax">工厂不含税价 · 无退税（可填开票/代理税点）</option>
-          </select>
-        </div>
-        <div>
-          <label for="qcVatPct">采购发票增值税率（%）</label>
-          <select id="qcVatPct">
-            <option value="13" selected>13%（一般纳税人制造业专票）</option>
-            <option value="9">9%（部分金属/农机/运输类）</option>
-            <option value="6">6%（技术/现代服务类）</option>
-            <option value="3">3%（小规模征收率）</option>
-            <option value="1">1%（小规模优惠征收率）</option>
-            <option value="0">0%（免税/无税率）</option>
-          </select>
-        </div>
-        <div>
-          <label for="qcRebate">预计/核定出口退税率（%，≤发票税率）</label>
-          <input id="qcRebate" type="number" value="13" min="0" max="17" step="1" title="保守模式下仅用于对比展示预计退税后利润，不扣减保底售价；仅在「已确认退税资格」模式下计入净成本">
-        </div>
-        <div id="qcExTaxExtraWrap" hidden>
-          <label for="qcExTaxExtraPct">不含税附加税费/合规代办费率（%）</label>
-          <input id="qcExTaxExtraPct" type="number" value="0" min="0" max="30" step="0.5">
-        </div>
-        <div><label for="qcFx">核算汇率（RMB / USD）</label><input id="qcFx" type="number" value="7.15" min="3" max="20" step="0.05"></div>
         <div><label for="qcMargin">目标净利润率（%）</label><input id="qcMargin" type="number" value="18" min="0" max="80" step="1"></div>
-        <div><label for="qcMinMarginFloor">公司最低利润红线（%，舍入后校验）</label><input id="qcMinMarginFloor" type="number" value="8" min="0" max="60" step="0.5" title="在单价、总价、佣金及保费全部按实际对外精度舍入后重新核算最终净利率；若低于此红线将预警并阻断对外报价输出"></div>
-        <div>
-          <label for="qcDecimals">对外单价小数精度（向上保利进位）</label>
-          <select id="qcDecimals">
-            <option value="auto" selected>Auto 智能保利精度（&lt;$0.1五位 / &lt;$1四位 / ≥$1两位）</option>
-            <option value="2">固定 2 位小数（常规大件设备）</option>
-            <option value="3">固定 3 位小数</option>
-            <option value="4">固定 4 位小数（管件/电缆/耗材）</option>
-            <option value="5">固定 5 位小数（微型紧固件/垫片）</option>
-            <option value="6">固定 6 位小数（超低单价标准件）</option>
-          </select>
-        </div>
-        <div>
-          <label for="qcCommBasis">佣金与 CIF 定价模式</label>
-          <select id="qcCommBasis">
-            <option value="cif_keep_amt" selected>模式 A（默认）：CIF 含佣且保目标利润额不减</option>
-            <option value="cif_keep_pct">模式 B（可选）：CIF 含佣且保 CIF 总额目标利润率</option>
-            <option value="fob">仅按 FOB 离岸货值计佣（运保费实报实销）</option>
-          </select>
-        </div>
-        <div><label for="qcLocalRmb">国内港杂/报关/拖车费（RMB）</label><input id="qcLocalRmb" type="number" value="3500" min="0" step="500"></div>
-        <div><label for="qcFreightUsd">国际海/空运费（USD）</label><input id="qcFreightUsd" type="number" value="1800" min="0" step="100"></div>
-        <div><label for="qcInsPct">CIF 货运保险费率（%，1.1× 加成）</label><input id="qcInsPct" type="number" value="0.3" min="0" max="5" step="0.1"></div>
-        <div><label for="qcBankUsd">银行收汇 / L/C / 审单杂费（USD）</label><input id="qcBankUsd" type="number" value="60" min="0" step="10"></div>
-        <div><label for="qcCommPct">海外代理佣金 / 中信保费率（%）</label><input id="qcCommPct" type="number" value="0" min="0" max="25" step="0.5"></div>
-        <div><label for="qcDutyPct">目的国参考估算关税（%，须查 HS 核实）</label><input id="qcDutyPct" type="number" value="0" min="0" max="100" step="0.5"></div>
-        <div><label for="qcLeadDays">生产交期（天）</label><input id="qcLeadDays" type="number" value="20" min="1" step="1"></div>
-        <div><label for="qcValidDays">报价有效期（天）</label><input id="qcValidDays" type="number" value="15" min="3" max="60" step="1"></div>
-        <div><label for="qcPort">中国装运港（POL）</label><input id="qcPort" type="text" value="Ningbo / Shanghai"></div>
-        <div><label for="qcDestPort">目的港（POD，CIF 条款必填）</label><input id="qcDestPort" type="text" value="" placeholder="如：Ho Chi Minh / Manzanillo"></div>
-        <div><label for="qcFreightNote">运费日期与依据（选填）</label><input id="qcFreightNote" type="text" value="" placeholder="如：货代海运报价，1x20'GP"></div>
+        <div><label for="qcFx">核算汇率（RMB / USD）</label><input id="qcFx" type="number" value="7.15" min="3" max="20" step="0.05"></div>
+        <div><label for="qcFreightUsd">国际海/空运费（USD，算 CIF 用）</label><input id="qcFreightUsd" type="number" value="1800" min="0" step="100"></div>
+        <div><label for="qcDestPort">目的港（POD，CIF 选填）</label><input id="qcDestPort" type="text" value="" placeholder="如：Ho Chi Minh / Manzanillo"></div>
       </div>
+
+      <!-- Layer 2: Progressive Disclosure for Tax, Fees, Precision & Floor (All active in calculation!) -->
+      <details class="adv-drawer" id="qcAdvParamsDrawer">
+        <summary>
+          <span>⚙️ 高级税务、退税、港杂、佣金与利润红线参数（按需展开，折叠不影响核算与风控）</span>
+          <span class="src-ok" id="qcAdvSummaryPill">默认小规模0%退税 · 港杂¥3500 · 利润红线8%</span>
+        </summary>
+        <div class="adv-body">
+          <div class="form-grid-4">
+            <div>
+              <label for="qcTaxMode">税务与出口退税模式（须经财务确认）</label>
+              <select id="qcTaxMode">
+                <option value="small_exempt" selected>小规模纳税人自营 · 免税不退税（默认保底）</option>
+                <option value="vat_unconfirmed">含税采购 · 退税资格待确认（按0退税定保底价）</option>
+                <option value="vat_rebate">一般纳税人专票 · 已确认退税资格（按净成本）</option>
+                <option value="ex_tax">工厂不含税价 · 无退税（可填开票/代理税点）</option>
+              </select>
+            </div>
+            <div>
+              <label for="qcVatPct">采购发票增值税率（%）</label>
+              <select id="qcVatPct">
+                <option value="13" selected>13%（一般纳税人制造业专票）</option>
+                <option value="9">9%（部分金属/农机/运输类）</option>
+                <option value="6">6%（技术/现代服务类）</option>
+                <option value="3">3%（小规模征收率）</option>
+                <option value="1">1%（小规模优惠征收率）</option>
+                <option value="0">0%（免税/无税率）</option>
+              </select>
+            </div>
+            <div>
+              <label for="qcRebate">预计/核定出口退税率（%，≤发票税率）</label>
+              <input id="qcRebate" type="number" value="13" min="0" max="17" step="1" title="保守模式下仅用于对比展示预计退税后利润，不扣减保底售价；仅在「已确认退税资格」模式下计入净成本">
+            </div>
+            <div id="qcExTaxExtraWrap" hidden>
+              <label for="qcExTaxExtraPct">不含税附加税费/合规代办费率（%）</label>
+              <input id="qcExTaxExtraPct" type="number" value="0" min="0" max="30" step="0.5">
+            </div>
+            <div><label for="qcMinMarginFloor">公司最低利润红线（%，舍入后校验）</label><input id="qcMinMarginFloor" type="number" value="8" min="0" max="60" step="0.5"></div>
+            <div>
+              <label for="qcDecimals">对外单价小数精度（向上保利进位）</label>
+              <select id="qcDecimals">
+                <option value="auto" selected>Auto 智能保利精度（&lt;$0.1五位 / &lt;$1四位 / ≥$1两位）</option>
+                <option value="2">固定 2 位小数（常规大件设备）</option>
+                <option value="3">固定 3 位小数</option>
+                <option value="4">固定 4 位小数（管件/电缆/耗材）</option>
+                <option value="5">固定 5 位小数（微型紧固件/垫片）</option>
+                <option value="6">固定 6 位小数（超低单价标准件）</option>
+              </select>
+            </div>
+            <div>
+              <label for="qcCommBasis">佣金与 CIF 定价模式</label>
+              <select id="qcCommBasis">
+                <option value="cif_keep_amt" selected>模式 A（默认）：CIF 含佣且保目标利润额不减</option>
+                <option value="cif_keep_pct">模式 B（可选）：CIF 含佣且保 CIF 总额目标利润率</option>
+                <option value="fob">仅按 FOB 离岸货值计佣（运保费实报实销）</option>
+              </select>
+            </div>
+            <div><label for="qcLocalRmb">国内港杂/报关/拖车费（RMB）</label><input id="qcLocalRmb" type="number" value="3500" min="0" step="500"></div>
+            <div><label for="qcInsPct">CIF 货运保险费率（%，1.1× 加成）</label><input id="qcInsPct" type="number" value="0.3" min="0" max="5" step="0.1"></div>
+            <div><label for="qcBankUsd">银行收汇 / L/C / 审单杂费（USD）</label><input id="qcBankUsd" type="number" value="60" min="0" step="10"></div>
+            <div><label for="qcCommPct">海外代理佣金 / 中信保费率（%）</label><input id="qcCommPct" type="number" value="0" min="0" max="25" step="0.5"></div>
+            <div><label for="qcDutyPct">目的国参考估算关税（%，须查 HS 核实）</label><input id="qcDutyPct" type="number" value="0" min="0" max="100" step="0.5"></div>
+            <div><label for="qcLeadDays">生产交期（天）</label><input id="qcLeadDays" type="number" value="20" min="1" step="1"></div>
+            <div><label for="qcValidDays">报价有效期（天）</label><input id="qcValidDays" type="number" value="15" min="3" max="60" step="1"></div>
+            <div><label for="qcPort">中国装运港（POL）</label><input id="qcPort" type="text" value="Ningbo / Shanghai"></div>
+            <div><label for="qcFreightNote">运费日期与依据（选填）</label><input id="qcFreightNote" type="text" value="" placeholder="如：货代海运报价，1x20'GP"></div>
+          </div>
+        </div>
+      </details>
+
       <div id="qcFtaNote" style="margin-top:10px;font-size:12.5px;padding:8px 10px;border-radius:10px;background:var(--surface2);border:1px solid var(--line)"></div>
 
       <div class="calc-out">
@@ -1138,44 +1212,52 @@ Best regards,
       <div id="qcTaxDualBar" style="margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--surface2);border:1px dashed var(--line);font-size:12px;line-height:1.55;color:var(--ink)"></div>
       <div id="qcProfitFloorWarn" hidden style="margin-top:8px;padding:8px 12px;border-radius:10px;border:1px solid var(--danger);background:color-mix(in srgb,var(--danger) 10%,var(--surface));color:var(--danger);font-size:12.5px;font-weight:700"></div>
 
-      <div class="detail-box" style="margin-top:12px">
-        <div class="detail-box-title">正式英文报价条款确认（逐项确认后再发给客户，未确认项默认显示 To be confirmed）</div>
-        <div class="form-grid" style="margin-top:6px">
-          <div>
-            <label for="qcPayTerms">付款条件（Payment Terms）</label>
-            <select id="qcPayTerms">
-              <option value="To be confirmed" selected>To be confirmed（待双方确认）</option>
-              <option value="30% T/T deposit in advance, 70% balance against copy of B/L">30% T/T deposit, 70% against B/L copy</option>
-              <option value="100% T/T in advance before shipment">100% T/T in advance</option>
-              <option value="Irrevocable L/C at sight issued by a first-class bank">Irrevocable L/C at sight</option>
-            </select>
+      <details class="adv-drawer" id="qcTermsDrawer">
+        <summary>
+          <span>📄 正式报价条款与装柜结果带入设置（发正式英文报价单前确认）</span>
+          <span class="src-ok">付款 / 检验 / 技术单证条款</span>
+        </summary>
+        <div class="adv-body">
+          <div class="form-grid">
+            <div>
+              <label for="qcPayTerms">付款条件（Payment Terms）</label>
+              <select id="qcPayTerms">
+                <option value="To be confirmed" selected>To be confirmed（待双方确认）</option>
+                <option value="30% T/T deposit in advance, 70% balance against copy of B/L">30% T/T deposit, 70% against B/L copy</option>
+                <option value="100% T/T in advance before shipment">100% T/T in advance</option>
+                <option value="Irrevocable L/C at sight issued by a first-class bank">Irrevocable L/C at sight</option>
+              </select>
+            </div>
+            <div>
+              <label for="qcInspTerms">检验条款（Inspection）</label>
+              <select id="qcInspTerms">
+                <option value="To be confirmed upon order" selected>To be confirmed upon order（待确认）</option>
+                <option value="Pre-shipment inspection supported (AQL 2.5 / third-party SGS, BV or TUV at buyer's cost)">Pre-shipment SGS / BV / TUV supported</option>
+                <option value="Factory internal QA inspection report provided prior to shipment">Factory QA report prior to shipment</option>
+              </select>
+            </div>
+            <div>
+              <label for="qcDocTerms">技术与单证文件（Technical Docs）</label>
+              <select id="qcDocTerms">
+                <option value="To be confirmed according to final technical specification" selected>To be confirmed（按最终技术规格确认）</option>
+                <option value="Standard commercial invoice, packing list, B/L &amp; factory test report">Standard shipping docs &amp; factory test report</option>
+                <option value="CAD drawings, material test certificates (MTC) &amp; compliance documents supplied with shipment">CAD drawings, MTC &amp; compliance docs</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label for="qcInspTerms">检验条款（Inspection）</label>
-            <select id="qcInspTerms">
-              <option value="To be confirmed upon order" selected>To be confirmed upon order（待确认）</option>
-              <option value="Pre-shipment inspection supported (AQL 2.5 / third-party SGS, BV or TUV at buyer's cost)">Pre-shipment SGS / BV / TUV supported</option>
-              <option value="Factory internal QA inspection report provided prior to shipment">Factory QA report prior to shipment</option>
-            </select>
-          </div>
-          <div>
-            <label for="qcDocTerms">技术与单证文件（Technical Docs）</label>
-            <select id="qcDocTerms">
-              <option value="To be confirmed according to final technical specification" selected>To be confirmed（按最终技术规格确认）</option>
-              <option value="Standard commercial invoice, packing list, B/L &amp; factory test report">Standard shipping docs &amp; factory test report</option>
-              <option value="CAD drawings, material test certificates (MTC) &amp; compliance documents supplied with shipment">CAD drawings, MTC &amp; compliance docs</option>
-            </select>
-          </div>
+          <label class="check-pill" style="margin-top:10px;border-radius:10px">
+            <input type="checkbox" id="qcIncludeCtn">
+            <span>勾选后才将「装柜试算器」的装箱/柜型汇总带入正式报价单（默认不自动带入示例数据）</span>
+          </label>
         </div>
-        <label class="check-pill" style="margin-top:10px;border-radius:10px">
-          <input type="checkbox" id="qcIncludeCtn">
-          <span>勾选后才将「装柜试算器」的装箱/柜型汇总带入正式报价单（默认不自动带入示例数据）</span>
-        </label>
-      </div>
+      </details>
 
-      <details class="method-note" style="margin-top:10px">
-        <summary>客户砍价保利反推（降价换起订量 MOQ，点击展开）</summary>
-        <div style="margin-top:8px">
+      <details class="adv-drawer" style="margin-top:8px">
+        <summary>
+          <span>🛡️ 客户砍价保利反推（降价换起订量 MOQ，点击展开）</span>
+          <span class="src-ok">不降总利润谈加量</span>
+        </summary>
+        <div class="adv-body">
           <label style="font-size:12px;font-weight:700;color:var(--muted);display:inline-flex;align-items:center;gap:6px">
             自定义砍价幅度：<input id="qcCutPct" type="number" value="5" min="1" max="50" step="1" style="width:68px;min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)"> %
           </label>
@@ -1250,84 +1332,108 @@ Best regards,
     </div>
   </section>
 
-  <!-- Interactive Multilingual Email Generator: Upgraded to 21-Day 5-Touch Cadence -->
+  <!-- Interactive Multilingual Email Generator: V2.0 Split Pane + Trade Timing + Spam Check -->
   <section class="block" id="email-gen">
     <h2>多语种开发信生成</h2>
-    <p class="sub">按 <b>Day 1 破冰 → Day 4 技术与单证跟进 → Day 8 同行案例 → Day 12 拼柜方案 → Day 18 礼貌唤醒</b> 生成，支持 10 种语言。承诺条款默认不勾选，请按真实供货能力勾选后再发。</p>
+    <p class="sub">左填 4 项核心信息、右侧实时出成品信；顶部自动提示<b>对方当地上班/深夜/斋月/大假状态、北京时间定时建议及工业电压标准</b>。</p>
     <div class="card">
-      <div class="form-grid">
-        <div><label for="emCountry">目标国家</label><select id="emCountry"></select></div>
-        <div>
-          <label for="emLang">邮件语言</label>
-          <select id="emLang">
-            <option value="en">英文（全球通用）</option>
-            <option value="vi">越南语（Vietnam）</option>
-            <option value="id">印尼语（Indonesia）</option>
-            <option value="ar">阿拉伯语（沙特/阿联酋/中东）</option>
-            <option value="es">西班牙语（墨西哥/智利/拉美）</option>
-            <option value="pt">葡萄牙语（巴西）</option>
-            <option value="th">泰语（Thailand）</option>
-            <option value="fr">法语（法国/北非/西非）</option>
-            <option value="de">德语（德国/奥地利/瑞士）</option>
-            <option value="ru">俄语（中亚/俄语区）</option>
-          </select>
-        </div>
-        <div>
-          <label for="emType">21 天跟进节奏与多渠道模板</label>
-          <select id="emType">
-            <option value="first" data-base="Day 1 · 第 1 封：破冰开发信">Day 1 · 第 1 封：破冰开发信</option>
-            <option value="followup" data-base="Day 4 · 第 2 封：技术规格与单证跟进">Day 4 · 第 2 封：技术规格与单证跟进</option>
-            <option value="case" data-base="Day 8 · 第 3 封：同区域交付案例">Day 8 · 第 3 封：同区域交付案例</option>
-            <option value="logistics" data-base="Day 12 · 第 4 封：多品类拼柜方案">Day 12 · 第 4 封：多品类拼柜方案</option>
-            <option value="breakup" data-base="Day 18 · 第 5 封：礼貌唤醒信">Day 18 · 第 5 封：礼貌唤醒信</option>
-            <option value="wa" data-base="WhatsApp / Zalo / LINE 简短破冰话术">WhatsApp / Zalo / LINE 简短破冰话术</option>
-            <option value="linkedin_conn" data-base="LinkedIn 加好友申请（≤280字符防截断）">LinkedIn 加好友申请（≤280字符防截断）</option>
-            <option value="linkedin_dm" data-base="LinkedIn 通过后第 1 条轻破冰私信">LinkedIn 通过后第 1 条轻破冰私信</option>
-          </select>
-        </div>
-        <div><label for="emCompany">客户公司名称</label><input id="emCompany" type="text" value="ABC Industrial Co."></div>
-        <div><label for="emContact">联系人姓名（选填）</label><input id="emContact" type="text" placeholder="如：David / Minh / Ahmed"></div>
-        <div><label for="emToEmail">收件人邮箱（从 CSV/雷达自动带入，可改）</label><input id="emToEmail" type="email" placeholder="如：procurement@buyer.com"></div>
-        <div><label for="emProduct">主推产品名称（英文）</label><input id="emProduct" type="text" value="industrial valves & water pumps"></div>
-        <div>
-          <label for="emSignal">首段「为什么联系你」触发信号（防群发感）</label>
-          <select id="emSignal">
-            <option value="general">常规精准开发（默认简洁直入）</option>
-            <option value="award">🏆 刚中标工程 / EPC 总包分包</option>
-            <option value="expansion">🏗️ 新建厂 / 扩产 / 招聘采购信号</option>
-            <option value="import">🚢 海关提单持续在采同类工业品</option>
-            <option value="expo">🎪 工业展参展商 / 观展前截流</option>
-          </select>
-        </div>
-        <div><label for="emSignalNote">信号补充细节（选填，如展会名/项目名/HS号）</label><input id="emSignalNote" type="text" value="" placeholder="如：FABTECH Mexico / HS 8481"></div>
-        <div><label for="emEdge">确认的认证 / 交期卖点（选填，不填不承诺）</label><input id="emEdge" type="text" value="" placeholder="确认后再填，如：ISO 9001 certified, 20-day lead time"></div>
-        <div><label for="emSender">你的英文名 / 职位（本机自动记忆并同步全站）</label><input id="emSender" type="text" value="" placeholder="如：Amy · Export Manager, FriesGo Global"></div>
-        <div><label for="emPhone">你的 WhatsApp / 电话（本机自动记忆并同步全站）</label><input id="emPhone" type="text" placeholder="如：+86 138 xxxx xxxx"></div>
-      </div>
+      <div id="emTradeTimingBar" class="v2-guard-bar"></div>
 
-      <div style="margin-top:10px">
-        <span style="font-size:12px;font-weight:800;color:var(--brown)">按真实能力勾选附加说明（默认全部不选，避免误承诺）：</span>
-        <div class="check-grid" id="trustHooks">
-          <label class="check-pill"><input type="checkbox" value="cad"> 提供 CAD/3D 图纸与规格书</label>
-          <label class="check-pill"><input type="checkbox" value="sgs"> 支持 SGS / BV / TUV 装船前验货</label>
-          <label class="check-pill" id="emCoHookLabel"><input type="checkbox" value="co" id="emCoHookCb"> 可办优惠原产地证（须目的国享对华自贸协定且 HS 编码合规）</label>
-          <label class="check-pill"><input type="checkbox" value="mix"> 多品类工业品拼柜出运</label>
-          <label class="check-pill"><input type="checkbox" value="sample"> 支持寄样 / 视频连线验厂</label>
-        </div>
-        <div id="emCoFtaHint" class="flag-note" style="margin:6px 0 0"></div>
-      </div>
+      <div class="v2-email-split">
+        <!-- Left Column: Streamlined Core Inputs + Optional Drawer -->
+        <div>
+          <div class="form-grid keep-2" style="grid-template-columns:1fr 1fr">
+            <div><label for="emCountry">目标国家</label><select id="emCountry"></select></div>
+            <div>
+              <label for="emLang">目标语种</label>
+              <select id="emLang">
+                <option value="en">英文（全球通用）</option>
+                <option value="vi">越南语（Vietnam）</option>
+                <option value="id">印尼语（Indonesia）</option>
+                <option value="ar">阿拉伯语（沙特/阿联酋/中东）</option>
+                <option value="es">西班牙语（墨西哥/智利/拉美）</option>
+                <option value="pt">葡萄牙语（巴西）</option>
+                <option value="th">泰语（Thailand）</option>
+                <option value="fr">法语（法国/北非/西非）</option>
+                <option value="de">德语（德国/奥地利/瑞士）</option>
+                <option value="ru">俄语（中亚/俄语区）</option>
+              </select>
+            </div>
+            <div style="grid-column:1/-1">
+              <label for="emType">触达渠道与 21 天跟进阶段</label>
+              <select id="emType">
+                <option value="first" data-base="Day 1 · 第 1 封：破冰开发信">Day 1 · 第 1 封：破冰开发信</option>
+                <option value="followup" data-base="Day 4 · 第 2 封：技术规格与单证跟进">Day 4 · 第 2 封：技术规格与单证跟进</option>
+                <option value="case" data-base="Day 8 · 第 3 封：同区域交付案例">Day 8 · 第 3 封：同区域交付案例</option>
+                <option value="logistics" data-base="Day 12 · 第 4 封：多品类拼柜方案">Day 12 · 第 4 封：多品类拼柜方案</option>
+                <option value="breakup" data-base="Day 18 · 第 5 封：礼貌唤醒信">Day 18 · 第 5 封：礼貌唤醒信</option>
+                <option value="wa" data-base="WhatsApp / Zalo / LINE 简短破冰话术">WhatsApp / Zalo / LINE 简短破冰话术</option>
+                <option value="linkedin_conn" data-base="LinkedIn 加好友申请（≤280字符防截断）">LinkedIn 加好友申请（≤280字符防截断）</option>
+                <option value="linkedin_dm" data-base="LinkedIn 通过后第 1 条轻破冰私信">LinkedIn 通过后第 1 条轻破冰私信</option>
+              </select>
+            </div>
+            <div><label for="emCompany">客户公司名称</label><input id="emCompany" type="text" value="ABC Industrial Co."></div>
+            <div><label for="emProduct">主推产品（英文，自动本地化）</label><input id="emProduct" type="text" value="industrial valves & water pumps"></div>
+            <div style="grid-column:1/-1">
+              <label for="emSignal">首段「为什么联系你」破冰信号</label>
+              <select id="emSignal">
+                <option value="general">常规精准开发（默认简洁直入）</option>
+                <option value="award">🏆 刚中标工程 / EPC 总包分包</option>
+                <option value="expansion">🏗️ 新建厂 / 扩产 / 招聘采购信号</option>
+                <option value="import">🚢 海关提单持续在采同类工业品</option>
+                <option value="expo">🎪 工业展参展商 / 观展前截流</option>
+              </select>
+            </div>
+          </div>
 
-      <div style="margin-top:8px">
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown)">邮件主题（Subject）：<span id="emFallbackNote" style="margin-left:8px;font-size:11.5px;font-weight:700;color:var(--high)"></span></div>
-        <div class="email-box" id="emSubOut" style="margin-top:4px;font-weight:700"></div>
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px"><span>正文内容（Body）：</span><span id="emCharBadge" class="meta-pill" hidden style="padding:1px 8px;font-size:11.5px"></span></div>
-        <div class="email-box" id="emBodyOut" style="margin-top:4px"></div>
-        <div class="pills" style="margin-top:10px">
-          <button class="pill primary" id="btnCopySub" type="button">📋 复制主题</button>
-          <button class="pill primary" id="btnCopyBody" type="button">📋 复制正文</button>
-          <button class="pill" id="btnCopyAll" type="button">📋 复制主题+正文</button>
-          <a class="pill" id="btnMailto" href="#">📧 用本地邮件客户端打开</a>
-          <button class="pill good-btn" id="btnMarkEmailSent" type="button" title="若该客户已在CRM建档，点击即可记录本封已发并按21天节奏自动排好下一封提醒日期">✅ 记本封已发并排下一封</button>
+          <details class="adv-drawer" id="emAdvDrawer">
+            <summary>
+              <span>⚙️ 联系人、能力背书与发件人签名（已自动记忆）</span>
+              <span class="src-ok" id="emAdvSummaryHint">展开细调</span>
+            </summary>
+            <div class="adv-body">
+              <div class="form-grid keep-2" style="grid-template-columns:1fr 1fr">
+                <div><label for="emContact">联系人姓名（选填）</label><input id="emContact" type="text" placeholder="如：David / Minh / Ahmed"></div>
+                <div><label for="emToEmail">收件人邮箱（自动带入）</label><input id="emToEmail" type="email" placeholder="如：procurement@buyer.com"></div>
+                <div><label for="emSignalNote">信号补充细节（项目/展会/HS号）</label><input id="emSignalNote" type="text" value="" placeholder="如：FABTECH Mexico / HS 8481"></div>
+                <div><label for="emEdge">已确认认证/交期卖点（选填）</label><input id="emEdge" type="text" value="" placeholder="如：ISO 9001, 20-day lead time"></div>
+                <div><label for="emSender">你的英文名/职位（本机记忆）</label><input id="emSender" type="text" value="" placeholder="如：Amy · Export Manager, FriesGo Global"></div>
+                <div><label for="emPhone">你的 WhatsApp/电话（本机记忆）</label><input id="emPhone" type="text" placeholder="如：+86 138 xxxx xxxx"></div>
+              </div>
+
+              <div style="margin-top:10px">
+                <span style="font-size:12px;font-weight:800;color:var(--brown)">按真实供货能力勾选附加说明（默认不选防误承诺）：</span>
+                <div class="check-grid" id="trustHooks">
+                  <label class="check-pill"><input type="checkbox" value="cad"> 提供 CAD/3D 图纸与规格书</label>
+                  <label class="check-pill"><input type="checkbox" value="sgs"> 支持 SGS / BV / TUV 装船前验货</label>
+                  <label class="check-pill" id="emCoHookLabel"><input type="checkbox" value="co" id="emCoHookCb"> 可办优惠原产地证（须享自贸协定）</label>
+                  <label class="check-pill"><input type="checkbox" value="mix"> 多品类工业品拼柜出运</label>
+                  <label class="check-pill"><input type="checkbox" value="sample"> 支持寄样 / 视频连线验厂</label>
+                </div>
+                <label class="check-pill" style="margin-top:6px;border-radius:8px">
+                  <input type="checkbox" id="emSoftOptOutCb">
+                  <span>附加礼貌免打扰软尾句（欧美/德语区推荐，显著降低垃圾箱举报率）</span>
+                </label>
+                <div id="emCoFtaHint" class="flag-note" style="margin:6px 0 0"></div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Right Column: Live Output + Spam Check + Actions -->
+        <div class="v2-email-preview-col">
+          <div style="font-size:12.5px;font-weight:800;color:var(--brown)">邮件主题（Subject）：<span id="emFallbackNote" style="margin-left:8px;font-size:11.5px;font-weight:700;color:var(--high)"></span></div>
+          <div class="email-box" id="emSubOut" style="margin-top:4px;font-weight:700"></div>
+          <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px"><span>正文内容（Body）：</span><span id="emCharBadge" class="meta-pill" hidden style="padding:1px 8px;font-size:11.5px"></span></div>
+          <div class="email-box" id="emBodyOut" style="margin-top:4px"></div>
+          <div id="emSpamCheckBar" class="flag-note" style="margin:8px 0 0;padding:6px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--line);font-weight:700"></div>
+          <div class="pills" style="margin-top:10px">
+            <button class="pill primary" id="btnCopyAll" type="button">📋 复制主题+正文</button>
+            <button class="pill" id="btnCopyBody" type="button">📋 仅复制正文</button>
+            <button class="pill" id="btnCopySub" type="button">📋 复制主题</button>
+            <a class="pill" id="btnMailto" href="#">📧 邮件客户端打开</a>
+            <button class="pill good-btn" id="btnMarkEmailSent" type="button" title="记录本封已发并按目的国真实工作周自动排好下一封提醒日期">✅ 记已发并排下一封</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1778,8 +1884,14 @@ Best regards,
   <!-- Overseas Company Background Check / Due Diligence Workbench -->
   <section class="block" id="duediligence">
     <h2>客户背调</h2>
-    <p class="sub">输入客户公司名、官网与邮箱，自动核查防钓鱼风险、域名建站年限、邮件服务器与法人编码，并一键打开 12 个官方免费核查入口。</p>
+    <p class="sub">输入公司名/域名或直接粘贴客户签名档，一键自动核查防钓鱼风险、域名建站年限、邮件服务器与 GLEIF 法人编码。</p>
     <div class="card">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:7px 10px;border-radius:10px;background:var(--surface2);border:1px dashed var(--line)">
+        <span class="v2-step-tag">⚡ 智能粘贴</span>
+        <input id="ddSmartPasteInp" type="text" placeholder="粘贴客户邮件签名档 / WhatsApp名片（如 Carlos | Acero SA | cmendez@acero.mx | +52...）自动拆解填表" style="flex:1;min-width:210px;min-height:32px;padding:4px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+        <button class="pill" id="btnDdSmartPaste" type="button" style="min-height:32px;padding:4px 12px;font-size:12px">一键拆解填入</button>
+      </div>
+
       <div class="form-grid-4">
         <div>
           <label for="ddCompany">客户公司英文全称（必填）</label>
@@ -1814,10 +1926,15 @@ Best regards,
       </div>
 
       <!-- 12 Categorized One-Click Due Diligence Portals -->
-      <div class="detail-box" style="margin-top:12px">
-        <div class="detail-box-title">12 个免费核查入口（已带入当前客户信息）</div>
-        <div class="detail-grid" id="ddPortals"></div>
-      </div>
+      <details class="adv-drawer" style="margin-top:12px" open>
+        <summary>
+          <span>🔍 12 个免费官方核查入口（已带入当前客户信息 · 点击可收起）</span>
+          <span class="src-ok">制裁 / 提单 / 街景 / 工商</span>
+        </summary>
+        <div class="adv-body">
+          <div class="detail-grid" id="ddPortals"></div>
+        </div>
+      </details>
 
       <!-- 6-Point Due Diligence Completeness Checks + Independent Risk Decision -->
       <div class="detail-box" style="margin-top:12px">
@@ -1950,24 +2067,29 @@ Best regards,
     </div>
   </section>
 
-  <!-- Client-Centric Hub: Customer List + Inline Detail Panel -->
+  <!-- Client-Centric Hub: Side-by-Side Master-Detail Workspace -->
   <section class="block" id="tools">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
       <div>
-        <h2 style="margin:0">客户列表与跟进</h2>
-        <p class="sub" style="margin:3px 0 0">基于 IndexedDB 本地事务数据库统一存储客户档案、跟进时间线、历史报价版本（V1/V2）、风控背调与自动保护快照。</p>
+        <h2 style="margin:0">客户列表与统一工作区</h2>
+        <p class="sub" style="margin:3px 0 0">宽屏左列表、右详情同屏连续处理；自动按目的国真实工作周与停工大假安排跟进提醒。</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span class="save-status-pill" id="crmSaveStatus">● IndexedDB 本地库就绪</span>
-        <label style="font-size:12.5px;color:var(--muted);font-weight:700">默认负责人：<input id="defaultOwner" type="text" placeholder="填你的名字" style="width:110px;min-height:32px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)"></label>
+        <label style="font-size:12.5px;color:var(--muted);font-weight:700">负责人：<input id="defaultOwner" type="text" placeholder="填你的名字" style="width:105px;min-height:32px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)"></label>
         <button class="pill primary" id="btnToggleAddClient" type="button">＋ 新增客户</button>
       </div>
     </div>
 
     <div class="card">
-      <!-- Add Customer / Channel Agent Form -->
-      <div id="crmAddBox" style="padding:12px;border:1px dashed var(--orange);border-radius:10px;background:var(--surface2);margin-bottom:12px">
-        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:8px">新增客户 / 渠道代理档案（支持同国家建多家）</div>
+      <!-- Add Customer / Channel Agent Form (Collapsed by default to keep workspace clean!) -->
+      <div id="crmAddBox" hidden style="padding:12px;border:1px dashed var(--orange);border-radius:10px;background:var(--surface2);margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line)">
+          <span class="v2-step-tag">⚡ 名片/签名档速填</span>
+          <input id="crmSmartPasteInp" type="text" placeholder="把客户邮件签名档或 WhatsApp 名片整段粘贴到这里，一键自动拆分填入下方…" style="flex:1;min-width:210px;min-height:32px;padding:4px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px">
+          <button class="pill" id="btnCrmSmartPaste" type="button" style="min-height:32px;padding:4px 12px;font-size:12px">自动拆解</button>
+        </div>
+        <div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">新增客户 / 渠道代理档案（自动按目的国工作周设 +3 天提醒）</div>
         <div class="form-grid-4" style="gap:8px">
           <div><input id="crmNewComp" type="text" placeholder="公司名或代理姓名（必填）" style="width:100%;min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px"></div>
           <div><select id="crmNewCountry" style="width:100%;min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12.5px"></select></div>
@@ -1983,6 +2105,7 @@ Best regards,
             </select>
           </label>
           <button class="pill primary" id="btnCrmAdd" type="button" style="min-height:34px;padding:4px 14px">保存建档</button>
+          <button class="pill" id="btnCrmAddCancel" type="button" style="min-height:34px;padding:4px 12px">收起</button>
         </div>
       </div>
 
@@ -2002,20 +2125,30 @@ Best regards,
         <span id="crmCountSummary" style="font-size:12px;font-weight:700;color:var(--muted)"></span>
       </div>
 
-      <div id="followBody"></div>
-      <div id="crmDetailPanel" class="crm-detail-panel" hidden></div>
-
-      <div class="pills" style="margin-top:12px">
-        <button class="pill" id="btnFollowExport" type="button">导出客户表（CSV）</button>
-        <button class="pill" id="btnBackupJson" type="button">备份数据（JSON）</button>
-        <button class="pill" id="btnRestoreJson" type="button">恢复备份（JSON）</button>
-        <button class="pill" id="btnToggleSnap" type="button">快照回滚 (<span id="crmSnapCount">0</span>)</button>
-        <button class="pill" id="btnToggleTrash" type="button">回收站 (<span id="crmTrashCount">0</span>)</button>
-        <input id="restoreFile" type="file" accept=".json" hidden>
-        <button class="pill danger" id="btnClearFollow" type="button">清空客户列表</button>
+      <div id="crmSplitWrap" class="v2-crm-split">
+        <div id="followBody"></div>
+        <div id="crmDetailPanel" class="crm-detail-panel" hidden></div>
       </div>
-      <div id="crmSnapBox" hidden style="margin-top:10px;padding:12px;border:1px dashed var(--orange);border-radius:10px;background:var(--surface2)"></div>
-      <div id="crmTrashBox" hidden style="margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:10px;background:var(--surface2)"></div>
+
+      <details class="adv-drawer" id="crmMaintDrawer" style="margin-top:12px">
+        <summary>
+          <span>⚙️ 数据导出、JSON 备份恢复、快照回滚 (<span id="crmSnapCount">0</span>) 与回收站 (<span id="crmTrashCount">0</span>)</span>
+          <span class="src-ok">低频数据维护</span>
+        </summary>
+        <div class="adv-body">
+          <div class="pills" style="margin-top:0">
+            <button class="pill" id="btnFollowExport" type="button">导出客户表（CSV）</button>
+            <button class="pill" id="btnBackupJson" type="button">备份数据（JSON）</button>
+            <button class="pill" id="btnRestoreJson" type="button">恢复备份（JSON）</button>
+            <button class="pill" id="btnToggleSnap" type="button">查看快照列表</button>
+            <button class="pill" id="btnToggleTrash" type="button">打开回收站</button>
+            <input id="restoreFile" type="file" accept=".json" hidden>
+            <button class="pill danger" id="btnClearFollow" type="button">清空客户列表</button>
+          </div>
+          <div id="crmSnapBox" hidden style="margin-top:10px;padding:12px;border:1px dashed var(--orange);border-radius:10px;background:var(--surface)"></div>
+          <div id="crmTrashBox" hidden style="margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:10px;background:var(--surface)"></div>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -3490,7 +3623,7 @@ if(defOwnerEl){
   defOwnerEl.addEventListener("input", function(){ defaultOwner = this.value.trim(); saveOwnerOnly(); });
 }
 
-/* ===== 5-Workspace SaaS Router & Single-Tool Focus View ===== */
+/* ===== 5-Workspace Streamlined Router & Single-Tool Focus View ===== */
 var WORKSPACE_NAV = {
   home: {
     label: "今日工作台",
@@ -3503,9 +3636,9 @@ var WORKSPACE_NAV = {
     label: "找客户",
     defaultTool: "map-scraper",
     tools: [
+      {id:"radar-live", label:"今日商机情报", sections:["radar-live"]},
       {id:"map-scraper", label:"地图找客户", sections:["map-scraper"]},
       {id:"lead-finder", label:"搜索找客户", sections:["lead-finder"]},
-      {id:"radar-live", label:"今日商机情报", sections:["radar-live"]},
       {id:"csv-workbench", label:"导入与洗名单", sections:["csv-workbench"], innerTabs:[
         {id:"csv-workbench", label:"批量清洗与验邮", sections:["csv-workbench"]},
         {id:"email-tools", label:"猜邮箱与防进垃圾箱", sections:["email-tools"]}
@@ -3523,19 +3656,23 @@ var WORKSPACE_NAV = {
     label: "客户跟进",
     defaultTool: "client-list",
     tools: [
-      {id:"client-list", label:"客户列表与详情", sections:["tools"]},
+      {id:"client-list", label:"客户列表与工作区", sections:["tools"]},
+      {id:"email-gen", label:"写开发信", sections:["email-gen"], innerTabs:[
+        {id:"email-gen", label:"写开发信与破冰", sections:["email-gen"]},
+        {id:"world-clock", label:"重点市场实时时钟", sections:["world-clock"]}
+      ]},
       {id:"duediligence", label:"客户背调", sections:["duediligence"]},
-      {id:"email-gen", label:"写开发信", sections:["world-clock","email-gen"]},
       {id:"objections", label:"异议与救场话术", sections:["objections"]}
     ]
   },
   quote: {
-    label: "报价工具",
+    label: "报价与出运",
     defaultTool: "quote-calc",
     tools: [
       {id:"quote-calc", label:"成本与报价计算", sections:["quote-calc"]},
-      {id:"fx-converter", label:"实时汇率换算", sections:["fx-converter"]},
       {id:"container-calc", label:"装柜与拼柜试算", sections:["container-calc"]},
+      {id:"precheck", label:"发货前 6 步自查", sections:["precheck"]},
+      {id:"fx-converter", label:"实时汇率换算", sections:["fx-converter"]},
       {id:"hs-bundles", label:"HS 编码与成套方案", sections:["hs-ref"], innerTabs:[
         {id:"hs-ref", label:"HS6 编码速查", sections:["hs-ref"]},
         {id:"bundles", label:"5 大场景成套方案", sections:["bundles"]}
@@ -3549,10 +3686,7 @@ var WORKSPACE_NAV = {
       {id:"market-table", label:"国家速查（146 国）", sections:["panel-market","map"]},
       {id:"compare-panel", label:"国家并排对比", sections:["compare-panel"]},
       {id:"actions", label:"10 国重点打法", sections:["actions"]},
-      {id:"compliance-ref", label:"发货合规与制裁", sections:["precheck"], innerTabs:[
-        {id:"precheck", label:"发货前 6 步自查", sections:["precheck"]},
-        {id:"compliance", label:"制裁与转口红黄牌", sections:["compliance"]}
-      ]},
+      {id:"compliance", label:"制裁与转口红黄牌", sections:["compliance"]},
       {id:"ref-data", label:"数据与方法", ref:true, sections:["ytd2026","trend2025"], innerTabs:[
         {id:"ytd2026", label:"2026 月度实况", sections:["ytd2026","trend2025"]},
         {id:"matrix", label:"产品热力矩阵", sections:["matrix","products","growth"]},
@@ -3583,7 +3717,8 @@ var LEGACY_TAB_MAP = {
   radar: "radar-live",
   outreach: "lead-finder",
   market: "market-table",
-  compliance: "duediligence",
+  compliance: "compliance",
+  "compliance-ref": "precheck",
   products: "hs-bundles",
   deep: "ref-data",
   "deep-data": "ref-data",
@@ -3599,9 +3734,12 @@ var currentWs = "home";
 var currentToolId = "home-workspace";
 var currentInnerId = null;
 var recentTools = [];
+var pinnedTools = [];
 try {
   var savedRec = JSON.parse(localStorage.getItem("friesgo_recent_tools") || "[]");
   if(Array.isArray(savedRec)) recentTools = savedRec.filter(function(id){ return !!TOOL_META[id]; }).slice(0, 6);
+  var savedPin = JSON.parse(localStorage.getItem("friesgo_pinned_tools") || "[]");
+  if(Array.isArray(savedPin)) pinnedTools = savedPin.filter(function(id){ return !!TOOL_META[id]; }).slice(0, 8);
 } catch(e){}
 
 function recordRecentTool(toolId){
@@ -3610,15 +3748,28 @@ function recordRecentTool(toolId){
   try { localStorage.setItem("friesgo_recent_tools", JSON.stringify(recentTools)); } catch(e){}
 }
 
+function syncPinButtonUI(){
+  var btn = document.getElementById("btnPinCurrentTool");
+  if(!btn) return;
+  if(!currentToolId || currentToolId === "home-workspace" || !TOOL_META[currentToolId]){
+    btn.hidden = true;
+    return;
+  }
+  btn.hidden = false;
+  var isPinned = pinnedTools.indexOf(currentToolId) >= 0;
+  btn.textContent = isPinned ? "★ 已收藏" : "☆ 收藏工具";
+  btn.classList.toggle("good-btn", isPinned);
+}
+
 function resolveNavTarget(raw){
   var key = String(raw || "").replace(/^#/, "").trim();
   if(!key) return {toolId:"home-workspace", innerId:null, anchor:null};
   if(key.indexOf("tab=") === 0) key = key.slice(4);
   if(key.indexOf("act-") === 0) return {toolId:"actions", innerId:null, anchor:key};
   if(key === "table") return {toolId:"market-table", innerId:null, anchor:"table"};
+  if(LEGACY_TAB_MAP[key] && !TOOL_META[key] && !SECTION_TO_TOOL[key]) return resolveNavTarget(LEGACY_TAB_MAP[key]);
   if(TOOL_META[key]) return {toolId:key, innerId:null, anchor:null};
   if(SECTION_TO_TOOL[key]) return {toolId:SECTION_TO_TOOL[key].toolId, innerId:SECTION_TO_TOOL[key].innerId, anchor:key};
-  if(LEGACY_TAB_MAP[key]) return resolveNavTarget(LEGACY_TAB_MAP[key]);
   if(WORKSPACE_NAV[key]) return {toolId:WORKSPACE_NAV[key].defaultTool, innerId:null, anchor:null};
   return {toolId:"home-workspace", innerId:null, anchor:null};
 }
@@ -3639,8 +3790,9 @@ function renderNavChrome(){
     if(sbTitle) sbTitle.textContent = wsObj.label;
     if(sbList){
       sbList.innerHTML = wsObj.tools.map(function(t){
-        return (t.ref ? '<div class="sb-ref-label">管理参考</div>' : '')
-          + '<button type="button" class="sub-tool-btn'+(t.ref?' is-ref':'')+(t.id===currentToolId?' active':'')+'" data-nav-tool="'+t.id+'"><span>'+esc(t.label)+'</span></button>';
+        var pinStar = pinnedTools.indexOf(t.id) >= 0 ? '★ ' : '';
+        return (t.ref ? '<div class="sb-ref-label">深度数据参考</div>' : '')
+          + '<button type="button" class="sub-tool-btn'+(t.ref?' is-ref':'')+(t.id===currentToolId?' active':'')+'" data-nav-tool="'+t.id+'"><span>'+pinStar+esc(t.label)+'</span></button>';
       }).join("");
     }
     if(mobSub){
@@ -3662,6 +3814,7 @@ function renderNavChrome(){
       innerBar.innerHTML = "";
     }
   }
+  syncPinButtonUI();
 }
 
 function navigateTo(target, opts){
@@ -3721,6 +3874,211 @@ function switchTab(tabName, skipScroll){
   navigateTo(tabName, {skipScroll: !!skipScroll});
 }
 
+/* V2.0 Pin Tool + Global Quick Search (Ctrl/Cmd+K) + Active Client Context Bar */
+(function initV2TopEnhancements(){
+  var pinBtn = document.getElementById("btnPinCurrentTool");
+  if(pinBtn){
+    pinBtn.addEventListener("click", function(){
+      if(!currentToolId || currentToolId === "home-workspace") return;
+      var idx = pinnedTools.indexOf(currentToolId);
+      var lbl = (TOOL_META[currentToolId] && TOOL_META[currentToolId].tool.label) || currentToolId;
+      if(idx >= 0){
+        pinnedTools.splice(idx, 1);
+        showToast("已取消收藏：「" + lbl + "」");
+      } else {
+        pinnedTools.unshift(currentToolId);
+        pinnedTools = pinnedTools.slice(0, 8);
+        showToast("已固定到首页常用栏：「" + lbl + "」");
+      }
+      try { localStorage.setItem("friesgo_pinned_tools", JSON.stringify(pinnedTools)); } catch(e){}
+      renderNavChrome();
+      if(typeof renderHomeWorkspace === "function") renderHomeWorkspace();
+    });
+  }
+
+  var qsInp = document.getElementById("globalQuickSearch");
+  var qsDrop = document.getElementById("globalQuickDrop");
+  var TOOL_SEARCH_INDEX = [
+    { key:"home-workspace", label:"今日工作台", kw:"首页 待办 漏斗 节假 斋月 home" },
+    { key:"radar-live", label:"今日商机情报（中标总包/世行招标）", kw:"雷达 标讯 中标 世行 台风 商机 radar award" },
+    { key:"map-scraper", label:"地图找客户（OSM / Google Maps）", kw:"地图 扫街 抓取 经销商 map" },
+    { key:"lead-finder", label:"搜索找客户（Google / LinkedIn搜人）", kw:"谷歌 搜索 采购 负责人 搜客 dork linkedin" },
+    { key:"csv-workbench", label:"导入与洗名单（提单清洗 / 验邮局MX）", kw:"导入 洗名单 csv 提单 货代 whatsapp mx" },
+    { key:"email-tools", label:"猜邮箱与防进垃圾箱（SPF/DMARC）", kw:"猜邮箱 域名 spf dmarc 垃圾箱" },
+    { key:"client-list", label:"客户列表与统一工作区（CRM）", kw:"客户 跟进 档案 备份 回收站 crm" },
+    { key:"email-gen", label:"写开发信（10语种 / WA / LinkedIn）", kw:"开发信 写信 邮件 whatsapp linkedin 破冰 定时" },
+    { key:"duediligence", label:"客户背调（GLEIF法人 / 防钓鱼 / 制裁）", kw:"背调 风控 制裁 骗子 gleif ofac" },
+    { key:"objections", label:"异议与救场话术库", kw:"嫌贵 砍价 moq 话术 异议" },
+    { key:"quote-calc", label:"成本与报价计算（FOB / CIF / 退税）", kw:"报价 算价 退税 利润 fob cif" },
+    { key:"container-calc", label:"装柜与拼柜试算（重件FFD / 超尺预警）", kw:"装柜 拼柜 集装箱 20gp 40hq cbm" },
+    { key:"precheck", label:"发货前 6 步合规自查（CBAM / 两用物项）", kw:"发货 出运 合规 自查 cbam 报关" },
+    { key:"fx-converter", label:"实时汇率换算（17币种）", kw:"汇率 美元 人民币 比索 盾 fx" },
+    { key:"hs-ref", label:"高频工业品 HS6 编码速查", kw:"hs编码 海关编码 税率" },
+    { key:"bundles", label:"5 大工程场景成套打包方案", kw:"成套 打包 方案" },
+    { key:"market-table", label:"146 国工业品市场总表", kw:"市场 国家 进口 关税 认证 146" },
+    { key:"compare-panel", label:"国家并排对比", kw:"对比 国家对比" },
+    { key:"actions", label:"10 国重点打法行动卡", kw:"打法 行动卡 越南 沙特 墨西哥" },
+    { key:"radar-expos", label:"10 大国际工业展与倒计时", kw:"展会 参展 广交会 汉诺威" },
+    { key:"radar-agents", label:"找当地销售代理", kw:"代理 佣金 渠道" },
+    { key:"world-clock", label:"重点市场实时工作时钟", kw:"时钟 时差 工作时间 夏令时" }
+  ];
+  var _qsMatches = [];
+  function renderQuickDrop(q){
+    if(!qsDrop) return;
+    q = String(q || "").trim().toLowerCase();
+    if(!q){ qsDrop.hidden = true; _qsMatches = []; return; }
+    var out = [];
+    TOOL_SEARCH_INDEX.forEach(function(t){
+      if(t.label.toLowerCase().indexOf(q) >= 0 || t.kw.indexOf(q) >= 0){
+        out.push({ type:"tool", target:t.key, title:"🛠️ " + t.label, sub:"跳转功能" });
+      }
+    });
+    if(Array.isArray(crmLeads)){
+      for(var i=0; i<crmLeads.length && out.length<8; i++){
+        var l = crmLeads[i];
+        if((l.company||"").toLowerCase().indexOf(q) >= 0 || (l.contact||"").toLowerCase().indexOf(q) >= 0 || (l.email||"").toLowerCase().indexOf(q) >= 0){
+          out.push({ type:"client", id:l.id, title:"👤 " + l.company, sub:(CN[l.country]||l.country||"") + " · 打开客户工作区" });
+        }
+      }
+    }
+    if(typeof DATA !== "undefined" && Array.isArray(DATA)){
+      for(var c=0; c<DATA.length && out.length<10; c++){
+        var cEn = DATA[c].country;
+        var cCn = (typeof CN !== "undefined" && CN[cEn]) || "";
+        var cPy = (typeof PINYIN !== "undefined" && PINYIN[cEn]) || "";
+        if(cCn.indexOf(q) >= 0 || cEn.toLowerCase().indexOf(q) >= 0 || cPy.toLowerCase().indexOf(q) >= 0){
+          out.push({ type:"country", country:cEn, title:"🌍 " + (cCn || cEn) + " (" + cEn + ")", sub:"查看市场关税与开发入口" });
+        }
+      }
+    }
+    _qsMatches = out.slice(0, 8);
+    if(!_qsMatches.length){
+      qsDrop.innerHTML = '<div style="padding:8px 10px;color:var(--muted);font-size:12px">未找到匹配的功能、客户或国家</div>';
+      qsDrop.hidden = false;
+      return;
+    }
+    qsDrop.innerHTML = _qsMatches.map(function(m, idx){
+      return '<button type="button" class="v2-qsearch-item'+(idx===0?' active':'')+'" data-qs-idx="'+idx+'">'
+        + '<span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(m.title)+'</span>'
+        + '<span class="src-ok" style="flex-shrink:0">'+esc(m.sub)+'</span></button>';
+    }).join("");
+    qsDrop.hidden = false;
+  }
+  function triggerQsMatch(m){
+    if(!m) return;
+    if(qsDrop) qsDrop.hidden = true;
+    if(qsInp) qsInp.value = "";
+    if(m.type === "tool") navigateTo(m.target);
+    else if(m.type === "client"){
+      navigateTo("client-list");
+      if(typeof window.openClientDetail === "function") window.openClientDetail(m.id, "info");
+    } else if(m.type === "country" && typeof jumpToCountry === "function"){
+      jumpToCountry(m.country);
+    }
+  }
+  if(qsInp && qsDrop){
+    qsInp.addEventListener("input", function(){ renderQuickDrop(qsInp.value); });
+    qsInp.addEventListener("keydown", function(ev){
+      if(ev.key === "Enter" && _qsMatches.length){
+        ev.preventDefault();
+        triggerQsMatch(_qsMatches[0]);
+      } else if(ev.key === "Escape"){
+        qsDrop.hidden = true;
+        qsInp.blur();
+      }
+    });
+    qsDrop.addEventListener("click", function(ev){
+      var b = ev.target.closest("button[data-qs-idx]");
+      if(b) triggerQsMatch(_qsMatches[+b.getAttribute("data-qs-idx")]);
+    });
+    document.addEventListener("click", function(ev){
+      if(!ev.target.closest("#globalQuickSearchWrap")) qsDrop.hidden = true;
+    });
+    document.addEventListener("keydown", function(ev){
+      if((ev.metaKey || ev.ctrlKey) && String(ev.key).toLowerCase() === "k"){
+        ev.preventDefault();
+        qsInp.focus();
+        qsInp.select();
+      }
+    });
+  }
+})();
+
+window._activeClientCtx = null;
+window.setActiveClientContext = function(clientObj){
+  if(!clientObj || !clientObj.company){
+    window._activeClientCtx = null;
+  } else {
+    window._activeClientCtx = {
+      id: clientObj.id || "",
+      company: clientObj.company || "",
+      country: clientObj.country || "Vietnam",
+      contact: clientObj.contact || "",
+      email: clientObj.email || "",
+      phone: clientObj.phone || "",
+      website: clientObj.website || "",
+      product: clientObj.product || "",
+      cadenceStep: clientObj.cadenceStep || ""
+    };
+  }
+  window.renderActiveClientBar();
+};
+window.renderActiveClientBar = function(){
+  var bar = document.getElementById("activeClientBar");
+  var info = document.getElementById("activeClientInfo");
+  if(!bar || !info) return;
+  var ctx = window._activeClientCtx;
+  if(ctx && ctx.id && typeof findLeadById === "function"){
+    var fresh = findLeadById(ctx.id);
+    if(fresh){
+      ctx.company = fresh.company;
+      ctx.country = fresh.country;
+      ctx.contact = fresh.contact || "";
+      ctx.email = fresh.email || "";
+      ctx.website = fresh.website || "";
+      ctx.product = fresh.product || "";
+      ctx.cadenceStep = fresh.cadenceStep || "";
+    }
+  }
+  if(!ctx || !ctx.company){
+    bar.hidden = true;
+    return;
+  }
+  bar.hidden = false;
+  var tmHtml = "";
+  if(window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function"){
+    var tm = window.FG_CORE.evaluateCountryContactTiming(ctx.country);
+    tmHtml = ' · <span>' + tm.dot + ' 当地 ' + esc(tm.localTimeStr) + '</span> · <span class="src-ok">' + esc(tm.spec.voltage) + '</span>';
+  }
+  var cLabel = (typeof CN !== "undefined" && CN[ctx.country]) ? CN[ctx.country] : ctx.country;
+  info.innerHTML = '<b>🎯 当前处理客户：' + esc(ctx.company) + '</b> <span style="color:var(--muted)">（' + esc(cLabel) + '）</span>' + tmHtml;
+};
+(function bindActiveClientBarActions(){
+  var bar = document.getElementById("activeClientBar");
+  if(!bar) return;
+  bar.addEventListener("click", function(e){
+    var b = e.target.closest("button[data-ac-act]");
+    if(!b || !window._activeClientCtx) return;
+    var act = b.getAttribute("data-ac-act");
+    var c = window._activeClientCtx;
+    if(act === "clear"){
+      window.setActiveClientContext(null);
+      return;
+    }
+    if(act === "email" && typeof window.loadIntoEmailGen === "function"){
+      var stp = (c.cadenceStep && c.cadenceStep !== "done") ? c.cadenceStep : "first";
+      window.loadIntoEmailGen(c.country, guessLang(c.country), c.product || "", c.company, c.email || "", { emType: stp, contact: c.contact || "" });
+    } else if(act === "dd" && typeof window.loadIntoDd === "function"){
+      window.loadIntoDd(c.country, c.company, c.website || "", c.email || "");
+    } else if(act === "quote" && typeof window.loadIntoCalc === "function"){
+      window.loadIntoCalc(c.country, c.product || "", c.id || "");
+    } else if(act === "detail"){
+      navigateTo("client-list");
+      if(c.id && typeof window.openClientDetail === "function") window.openClientDetail(c.id, "info");
+    }
+  });
+})();
+
 document.addEventListener("click", function(e){
   var wsBtn = e.target.closest("[data-ws]");
   if(wsBtn){
@@ -3758,6 +4116,9 @@ var hFind = document.getElementById("homeBtnFind");
 if(hFind) hFind.addEventListener("click", function(){ navigateTo("map-scraper"); });
 var hQuote = document.getElementById("homeBtnQuote");
 if(hQuote) hQuote.addEventListener("click", function(){ navigateTo("quote-calc"); });
+
+var homeWorkCb = document.getElementById("homeOnlyWorkingCb");
+if(homeWorkCb) homeWorkCb.addEventListener("change", function(){ renderHomeWorkspace(); });
 
 /* 商机标题清洗、世行招标采购类型拆解与重新挂网识别 */
 function radarCleanText(t){ return String(t||"").replace(/,(\s*,)+/g, ",").replace(/\s{2,}/g, " ").trim(); }
@@ -3836,6 +4197,29 @@ function sortRadarForAction(items){
 function renderHomeWorkspace(){
   var kToday = document.getElementById("homeKpiToday");
   if(!kToday) return;
+
+  var alertBar = document.getElementById("homeTradeAlertBar");
+  if(alertBar && window.FG_CORE && typeof window.FG_CORE.getUpcomingGlobalTradeAlerts === "function"){
+    var al = window.FG_CORE.getUpcomingGlobalTradeAlerts(localDateStr(), 70);
+    var partsAl = [];
+    if(al.activeOrSoon && al.activeOrSoon.length){
+      partsAl.push('<div><b style="color:var(--danger)">🛑 近期停工/防骚扰窗口：</b>' + al.activeOrSoon.map(function(x){
+        return '<b>' + esc(x.nameCn) + '</b>（' + esc(x.regionCn) + ' · ' + (x.daysAway === 0 ? '正在休假中' : (x.daysAway + '天后开始')) + '）';
+      }).join("； ") + '</div>');
+    }
+    if(al.preStocking && al.preStocking.length){
+      partsAl.push('<div><b style="color:var(--brown)">🔥 未来 60 天锁单备货催单点：</b>' + al.preStocking.slice(0, 3).map(function(x){
+        return '<b>' + esc(x.nameCn) + '</b>（距今 <b>' + x.daysAway + '</b> 天 · ' + esc(x.regionCn) + '）';
+      }).join(" ｜ ") + '</div>');
+    }
+    if(partsAl.length){
+      alertBar.hidden = false;
+      alertBar.innerHTML = partsAl.join("");
+    } else {
+      alertBar.hidden = true;
+    }
+  }
+
   var nToday = 0, nOver = 0, nInc = 0;
   var dueItems = [];
   crmLeads.forEach(function(l){
@@ -3861,26 +4245,37 @@ function renderHomeWorkspace(){
       : "全球中标总包 · 招标 · 建厂融资";
   }
 
-  dueItems.sort(function(a,b){
+  var onlyWorking = !!((document.getElementById("homeOnlyWorkingCb") || {}).checked);
+  dueItems.forEach(function(x){
+    x.timing = (window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function")
+      ? window.FG_CORE.evaluateCountryContactTiming(x.lead.country)
+      : { level: "green", dot: "🟢", localTimeStr: "" };
+  });
+  var filteredDue = onlyWorking ? dueItems.filter(function(x){ return x.timing.level !== "red"; }) : dueItems;
+  filteredDue.sort(function(a,b){
+    if(onlyWorking && a.timing.level !== b.timing.level) return a.timing.level === "green" ? -1 : 1;
     if(a.info.prio !== b.info.prio) return a.info.prio - b.info.prio;
     return (a.lead.nextDate||"").localeCompare(b.lead.nextDate||"");
   });
   var dueBox = document.getElementById("homeDueList");
   if(dueBox){
-    if(!dueItems.length){
-      dueBox.innerHTML = crmLeads.length
-        ? '<p style="color:var(--muted);margin:6px 0">今天暂无到期或逾期的跟进任务（当前共维护 '+crmLeads.length+' 位客户）。</p>'
-        : '<div class="home-empty"><div class="home-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg></div><b>还没有客户档案</b><span>点「＋ 新增客户」，或先找客户 / 导入名单，系统会按跟进日期自动提醒今天该联系谁。</span><div class="home-empty-acts"><button class="pill" type="button" data-home-jump="map-scraper">地图找客户</button><button class="pill" type="button" data-home-jump="csv-workbench">导入名单</button></div></div>';
+    if(!filteredDue.length){
+      dueBox.innerHTML = dueItems.length && onlyWorking
+        ? '<p style="color:var(--muted);margin:6px 0">今日待跟进的 ' + dueItems.length + ' 位客户当前均处于当地深夜或公休时段，可取消勾选「仅看当前上班中国家」提前准备定时邮件。</p>'
+        : (crmLeads.length
+          ? '<p style="color:var(--muted);margin:6px 0">今天暂无到期或逾期的跟进任务（当前共维护 '+crmLeads.length+' 位客户）。</p>'
+          : '<div class="home-empty"><div class="home-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg></div><b>还没有客户档案</b><span>点「＋ 新增客户」，或先找客户 / 导入名单，系统会按跟进日期自动提醒今天该联系谁。</span><div class="home-empty-acts"><button class="pill" type="button" data-home-jump="map-scraper">地图找客户</button><button class="pill" type="button" data-home-jump="csv-workbench">导入名单</button></div></div>');
     } else {
       var defNext3 = localDateOffsetStr(3);
-      dueBox.innerHTML = dueItems.slice(0, 6).map(function(x){
+      dueBox.innerHTML = filteredDue.slice(0, 6).map(function(x){
         var l = x.lead;
         var lastTl = (Array.isArray(l.timeline) && l.timeline.length) ? l.timeline[0] : null;
         var summaryTxt = lastTl ? (lastTl.channel + "：" + lastTl.result) : (l.note || "");
         var cadTag = l.cadenceLabel ? (' <span class="meta-pill" style="padding:1px 7px;font-size:11px">'+esc(l.cadenceLabel)+'</span>') : '';
+        var tmTag = x.timing && x.timing.localTimeStr ? (' <span class="src-ok" title="'+esc(x.timing.actionAdvice||"")+'">'+x.timing.dot+' 当地 '+esc(x.timing.localTimeStr)+'</span>') : '';
         return '<div class="due-item" style="flex-direction:column;align-items:stretch;gap:8px">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
-          + '<div style="min-width:0;flex:1 1 200px"><b>'+esc(l.company)+'</b> <span class="'+x.info.cls+'" style="margin-left:4px">'+esc(x.info.label)+'</span>' + cadTag
+          + '<div style="min-width:0;flex:1 1 200px"><b>'+esc(l.company)+'</b> <span class="'+x.info.cls+'" style="margin-left:4px">'+esc(x.info.label)+'</span>' + cadTag + tmTag
           + '<div class="src-ok" style="margin-top:2px">'+esc(CN[l.country]||l.country)+' · '+esc(l.stage||"跟进中")+(summaryTxt?(' · '+esc(summaryTxt.slice(0,42))):'')+'</div></div>'
           + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
           + '<button type="button" class="pill primary" data-home-done="'+esc(l.id)+'" style="min-height:30px;padding:3px 9px;font-size:12px">✓ 已联系 (+3天)</button>'
@@ -3901,10 +4296,15 @@ function renderHomeWorkspace(){
 
   var recBox = document.getElementById("homeRecentTools");
   if(recBox){
-    var showRec = recentTools.length ? recentTools : ["map-scraper","radar-live","radar-weather","quote-calc"];
-    recBox.innerHTML = showRec.map(function(id){
+    var mergedChips = [];
+    pinnedTools.forEach(function(id){ if(mergedChips.indexOf(id) < 0) mergedChips.push(id); });
+    (recentTools.length ? recentTools : ["radar-live","map-scraper","quote-calc","email-gen"]).forEach(function(id){
+      if(mergedChips.indexOf(id) < 0 && mergedChips.length < 8) mergedChips.push(id);
+    });
+    recBox.innerHTML = mergedChips.map(function(id){
       var m = TOOL_META[id];
-      if(m) return '<button type="button" class="pill" data-nav-tool="'+id+'" style="min-height:32px;padding:4px 12px;font-size:12.5px">'+esc(m.tool.label)+'</button>';
+      var star = pinnedTools.indexOf(id) >= 0 ? '★ ' : '';
+      if(m) return '<button type="button" class="pill'+(star?' good-btn':'')+'" data-nav-tool="'+id+'" style="min-height:32px;padding:4px 12px;font-size:12.5px">'+star+esc(m.tool.label)+'</button>';
       if(id === "radar-weather") return '<button type="button" class="pill" data-home-jump="radar-weather" style="min-height:32px;padding:4px 12px;font-size:12.5px">突发刚需与备货日历</button>';
       return '';
     }).join("");
@@ -4032,18 +4432,22 @@ if(homeDueWrap){
     if(bDone){
       var l1 = findLeadById(bDone.getAttribute("data-home-done"));
       if(!l1) return;
-      var next3 = localDateOffsetStr(3);
+      var next3 = (window.FG_CORE && typeof window.FG_CORE.computeDefaultNextFollowDate === "function")
+        ? window.FG_CORE.computeDefaultNextFollowDate(localDateStr(), 3, l1.country)
+        : localDateOffsetStr(3);
       l1.nextDate = next3;
       appendTimelineEntry(l1, {channel:"快捷打卡", result:"已联系跟进，安排下次跟进", nextDate:next3});
       saveLeadsLocal(); renderTools(); render();
-      showToast("已记录联系「" + l1.company + "」，下次提醒：" + next3);
+      showToast("已记录联系「" + l1.company + "」，下次提醒：" + next3 + "（已自动避开目的国周末与停工大假）");
       return;
     }
     var bSnz = e.target.closest("button[data-home-snooze]");
     if(bSnz){
       var l2 = findLeadById(bSnz.getAttribute("data-home-snooze"));
       if(!l2) return;
-      var next7 = localDateOffsetStr(7);
+      var next7 = (window.FG_CORE && typeof window.FG_CORE.computeDefaultNextFollowDate === "function")
+        ? window.FG_CORE.computeDefaultNextFollowDate(localDateStr(), 7, l2.country)
+        : localDateOffsetStr(7);
       l2.nextDate = next7;
       appendTimelineEntry(l2, {channel:"延期", result:"待办顺延 7 天", nextDate:next7});
       saveLeadsLocal(); renderTools(); render();
@@ -5561,6 +5965,30 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     var commBasis = ((document.getElementById("qcCommBasis")||{}).value) || "cif_keep_amt";
     var minFloorVal = (document.getElementById("qcMinMarginFloor")||{}).value;
 
+    var specBar = document.getElementById("qcSpecGuardBar");
+    if(specBar && window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function"){
+      var tmQ = window.FG_CORE.evaluateCountryContactTiming(qcSel.value);
+      var spQ = tmQ.spec || {};
+      specBar.className = "v2-guard-bar " + (spQ.is60Hz ? "lv-red" : "lv-green");
+      specBar.innerHTML = '<span>' + (spQ.is60Hz ? '⚡ <b>60Hz 电机/水泵防错警报</b>（严禁按国内 50Hz 默认排产！）' : '🔌 <b>目的国工业机电标准</b>')
+        + '：<b>' + esc(spQ.voltage || "") + '</b></span>'
+        + '<span>｜ 法兰/管标：<b>' + esc(spQ.pipeStd || "") + '</b></span>'
+        + '<span>｜ 强制清关认证：<b>' + esc(spQ.cert || "") + '</b></span>';
+    }
+    var advPill = document.getElementById("qcAdvSummaryPill");
+    if(advPill){
+      var tmLabelMap = {
+        small_exempt: "小规模免税(0%退税)",
+        vat_pending: "专票退税待确认(保守0%)",
+        vat_rebate: "专票退税(" + (rebPctVal === undefined ? 13 : rebPctVal) + "%)",
+        ex_tax: "工厂不含税采购"
+      };
+      var locShow = Number(document.getElementById("qcLocalRmb").value || 0);
+      var cmShow = Number((document.getElementById("qcCommPct")||{}).value || 0);
+      var flShow = minFloorVal === undefined ? 8 : minFloorVal;
+      advPill.textContent = (tmLabelMap[taxMode] || taxMode) + " · 港杂 ¥" + locShow + " · 佣金 " + cmShow + "% · 利润红线 " + flShow + "%";
+    }
+
     var q = window.FG_CORE.computeQuote({
       quoteId: _currentDraftQuoteId,
       priceMode: qcPriceMode,
@@ -5910,6 +6338,8 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
   if(bindSelEl){
     bindSelEl.addEventListener("change", function(){
       _currentDraftQuoteId = window.FG_CORE.genStableId("qt");
+      var ldB = bindSelEl.value && typeof findLeadById === "function" ? findLeadById(bindSelEl.value) : null;
+      if(ldB && typeof window.setActiveClientContext === "function") window.setActiveClientContext(ldB);
       updateCalc();
     });
   }
@@ -6130,6 +6560,8 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
     var cSel = document.getElementById("qcBindClient");
     if(cSel) cSel.value = clientId || "";
+    var boundLd = (clientId && typeof findLeadById === "function") ? findLeadById(clientId) : null;
+    if(boundLd && typeof window.setActiveClientContext === "function") window.setActiveClientContext(boundLd);
     if(quoteSnap && typeof quoteSnap === "object"){
       if(quoteSnap.priceMode && quoteSnap.priceMode !== qcPriceMode && modePills){
         qcPriceMode = quoteSnap.priceMode;
@@ -6652,6 +7084,53 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     }
 
     var isNoSubjectChannel = (type === "wa" || isLinkedin);
+    var softOptEl = document.getElementById("emSoftOptOutCb");
+    if(softOptEl && softOptEl.checked && !isNoSubjectChannel){
+      var optMap = {
+        en: "P.S. If industrial sourcing isn't under your scope, just reply \"no\" and I won't follow up.",
+        es: "PD: Si esta línea no corresponde a su área, respóndame \"no\" y no volveré a escribirle.",
+        pt: "P.S.: Caso esta linha não faça parte do seu escopo, basta responder \"não\" e encerrarei o contato.",
+        fr: "P.S. : Si ce sujet ne relève pas de votre périmètre, répondez simplement « non » et je ne relancerai pas.",
+        de: "P.S.: Falls dieser Bereich nicht in Ihre Zuständigkeit fällt, genügt ein kurzes „Nein“.",
+        ru: "P.S. Если данное направление не относится к вашим задачам, просто ответьте «нет», и я не буду беспокоить.",
+        ar: "ملاحظة: إذا لم يكن هذا النطاق ضمن اختصاصكم، يكفي الرد بكلمة \"لا\" ولن نعاود المتابعة.",
+        vi: "Tái bút: Nếu mảng này không thuộc phụ trách của Anh/Chị, xin cứ nhắn \"không\" để em ngừng làm phiền ạ.",
+        id: "Catatan: Jika pengadaan ini di luar lingkup Bapak/Ibu, cukup balas \"tidak\" agar kami tidak menindaklanjuti.",
+        th: "ป.ล. หากสินค้ากลุ่มนี้ไม่ได้อยู่ในความรับผิดชอบของท่าน สามารถตอบกลับว่า \"ไม่\" เพื่อยุติการติดตามได้ครับ"
+      };
+      body = body + "\n\n" + (optMap[lang] || optMap.en);
+    }
+
+    var tmBar = document.getElementById("emTradeTimingBar");
+    if(tmBar && window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function"){
+      var tmE = window.FG_CORE.evaluateCountryContactTiming(c);
+      var lvCls = tmE.level === "red" ? "lv-red" : (tmE.level === "yellow" ? "lv-yellow" : "lv-green");
+      tmBar.className = "v2-guard-bar " + lvCls;
+      var holWarnHtml = tmE.upcomingHoliday
+        ? (' <span>｜ 🗓️ 近期大假：<b>' + esc(tmE.upcomingHoliday.nameCn) + '</b>（' + tmE.upcomingHoliday.daysAway + '天后）</span>')
+        : '';
+      var spE = tmE.spec || {};
+      var hzTag = spE.is60Hz ? ('<b style="color:var(--danger)">⚡ ' + esc(spE.voltage) + ' (60Hz防错!)</b>') : ('<b>' + esc(spE.voltage || "") + '</b>');
+      tmBar.innerHTML = '<span>' + tmE.dot + ' <b>' + esc(CN[c]||c) + '</b>：<b>' + esc(tmE.statusLabel) + '</b> — ' + esc(tmE.actionAdvice) + '</span>'
+        + holWarnHtml
+        + '<span>｜ 机电标准：' + hzTag + ' · ' + esc(spE.pipeStd || "") + ' · ' + esc(spE.cert || "") + '</span>';
+    }
+
+    var emAdvHint = document.getElementById("emAdvSummaryHint");
+    if(emAdvHint){
+      emAdvHint.textContent = "署名：" + vars.sender.slice(0, 18) + " · 已勾选 " + checkedHooks.length + " 项背书";
+    }
+
+    var spmBar = document.getElementById("emSpamCheckBar");
+    if(spmBar && window.FG_CORE && typeof window.FG_CORE.auditColdEmailDeliverability === "function"){
+      var aud = window.FG_CORE.auditColdEmailDeliverability(sub, body, { noSubject: isNoSubjectChannel });
+      var spmCls = aud.level === "red" ? "lv-red" : (aud.level === "yellow" ? "lv-yellow" : "lv-green");
+      spmBar.className = "v2-guard-bar " + spmCls;
+      var dIcon = aud.level === "red" ? "🔴 垃圾箱高危词预警" : (aud.level === "yellow" ? "🟡 送达率优化提示" : ("🟢 反垃圾健康度 " + aud.score + "/100"));
+      var issTxt = (aud.issues && aud.issues.length) ? ("：" + aud.issues.join("；")) : ("（约 " + aud.words + " 词 · 无高危促销词/全大写/感叹号轰炸）");
+      spmBar.innerHTML = '<span><b>' + dIcon + '</b>' + esc(issTxt) + '</span>';
+    }
+
     var subBtn = document.getElementById("btnCopySub");
     var allBtn = document.getElementById("btnCopyAll");
     var mailBtn = document.getElementById("btnMailto");
@@ -6692,6 +7171,8 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
       el.addEventListener("change", function(){ if(id==="emSender"||id==="emPhone") saveRepProfile(); updateEmail(); });
     }
   });
+  var emSoftOptCb = document.getElementById("emSoftOptOutCb");
+  if(emSoftOptCb) emSoftOptCb.addEventListener("change", updateEmail);
   document.getElementById("trustHooks").addEventListener("change", updateEmail);
   emSel.addEventListener("change", function(){ document.getElementById("emLang").value = guessLang(this.value); updateEmail(); });
   function isNoSubjectEmType(){
@@ -6725,7 +7206,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
         document.getElementById("emCompany").focus();
         return;
       }
-      var sched = window.FG_CORE.nextCadenceSchedule(stepKey);
+      var sched = window.FG_CORE.nextCadenceSchedule(stepKey, localDateStr(), country);
       var lead = window.addCustomerToCrm({
         company: comp,
         country: country,
@@ -6763,6 +7244,16 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(ctEl) ctEl.value = (opts && opts.contact) ? String(opts.contact).trim() : "";
     var toEl = document.getElementById("emToEmail");
     if(toEl) toEl.value = toEmail ? String(toEmail).trim() : "";
+    if(comp && String(comp).trim() && typeof window.setActiveClientContext === "function"){
+      window.setActiveClientContext({
+        id: (opts && opts.clientId) || "",
+        company: String(comp).trim(),
+        country: cRes.ok ? cRes.value : (country || "Vietnam"),
+        contact: (opts && opts.contact) ? String(opts.contact).trim() : "",
+        email: toEmail ? String(toEmail).trim() : "",
+        product: prod || ""
+      });
+    }
     updateEmail(); updateLF();
     var suffix = cRes.generic ? "（该线索未指定单一国家，已设为通用区域，可按需选择具体国家）" : "";
     showToast("已载入「"+(comp || cRes.cn || CN[country] || country || "开发信")+"」到写开发信" + suffix);
@@ -7793,6 +8284,42 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
     var el = document.getElementById(id);
     if(el){ el.addEventListener("change", updateVerdict); el.addEventListener("input", updateVerdict); }
   });
+  var btnDdSmart = document.getElementById("btnDdSmartPaste");
+  var inpDdSmart = document.getElementById("ddSmartPasteInp");
+  function applyDdSmartPaste(){
+    if(!inpDdSmart || !window.FG_CORE || typeof window.FG_CORE.parseSmartBusinessCard !== "function") return;
+    var raw = (inpDdSmart.value || "").trim();
+    if(!raw){ showToast("请先粘贴客户邮件落款、名片或 WhatsApp 文本"); inpDdSmart.focus(); return; }
+    var p = window.FG_CORE.parseSmartBusinessCard(raw);
+    if(!p.company && !p.email && !p.website){
+      showToast("未识别出有效的公司、邮箱或网址，请补充粘贴完整落款");
+      return;
+    }
+    if(p.company) document.getElementById("ddCompany").value = p.company;
+    if(p.website) document.getElementById("ddDomain").value = p.website;
+    if(p.email) document.getElementById("ddEmail").value = p.email;
+    if(p.country) selectDdCountry(p.country);
+    resetDdState(false);
+    renderPortals();
+    document.getElementById("ddAutoResult").textContent = "已智能拆解填入客户主体信息（可点击「开始自动体检」一键核验域名与邮局）。";
+    if(typeof window.setActiveClientContext === "function" && (p.company || p.website)){
+      window.setActiveClientContext({
+        company: p.company || p.website,
+        country: ddSel.value || p.country || "Vietnam",
+        contact: p.contact || "",
+        email: p.email || "",
+        phone: p.phone || "",
+        website: p.website || ""
+      });
+    }
+    inpDdSmart.value = "";
+    showToast("⚡ 已拆解填入：「" + (p.company || p.website || p.email) + "」" + (p.country ? ("（识别目的国：" + (CN[p.country]||p.country) + "）") : ""));
+  }
+  if(btnDdSmart) btnDdSmart.addEventListener("click", applyDdSmartPaste);
+  if(inpDdSmart) inpDdSmart.addEventListener("keydown", function(ev){
+    if(ev.key === "Enter"){ ev.preventDefault(); applyDdSmartPaste(); }
+  });
+
   document.getElementById("btnRunDd").addEventListener("click", runAutoDd);
   document.getElementById("btnDdDemo").addEventListener("click", function(){
     document.getElementById("ddCompany").value = "Siemens Energy";
@@ -7890,6 +8417,7 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
           result: rec.summary
         });
         saveLeadsLocal();
+        if(typeof window.setActiveClientContext === "function") window.setActiveClientContext(savedLead);
       }
       if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
       if(typeof window.refreshQuoteDdGate === "function") window.refreshQuoteDdGate();
@@ -7911,6 +8439,19 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
     document.getElementById("ddAutoResult").textContent = "已载入新客户信息（已重置旧核查项与结论），请点击「开始自动体检」并逐项核查。";
     var sb = document.getElementById("ddStaleNote"); if(sb) sb.hidden = true;
     renderPortals();
+    if(company && String(company).trim() && typeof window.setActiveClientContext === "function"){
+      var prevCtx = window._activeClientCtx;
+      var sameComp = prevCtx && prevCtx.company && prevCtx.company.toLowerCase() === String(company).trim().toLowerCase();
+      window.setActiveClientContext({
+        id: sameComp ? (prevCtx.id || "") : "",
+        company: String(company).trim(),
+        country: ddSel.value || country || "Vietnam",
+        contact: sameComp ? (prevCtx.contact || "") : "",
+        email: email || (sameComp ? prevCtx.email : "") || "",
+        website: domain || (sameComp ? prevCtx.website : "") || "",
+        product: sameComp ? (prevCtx.product || "") : ""
+      });
+    }
     showToast("已载入客户背调：" + (company || CN[country] || country || "客户核验"));
   };
 
@@ -8882,7 +9423,7 @@ window.addCustomerToCrm = function(p){
 
   var explicitNext = (p.nextDate !== undefined && p.nextDate !== null && String(p.nextDate).trim() !== "") ? String(p.nextDate).trim() : "";
   var autoNext = explicitNext || ((window.FG_CORE && typeof window.FG_CORE.computeDefaultNextFollowDate === "function")
-    ? window.FG_CORE.computeDefaultNextFollowDate(today, 3)
+    ? window.FG_CORE.computeDefaultNextFollowDate(today, 3, cEn)
     : localDateOffsetStr(3));
 
   var lead = window.FG_CORE.normalizeLeadForStore({
@@ -8921,7 +9462,7 @@ window.addCustomerToCrm = function(p){
 window.advanceLeadCadence = function(leadId, sentStepKey){
   var l = findLeadById(leadId);
   if(!l || !window.FG_CORE || typeof window.FG_CORE.nextCadenceSchedule !== "function") return null;
-  var sched = window.FG_CORE.nextCadenceSchedule(sentStepKey, localDateStr());
+  var sched = window.FG_CORE.nextCadenceSchedule(sentStepKey, localDateStr(), l.country);
   l.nextDate = sched.nextDate;
   l.cadenceStep = sched.nextStep;
   l.cadenceLabel = sched.nextLabel;
@@ -8934,7 +9475,7 @@ window.advanceLeadCadence = function(leadId, sentStepKey){
   });
   saveSingleLead(l);
   renderTools(); render();
-  showToast("已记录「" + sched.sentLabel + "」，下次提醒已排至 " + sched.nextDate + "（" + sched.nextLabel + "）");
+  showToast("已记录「" + sched.sentLabel + "」，下次提醒已排至 " + sched.nextDate + "（" + sched.nextLabel + " · 已避开当地公休）");
   return sched;
 };
 
@@ -8974,9 +9515,17 @@ window.isDdRecordStale = isDdRecordStale;
 function renderClientDetailPanel(){
   var panel = document.getElementById("crmDetailPanel");
   if(!panel) return;
+  var splitWrap = document.getElementById("crmSplitWrap");
   var l = selectedClientId ? findLeadById(selectedClientId) : null;
-  if(!l){ panel.hidden = true; panel.innerHTML = ""; return; }
+  if(!l){
+    panel.hidden = true;
+    panel.innerHTML = "";
+    if(splitWrap) splitWrap.classList.remove("has-detail");
+    return;
+  }
   panel.hidden = false;
+  if(splitWrap) splitWrap.classList.add("has-detail");
+  if(typeof window.setActiveClientContext === "function") window.setActiveClientContext(l);
   var due = followDueInfo(l.nextDate);
   var dueHtml = due.label ? (' <span class="'+due.cls+'">'+esc(due.label)+'</span>') : '';
   var typeTag = (l.leadType === "渠道代理") ? '<span class="action-tag" style="margin-left:0">渠道代理</span>' : '<span class="meta-pill" style="padding:1px 8px">海外客户</span>';
@@ -9037,11 +9586,13 @@ function renderClientDetailPanel(){
       + ctRowsHtml
       + '</div>';
   } else if(selectedClientTab === "follow"){
-    var defNext3 = localDateOffsetStr(3);
+    var defNext3 = (window.FG_CORE && typeof window.FG_CORE.computeDefaultNextFollowDate === "function")
+      ? window.FG_CORE.computeDefaultNextFollowDate(localDateStr(), 3, l.country)
+      : localDateOffsetStr(3);
     var curCadBadge = l.cadenceLabel ? (' <span class="fta-tag" style="margin-left:6px">'+esc(l.cadenceLabel)+'</span>') : '';
     var lossOpts = ["", "价格高于目标价", "交期无法满足", "缺目的国强制认证", "付款条件分歧(赊账/LC)", "客户项目延期或取消", "被当地现货/同行截单", "多轮跟进未回复"];
     var cadBarHtml = '<div class="detail-box" style="margin-top:10px;border-left:3px solid var(--orange)">'
-      + '<div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">⚡ 21 天 5 步开发信打卡（一键记时间线并自动排好下一封提醒日期，周日顺延周一）'+curCadBadge+'</div>'
+      + '<div style="font-size:12.5px;font-weight:800;color:var(--brown);margin-bottom:6px">⚡ 21 天 5 步开发信打卡（一键记时间线并自动避开目的国周末与停工大假）'+curCadBadge+'</div>'
       + '<div class="pills" style="margin:0">'
       + '<button type="button" class="pill" data-cd-cadence="first" style="min-height:28px;padding:3px 9px;font-size:12px">✓ 已发第1封 → +3天排Day4</button>'
       + '<button type="button" class="pill" data-cd-cadence="followup" style="min-height:28px;padding:3px 9px;font-size:12px">✓ 已发第2封 → +4天排Day8</button>'
@@ -9170,6 +9721,24 @@ function renderClientDetailPanel(){
       + '</div>' + qHtml;
   }
 
+  var qIds = window._lastCrmFilteredIds || [];
+  var qPos = qIds.indexOf(l.id);
+  var navQueueHtml = qIds.length > 1
+    ? ('<button type="button" class="pill" data-cd-nav="prev" style="min-height:30px;padding:3px 9px;font-size:12px" title="切换到列表上一家客户">← 上一家</button>'
+      + '<span class="src-ok" style="align-self:center">' + (qPos >= 0 ? (qPos + 1) : 1) + '/' + qIds.length + '</span>'
+      + '<button type="button" class="pill" data-cd-nav="next" style="min-height:30px;padding:3px 9px;font-size:12px" title="切换到列表下一家客户">下一家 →</button>')
+    : '';
+  var tmStripHtml = "";
+  if(window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function"){
+    var tmC = window.FG_CORE.evaluateCountryContactTiming(l.country);
+    var spC = tmC.spec || {};
+    var lvC = tmC.level === "red" ? "lv-red" : (tmC.level === "yellow" ? "lv-yellow" : "lv-green");
+    tmStripHtml = '<div class="v2-guard-bar ' + lvC + '" style="margin:6px 0 8px;padding:6px 10px">'
+      + '<span>' + tmC.dot + ' <b>' + esc(tmC.statusLabel) + '</b>（' + esc(tmC.actionAdvice) + '）</span>'
+      + '<span>｜ 机电：<b>' + esc(spC.voltage || "") + '</b> · ' + esc(spC.pipeStd || "") + ' · ' + esc(spC.cert || "") + '</span>'
+      + '</div>';
+  }
+
   panel.innerHTML = '<div class="crm-detail-head">'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     + '<b style="font-size:16px;color:var(--brown)">'+esc(l.company)+'</b>'
@@ -9179,10 +9748,12 @@ function renderClientDetailPanel(){
     + ddStaleTag
     + '<span class="src-ok">更新：'+esc(l.updated||"—")+'</span>'
     + '</div>'
-    + '<div style="display:flex;gap:6px">'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + navQueueHtml
     + '<button type="button" class="pill danger" data-cd-action="delete" style="min-height:30px;padding:3px 10px;font-size:12px">删除档案</button>'
     + '<button type="button" class="pill" data-cd-action="close" style="min-height:30px;padding:3px 10px;font-size:12px">收起详情</button>'
     + '</div></div>'
+    + tmStripHtml
     + '<div class="crm-detail-tabs">'+tabBtns+'</div>'
     + bodyHtml;
 }
@@ -9270,12 +9841,14 @@ function renderTools(){
   }
 
   if(!crmLeads.length){
+    window._lastCrmFilteredIds = [];
     fb2.innerHTML = '<p style="color:var(--muted)">还没有客户跟进档案。点上方「＋ 新增客户」，或在商机情报、地图找客户、导入洗名单、找当地销售代理中一键存入。</p>';
     selectedClientId = null;
     renderClientDetailPanel();
     return;
   }
   if(!list.length){
+    window._lastCrmFilteredIds = [];
     fb2.innerHTML = '<p style="color:var(--muted)">当前筛选条件下无匹配客户，请清空搜索词或切回「全部」。</p>';
     renderClientDetailPanel();
     return;
@@ -9288,6 +9861,7 @@ function renderTools(){
     if(na !== nb) return na.localeCompare(nb);
     return (b.updated || "").localeCompare(a.updated || "");
   });
+  window._lastCrmFilteredIds = list.map(function(x){ return x.id; });
 
   var lim = window._crmShowLimit || 200;
   var displayList = list.length > lim ? list.slice(0, lim) : list;
@@ -9327,6 +9901,7 @@ function findLeadById(id){
   return null;
 }
 
+var _crmSmartExtra = null;
 var btnToggleAdd = document.getElementById("btnToggleAddClient");
 if(btnToggleAdd){
   btnToggleAdd.addEventListener("click", function(){
@@ -9336,6 +9911,42 @@ if(btnToggleAdd){
     if(!box.hidden){ var inp = document.getElementById("crmNewComp"); if(inp) inp.focus(); }
   });
 }
+var btnCrmCancel = document.getElementById("btnCrmAddCancel");
+if(btnCrmCancel){
+  btnCrmCancel.addEventListener("click", function(){
+    var box = document.getElementById("crmAddBox");
+    if(box) box.hidden = true;
+    _crmSmartExtra = null;
+  });
+}
+var btnCrmSmart = document.getElementById("btnCrmSmartPaste");
+var inpCrmSmart = document.getElementById("crmSmartPasteInp");
+function applyCrmSmartPaste(){
+  if(!inpCrmSmart || !window.FG_CORE || typeof window.FG_CORE.parseSmartBusinessCard !== "function") return;
+  var raw = (inpCrmSmart.value || "").trim();
+  if(!raw){ showToast("请先粘贴客户签名、名片或 WhatsApp 文本"); inpCrmSmart.focus(); return; }
+  var p = window.FG_CORE.parseSmartBusinessCard(raw);
+  if(!p.company && !p.email && !p.phone){
+    showToast("未识别出有效的公司、邮箱或电话，请补充粘贴完整信息");
+    return;
+  }
+  if(p.company) document.getElementById("crmNewComp").value = p.company;
+  if(p.country && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(document.getElementById("crmNewCountry"), p.country, false);
+  document.getElementById("crmNewContact").value = p.contact || p.email || p.phone || "";
+  _crmSmartExtra = {
+    company: p.company || "",
+    contact: p.contact || "",
+    email: p.email || "",
+    phone: p.phone || "",
+    website: p.website || ""
+  };
+  inpCrmSmart.value = "";
+  showToast("⚡ 已智能拆解名片：「" + (p.company || p.email || p.phone) + "」，确认无误点击「保存建档」即可");
+}
+if(btnCrmSmart) btnCrmSmart.addEventListener("click", applyCrmSmartPaste);
+if(inpCrmSmart) inpCrmSmart.addEventListener("keydown", function(ev){
+  if(ev.key === "Enter"){ ev.preventDefault(); applyCrmSmartPaste(); }
+});
 
 document.getElementById("btnCrmAdd").addEventListener("click", function(){
   var compEl = document.getElementById("crmNewComp");
@@ -9346,19 +9957,27 @@ document.getElementById("btnCrmAdd").addEventListener("click", function(){
   var comp = (compEl.value || "").trim();
   if(!comp){ showToast("请先填写公司名或代理姓名"); compEl.focus(); return; }
   var rawCt = (ctEl.value || "").trim();
-  var em = "", ph = "", cont = "";
-  if(rawCt.indexOf("@") > 0) em = rawCt;
-  else if(rawCt.replace(/[^\d]/g,"").length >= 7) ph = rawCt;
-  else cont = rawCt;
+  var em = (_crmSmartExtra && _crmSmartExtra.email) || "";
+  var ph = (_crmSmartExtra && _crmSmartExtra.phone) || "";
+  var web = (_crmSmartExtra && _crmSmartExtra.website) || "";
+  var cont = (_crmSmartExtra && _crmSmartExtra.contact) || "";
+  if(rawCt){
+    if(rawCt.indexOf("@") > 0) em = rawCt;
+    else if(rawCt.replace(/[^\d]/g,"").length >= 7) ph = rawCt;
+    else cont = rawCt;
+  }
   var created = window.addCustomerToCrm({
     company: comp,
     country: cEl.value || "Vietnam",
     leadType: tpEl ? tpEl.value : "客户",
-    contact: cont, email: em, phone: ph,
+    contact: cont, email: em, phone: ph, website: web,
     product: (prEl.value || "").trim(),
     source: "手动建档"
   });
+  _crmSmartExtra = null;
   compEl.value = ""; ctEl.value = ""; prEl.value = "";
+  var addBox = document.getElementById("crmAddBox");
+  if(addBox) addBox.hidden = true;
   if(created){ selectedClientId = created.id; selectedClientTab = "info"; renderTools(); }
 });
 
@@ -9399,7 +10018,7 @@ document.getElementById("followBody").addEventListener("click", function(e){
     var l1 = findLeadById(emB.getAttribute("data-crm-em"));
     if(l1 && typeof window.loadIntoEmailGen === "function"){
       var nextStepOpt = (l1.cadenceStep && l1.cadenceStep !== "done") ? l1.cadenceStep : "first";
-      window.loadIntoEmailGen(l1.country, guessLang(l1.country), l1.product || "", l1.company, l1.email || "", { emType: nextStepOpt });
+      window.loadIntoEmailGen(l1.country, guessLang(l1.country), l1.product || "", l1.company, l1.email || "", { emType: nextStepOpt, clientId: l1.id, contact: l1.contact || "" });
     }
     return;
   }
@@ -9407,6 +10026,7 @@ document.getElementById("followBody").addEventListener("click", function(e){
   if(ddB){
     var l2 = findLeadById(ddB.getAttribute("data-crm-dd"));
     if(l2 && typeof window.loadIntoDd === "function"){
+      if(typeof window.setActiveClientContext === "function") window.setActiveClientContext(l2);
       window.loadIntoDd(l2.country, l2.company, l2.website || "", l2.email || "");
     }
     return;
@@ -9422,6 +10042,18 @@ document.getElementById("followBody").addEventListener("click", function(e){
 var cdPanel = document.getElementById("crmDetailPanel");
 if(cdPanel){
   cdPanel.addEventListener("click", function(e){
+    var navBtn = e.target.closest("[data-cd-nav]");
+    if(navBtn && selectedClientId){
+      var qIds2 = window._lastCrmFilteredIds || [];
+      var curPos = qIds2.indexOf(selectedClientId);
+      if(curPos >= 0 && qIds2.length > 1){
+        var dir = navBtn.getAttribute("data-cd-nav") === "prev" ? -1 : 1;
+        var nxtIdx = (curPos + dir + qIds2.length) % qIds2.length;
+        selectedClientId = qIds2[nxtIdx];
+        renderTools();
+      }
+      return;
+    }
     var tb = e.target.closest("[data-cd-tab]");
     if(tb){ selectedClientTab = tb.getAttribute("data-cd-tab"); renderClientDetailPanel(); return; }
     var cadBtn = e.target.closest("[data-cd-cadence]");
@@ -9434,9 +10066,7 @@ if(cdPanel){
       var lCtE = findLeadById(selectedClientId);
       var ctItemE = lCtE && Array.isArray(lCtE.contacts) ? lCtE.contacts[+ctEmBtn.getAttribute("data-cd-ct-em")] : null;
       if(lCtE && ctItemE && typeof window.loadIntoEmailGen === "function"){
-        window.loadIntoEmailGen(lCtE.country, guessLang(lCtE.country), lCtE.product || "", lCtE.company, ctItemE.email || "");
-        var emContactEl = document.getElementById("emContact");
-        if(emContactEl && ctItemE.name){ emContactEl.value = ctItemE.name; emContactEl.dispatchEvent(new Event("input", {bubbles:true})); }
+        window.loadIntoEmailGen(lCtE.country, guessLang(lCtE.country), lCtE.product || "", lCtE.company, ctItemE.email || "", { clientId: lCtE.id, contact: ctItemE.name || "" });
       }
       return;
     }
@@ -10968,8 +11598,15 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
 
       var phInfo = r._phInfo || analyzePhone(r.phone, r.country);
       var digits = phInfo.digits;
+      var tmWa = (digits.length >= 7 && r.country && window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function")
+        ? window.FG_CORE.evaluateCountryContactTiming(r.country)
+        : null;
+      var waDot = tmWa ? (tmWa.dot + " ") : "💬 ";
+      var waTimeTip = tmWa ? ("｜" + tmWa.statusLabel + " · " + tmWa.actionAdvice) : "";
+      var waRedWarn = (tmWa && tmWa.level === "red") ? '<div style="font-size:11px;color:var(--danger);font-weight:700;margin-top:2px">🌙 当地休假/深夜，建议暂缓秒发防拉黑</div>' : '';
       var waHtml = digits.length >= 7
-        ? ('<a class="pill good-btn" style="min-height:26px;padding:2px 8px;font-size:11.5px" target="_blank" rel="noopener noreferrer" title="WhatsApp 链接：'+esc(phInfo.formatted)+(phInfo.autoAddedCc?'（已按目的国补国际区号，请确认后发送）':'')+'" href="https://wa.me/'+digits+'?text='+encodeURIComponent(buildWaMsg(r))+'">💬 '+esc(phInfo.formatted)+'</a>'
+        ? ('<a class="pill good-btn" style="min-height:26px;padding:2px 8px;font-size:11.5px" target="_blank" rel="noopener noreferrer" title="WhatsApp 链接：'+esc(phInfo.formatted)+(phInfo.autoAddedCc?'（已按目的国补国际区号，请确认后发送）':'')+esc(waTimeTip)+'" href="https://wa.me/'+digits+'?text='+encodeURIComponent(buildWaMsg(r))+'">'+waDot+esc(phInfo.formatted)+'</a>'
+          + waRedWarn
           + (phInfo.autoAddedCc ? ('<div class="src-ok" style="margin-top:2px">'+esc(phInfo.raw)+' → '+esc(phInfo.formatted)+'</div>') : '')
           + (phInfo.needsConfirm ? ('<div style="font-size:11px;color:var(--high);font-weight:700;margin-top:2px">⚠️ 请核对区号</div>') : ''))
         : '<span class="src-ok">—</span>';

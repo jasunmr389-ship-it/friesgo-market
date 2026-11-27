@@ -1319,13 +1319,22 @@
     return scored.slice(0, 3);
   }
 
-  function computeDefaultNextFollowDate(baseDateStr, offsetDays) {
+  function computeDefaultNextFollowDate(baseDateStr, offsetDays, countryEn) {
     var days = (typeof offsetDays === "number" && Number.isFinite(offsetDays)) ? Math.max(1, Math.round(offsetDays)) : 3;
     var baseMs = baseDateStr && /^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)
       ? Date.parse(baseDateStr + "T00:00:00Z")
       : Date.now();
     var targetMs = baseMs + days * 86400000;
     var dt = new Date(targetMs);
+    if (countryEn && String(countryEn).trim()) {
+      for (var guard = 0; guard < 16; guard++) {
+        var isoCheck = dt.toISOString().slice(0, 10);
+        if (!isCountryNonWorkingDate(countryEn, isoCheck, dt.getUTCDay())) break;
+        targetMs += 86400000;
+        dt = new Date(targetMs);
+      }
+      return dt.toISOString().slice(0, 10);
+    }
     if (dt.getUTCDay() === 0) {
       dt = new Date(targetMs + 86400000);
     }
@@ -1343,7 +1352,7 @@
     linkedin_dm: { stepNum: 2, nextStep: "followup", offsetDays: 4, sentLabel: "已发LinkedIn破冰私信", nextLabel: "待发邮件技术规格与单证跟进" }
   };
 
-  function nextCadenceSchedule(sentStepKey, baseDateStr) {
+  function nextCadenceSchedule(sentStepKey, baseDateStr, countryEn) {
     var cfg = CADENCE_FLOW[sentStepKey] || CADENCE_FLOW.first;
     return {
       sentStep: sentStepKey in CADENCE_FLOW ? sentStepKey : "first",
@@ -1351,7 +1360,7 @@
       nextStep: cfg.nextStep,
       nextLabel: cfg.nextLabel,
       offsetDays: cfg.offsetDays,
-      nextDate: computeDefaultNextFollowDate(baseDateStr, cfg.offsetDays)
+      nextDate: computeDefaultNextFollowDate(baseDateStr, cfg.offsetDays, countryEn)
     };
   }
 
@@ -1689,6 +1698,558 @@
     };
   }
 
+  /* ==================== 9. V2.0 Trade Timing, 10 High-Impact Holidays/Ramadan, Industrial Specs, Spam Check & Smart Paste ==================== */
+
+  var COUNTRY_TRADE_PROFILES = {
+    "Vietnam": { tz: "Asia/Ho_Chi_Minh", hubCn: "胡志明/河内", workWeek: "mon_fri", lunch: [11.5, 13.5], groups: ["tet_cny"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI / DIN", cert: "CR认证 · Form E/RCEP" },
+    "Indonesia": { tz: "Asia/Jakarta", hubCn: "雅加达(西印尼)", workWeek: "mon_fri_jummah", lunch: [12, 13], groups: ["islamic"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI", cert: "SNI 强制认证 · Form E" },
+    "Thailand": { tz: "Asia/Bangkok", hubCn: "曼谷/罗勇", workWeek: "mon_fri", lunch: [12, 13], groups: ["songkran"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "JIS / ANSI", cert: "TISI 强制认证 · Form E" },
+    "Malaysia": { tz: "Asia/Kuala_Lumpur", hubCn: "吉隆坡/巴生", workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic", "tet_cny"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI / JIS", cert: "SIRIM · Form E" },
+    "Philippines": { tz: "Asia/Manila", hubCn: "马尼拉", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "BPS (ICC) · Form E" },
+    "Singapore": { tz: "Asia/Singapore", hubCn: "裕廊工业区", workWeek: "mon_fri", lunch: [12, 13], groups: ["tet_cny"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / EN / ANSI", cert: "CPS / SS 标准" },
+    "Cambodia": { tz: "Asia/Phnom_Penh", hubCn: "金边/西港", workWeek: "mon_fri", lunch: [12, 13.5], groups: ["songkran"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "DIN / JIS / 国标", cert: "ISC · Form E" },
+    "India": { tz: "Asia/Kolkata", hubCn: "孟买/浦那(UTC+5:30)", workWeek: "mon_fri", lunch: [13, 14], groups: ["diwali"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI / IS", cert: "BIS 强制认证(涉钢/机电)" },
+    "Pakistan": { tz: "Asia/Karachi", hubCn: "卡拉奇/拉合尔", workWeek: "mon_fri_jummah", lunch: [13, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI", cert: "PSQCA · 中巴FTA" },
+    "Bangladesh": { tz: "Asia/Dhaka", hubCn: "达卡/吉大港", workWeek: "sun_thu", lunch: [13, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI", cert: "BSTI · 信用证L/C审单严" },
+    "Saudi Arabia": { tz: "Asia/Riyadh", hubCn: "利雅得/达曼", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "380V/400V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / API 美标", cert: "SABER (SALEEM) 强制清关" },
+    "United Arab Emirates": { tz: "Asia/Dubai", hubCn: "迪拜/杰贝阿里", workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "BS / EN / ANSI", cert: "ECAS / MOIAT" },
+    "Qatar": { tz: "Asia/Qatar", hubCn: "多哈", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI / API", cert: "QS 标准 · 原产地证使馆认证" },
+    "Kuwait": { tz: "Asia/Kuwait", hubCn: "科威特城", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "ANSI / API / BS", cert: "KUCAS (TER/TIR)" },
+    "Oman": { tz: "Asia/Muscat", hubCn: "马斯喀特/苏哈尔", workWeek: "sun_thu", lunch: [12.5, 14], groups: ["islamic"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI", cert: "DGSM / G-Mark" },
+    "Iraq": { tz: "Asia/Baghdad", hubCn: "巴格达/巴士拉", workWeek: "sun_thu", lunch: [12.5, 14], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "ANSI / API / DIN", cert: "COC 装船前检验(BV/SGS)" },
+    "Egypt": { tz: "Africa/Cairo", hubCn: "开罗/十月城", workWeek: "sun_thu", lunch: [13, 14], groups: ["islamic"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "DIN / EN / ANSI", cert: "ACID 预登记 + GOEIC/COC" },
+    "Algeria": { tz: "Africa/Algiers", hubCn: "阿尔及尔", workWeek: "sun_thu", lunch: [12, 13.5], groups: ["islamic"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "EN / DIN 法标欧标", cert: "COC 符合性证书 + 银行交单" },
+    "Morocco": { tz: "Africa/Casablanca", hubCn: "卡萨布兰卡/丹吉尔", workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "EN / NF 欧标法标", cert: "CMim 强制标志 + VOC" },
+    "Israel": { tz: "Asia/Jerusalem", hubCn: "海法/特拉维夫", workWeek: "sun_thu", lunch: [12.5, 13.5], groups: [], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "EN / ANSI", cert: "SII 标准认证" },
+    "Turkey (Türkiye)": { tz: "Europe/Istanbul", hubCn: "伊斯坦布尔", workWeek: "mon_fri_jummah", lunch: [12, 13.5], groups: ["islamic"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "DIN / EN 欧标", cert: "CE + TAREKS 进口核查" },
+    "Mexico": { tz: "America/Monterrey", hubCn: "蒙特雷/墨西哥城", workWeek: "mon_fri", lunch: [13.5, 15], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "NOM 强制认证 + 西语铭牌" },
+    "Brazil": { tz: "America/Sao_Paulo", hubCn: "圣保罗", workWeek: "mon_fri", lunch: [12, 13.5], groups: ["xmas_ny", "br_carnival"], voltage: "220V/380V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / ABNT", cert: "INMETRO + CNPJ 税号必填提单" },
+    "Chile": { tz: "America/Santiago", hubCn: "圣地亚哥/安托法加斯塔", workWeek: "mon_fri", lunch: [13, 14.5], groups: ["xmas_ny", "semana_santa"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "ANSI / ASME 美标", cert: "SEC 认证 · 中智FTA(Form F)" },
+    "Peru": { tz: "America/Lima", hubCn: "利马/卡亚俄", workWeek: "mon_fri", lunch: [13, 14.5], groups: ["xmas_ny", "semana_santa"], voltage: "220V/380V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "中秘FTA原产地证降税" },
+    "Colombia": { tz: "America/Bogota", hubCn: "波哥大/麦德林", workWeek: "mon_fri", lunch: [12.5, 14], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "RETIE (电气电缆强制)" },
+    "Argentina": { tz: "America/Argentina/Buenos_Aires", hubCn: "布宜诺斯艾利斯", workWeek: "mon_fri", lunch: [13, 14.5], groups: ["xmas_ny", "semana_santa"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "ANSI / IRAM", cert: "IRAM 认证 · 严控外汇付款期" },
+    "United States": { tz: "America/Chicago", hubCn: "休斯顿(美中工业带)", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny"], voltage: "460V/480V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / API / NPT", cert: "UL / ASME · 注意301/232关税" },
+    "Canada": { tz: "America/Toronto", hubCn: "多伦多/卡尔加里", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny"], voltage: "575V/600V(注意高压!) · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME / CSA", cert: "CSA / cUL + CRN(压力容器/阀门)" },
+    "Germany": { tz: "Europe/Berlin", hubCn: "汉堡/鲁尔区", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny", "eu_aug"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "DIN / EN 欧标", cert: "CE (PED承压/MD机械) + CBAM(涉钢)" },
+    "France": { tz: "Europe/Paris", hubCn: "里昂/巴黎", workWeek: "mon_fri", lunch: [12, 14], groups: ["xmas_ny", "eu_aug"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "EN / NF 欧标", cert: "CE + CBAM(涉钢碳数据)" },
+    "Italy": { tz: "Europe/Rome", hubCn: "米兰/布雷西亚", workWeek: "mon_fri", lunch: [12.5, 14.5], groups: ["xmas_ny", "eu_aug"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "UNI / EN 欧标", cert: "CE + CBAM(涉钢)" },
+    "Spain": { tz: "Europe/Madrid", hubCn: "巴塞罗那/毕尔巴鄂", workWeek: "mon_fri", lunch: [13.5, 15.5], groups: ["xmas_ny", "eu_aug", "semana_santa"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "EN / DIN 欧标", cert: "CE + CBAM(涉钢)" },
+    "Poland": { tz: "Europe/Warsaw", hubCn: "华沙/卡托维兹", workWeek: "mon_fri", lunch: [12.5, 13.5], groups: ["xmas_ny"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "EN / DIN 欧标", cert: "CE + CBAM(涉钢)" },
+    "United Kingdom": { tz: "Europe/London", hubCn: "伯明翰/曼彻斯特", workWeek: "mon_fri", lunch: [12.5, 13.5], groups: ["xmas_ny"], voltage: "400V/415V · 50Hz", is60Hz: false, pipeStd: "BS / EN / ANSI", cert: "UKCA / CE" },
+    "Russia": { tz: "Europe/Moscow", hubCn: "莫斯科(UTC+3)", workWeek: "mon_fri", lunch: [13, 14], groups: ["ru_ny_may"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "GOST 俄标 / DIN", cert: "EAC 海关联盟认证 · 核查收汇通道与两用物项" },
+    "Kazakhstan": { tz: "Asia/Almaty", hubCn: "阿拉木图/阿斯塔纳", workWeek: "mon_fri", lunch: [13, 14], groups: ["ru_ny_may"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "GOST / DIN", cert: "EAC 海关联盟认证" },
+    "Uzbekistan": { tz: "Asia/Tashkent", hubCn: "塔什干", workWeek: "mon_fri", lunch: [13, 14], groups: ["ru_ny_may", "islamic"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "GOST", cert: "GOST-UZ 符合性认证" },
+    "South Africa": { tz: "Africa/Johannesburg", hubCn: "约翰内斯堡", workWeek: "mon_fri", lunch: [12.5, 13.5], groups: ["xmas_ny", "sa_builders"], voltage: "400V/525V(矿山常见525V!) · 50Hz", is60Hz: false, pipeStd: "BS / SANS / EN", cert: "SABS / NRCS LOA" },
+    "Nigeria": { tz: "Africa/Lagos", hubCn: "拉各斯", workWeek: "mon_fri", lunch: [13, 14], groups: ["xmas_ny", "islamic"], voltage: "400V/415V · 50Hz", is60Hz: false, pipeStd: "BS / ANSI", cert: "SONCAP (PC+SC) + Form M" },
+    "Kenya": { tz: "Africa/Nairobi", hubCn: "内罗毕/蒙巴萨", workWeek: "mon_fri", lunch: [13, 14], groups: ["xmas_ny"], voltage: "415V · 50Hz", is60Hz: false, pipeStd: "BS / EN", cert: "PVoC (COC 装船前验货)" },
+    "Australia": { tz: "Australia/Perth", hubCn: "珀斯(矿区同北京时) / 悉尼+2~3h", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny"], voltage: "400V/415V · 50Hz", is60Hz: false, pipeStd: "AS (澳标Table D/E) / ANSI", cert: "RCM / WaterMark · 中澳FTA(ChAFTA)" },
+    "South Korea": { tz: "Asia/Seoul", hubCn: "釜山/仁川", workWeek: "mon_fri", lunch: [12, 13], groups: ["tet_cny"], voltage: "380V/440V · 60Hz", is60Hz: true, pipeStd: "KS / JIS / ANSI", cert: "KC 认证 · 中韩FTA" },
+    "Japan": { tz: "Asia/Tokyo", hubCn: "大阪/东京", workWeek: "mon_fri", lunch: [12, 13], groups: [], voltage: "200V · 东日本50Hz / 西日本60Hz!", is60Hz: true, pipeStd: "JIS 日标 (10K/20K)", cert: "JIS / PSE · RCEP原产地证" }
+  };
+
+  function getCountryTradeProfile(countryEn) {
+    var raw = String(countryEn || "Vietnam").trim();
+    if (COUNTRY_TRADE_PROFILES[raw]) return COUNTRY_TRADE_PROFILES[raw];
+    var clean = raw.replace(/\s*\([^)]*\)/g, "").trim();
+    if (COUNTRY_TRADE_PROFILES[clean]) return COUNTRY_TRADE_PROFILES[clean];
+    // Regional intelligent fallbacks across remaining 146 countries
+    if (/Bahrain|Jordan|Yemen|Libya|Syria|Sudan/i.test(clean)) {
+      return { tz: "Asia/Riyadh", hubCn: clean, workWeek: "sun_thu", lunch: [12.5, 14], groups: ["islamic"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "BS / EN / ANSI", cert: "COC 装船前检验 + 原产地证" };
+    }
+    if (/Tunisia|Senegal|Mauritania|Mali|Niger|Brunei/i.test(clean)) {
+      return { tz: "Africa/Casablanca", hubCn: clean, workWeek: "mon_fri_jummah", lunch: [12.5, 14], groups: ["islamic"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "EN / DIN", cert: "COC / BV 检验" };
+    }
+    if (/Panama|Costa Rica|Guatemala|Honduras|El Salvador|Nicaragua|Dominican|Ecuador|Venezuela/i.test(clean)) {
+      return { tz: "America/Panama", hubCn: clean, workWeek: "mon_fri", lunch: [12.5, 14], groups: ["xmas_ny", "semana_santa"], voltage: "220V/440V · 60Hz", is60Hz: true, pipeStd: "ANSI / ASME 美标", cert: "核实当地西语铭牌与电压60Hz" };
+    }
+    if (/Uruguay|Paraguay|Bolivia/i.test(clean)) {
+      return { tz: "America/Sao_Paulo", hubCn: clean, workWeek: "mon_fri", lunch: [12.5, 14], groups: ["xmas_ny", "semana_santa"], voltage: "380V · 50Hz", is60Hz: false, pipeStd: "ANSI / DIN", cert: "原产地证与电压核实" };
+    }
+    if (/Netherlands|Belgium|Austria|Switzerland|Sweden|Norway|Denmark|Finland|Czech|Hungary|Romania|Portugal|Greece|Ireland|Serbia|Bulgaria|Croatia|Slovakia|Slovenia|Lithuania|Latvia|Estonia/i.test(clean)) {
+      return { tz: "Europe/Berlin", hubCn: clean, workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny", "eu_aug"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "EN / DIN 欧标", cert: "CE + CBAM(涉钢/铝报告)" };
+    }
+    if (/Belarus|Azerbaijan|Armenia|Georgia|Kyrgyz|Tajikistan|Turkmenistan|Ukraine|Moldova/i.test(clean)) {
+      return { tz: "Europe/Moscow", hubCn: clean, workWeek: "mon_fri", lunch: [13, 14], groups: ["ru_ny_may"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "GOST / EN", cert: "EAC / GOST 符合性认证" };
+    }
+    if (/Tanzania|Uganda|Ghana|Angola|Ethiopia|Mozambique|Zambia|Zimbabwe|Congo|Cameroon|Cote|Ivory/i.test(clean)) {
+      return { tz: "Africa/Nairobi", hubCn: clean, workWeek: "mon_fri", lunch: [12.5, 13.5], groups: ["xmas_ny"], voltage: "380V/400V · 50Hz", is60Hz: false, pipeStd: "BS / EN", cert: "PVoC / COC 装船前检验" };
+    }
+    if (/New Zealand/i.test(clean)) {
+      return { tz: "Pacific/Auckland", hubCn: "奥克兰", workWeek: "mon_fri", lunch: [12, 13], groups: ["xmas_ny"], voltage: "400V · 50Hz", is60Hz: false, pipeStd: "AS/NZS / ANSI", cert: "RCM · 中新FTA" };
+    }
+    return { tz: "Asia/Ho_Chi_Minh", hubCn: clean || "目标市场", workWeek: "mon_fri", lunch: [12, 13], groups: [], voltage: "请核实工业电压(50/60Hz)", is60Hz: false, pipeStd: "请确认法兰/螺纹标准(ANSI/DIN/JIS)", cert: "核实目的港清关单证" };
+  }
+
+  /* 10 High-Impact Foreign Trade Windows (2026–2030 exact floating & fixed ranges; trivial 1-day holidays intentionally omitted) */
+  var TRADE_WINDOWS = [
+    // 1. Ramadan (shortened work hours 10:00-15:00; pre-45~60d stocking golden window)
+    { group: "islamic", mode: "ramadan", nameCn: "伊斯兰斋月 (Ramadan)", regionCn: "中东/印尼/马来/北非/巴基斯坦", ranges: [["2026-02-18","2026-03-19"],["2027-02-08","2027-03-09"],["2028-01-28","2028-02-26"],["2029-01-16","2029-02-14"],["2030-01-06","2030-02-04"],["2030-12-26","2031-01-24"]], tipCn: "白天工时缩短(约10:00–15:00)，决策与清关放缓；开斋晚间可轻度沟通，斋月前45–60天务必催单锁舱位" },
+    // 2. Eid al-Fitr (strict 5-day shutdown)
+    { group: "islamic", mode: "shutdown", nameCn: "开斋节大假 (Eid al-Fitr)", regionCn: "中东/印尼/马来/北非/巴基斯坦", ranges: [["2026-03-19","2026-03-24"],["2027-03-09","2027-03-14"],["2028-02-26","2028-03-02"],["2029-02-14","2029-02-19"],["2030-02-04","2030-02-09"]], tipCn: "全行业停工休假，严禁硬推销，适合仅发一句 Eid Mubarak 节日祝福" },
+    // 3. Eid al-Adha (strict 5-day shutdown)
+    { group: "islamic", mode: "shutdown", nameCn: "宰牲节大假 (Eid al-Adha)", regionCn: "中东/北非/印尼/巴基斯坦", ranges: [["2026-05-26","2026-05-31"],["2027-05-16","2027-05-21"],["2028-05-04","2028-05-09"],["2029-04-23","2029-04-28"],["2030-04-13","2030-04-18"]], tipCn: "政府与企业连休停摆，暂停电话/WhatsApp催单，仅发节日问候" },
+    // 4. Christmas & New Year Western/LatAm Shutdown
+    { group: "xmas_ny", mode: "shutdown", nameCn: "圣诞至元旦跨年停工期", regionCn: "欧美/拉美/澳新/非洲", ranges: [["2025-12-24","2026-01-03"],["2026-12-24","2027-01-03"],["2027-12-24","2028-01-03"],["2028-12-24","2029-01-03"],["2029-12-24","2030-01-03"],["2030-12-24","2031-01-03"]], tipCn: "欧美拉美采购集中休假(Out of Office)，11月底–12月中旬是年前锁单最后窗口" },
+    // 5. South Africa Builders' Holiday
+    { group: "sa_builders", mode: "shutdown", nameCn: "南非矿业与建筑夏休月", regionCn: "南非", ranges: [["2025-12-15","2026-01-12"],["2026-12-15","2027-01-12"],["2027-12-15","2028-01-12"],["2028-12-15","2029-01-12"],["2029-12-15","2030-01-12"],["2030-12-15","2031-01-12"]], tipCn: "南非工程与矿山机电采购整月休假，务必在11月–12月初锁死备件订单" },
+    // 6. European August Factory Vacation
+    { group: "eu_aug", mode: "slowdown", nameCn: "欧洲 8 月工业夏休期", regionCn: "法/意/西/德等欧盟国家", ranges: [["2026-08-05","2026-08-24"],["2027-08-05","2027-08-24"],["2028-08-05","2028-08-24"],["2029-08-05","2029-08-24"],["2030-08-05","2030-08-24"]], tipCn: "南欧与西欧大量工厂轮休，回复极慢；6–7月提前锁单，9月首周集中唤醒" },
+    // 7. Semana Santa (LatAm & Spain Holy Week)
+    { group: "semana_santa", mode: "shutdown", nameCn: "圣周长假 (Semana Santa)", regionCn: "墨西哥/智利/秘鲁/哥伦比亚/西班牙", ranges: [["2026-04-02","2026-04-05"],["2027-03-25","2027-03-28"],["2028-04-13","2028-04-16"],["2029-03-29","2029-04-01"],["2030-04-18","2030-04-21"]], tipCn: "拉美最重要传统假期之一，周四至周日全停，提前一周确认付款与提单" },
+    // 8. Brazil Carnival
+    { group: "br_carnival", mode: "shutdown", nameCn: "巴西狂欢节停工周", regionCn: "巴西", ranges: [["2026-02-14","2026-02-18"],["2027-02-06","2027-02-10"],["2028-02-26","2028-03-01"],["2029-02-10","2029-02-14"],["2030-03-02","2030-03-06"]], tipCn: "巴西全国停摆近一周，清关与银行付汇顺延" },
+    // 9. Vietnam Tết & Lunar New Year + China Factory Cutoff
+    { group: "tet_cny", mode: "shutdown", nameCn: "越南春节 (Tết) / 农历新年", regionCn: "越南/马新华人采购/韩国", ranges: [["2026-02-15","2026-02-23"],["2027-02-04","2027-02-12"],["2028-01-24","2028-02-01"],["2029-02-11","2029-02-19"],["2030-02-01","2030-02-09"]], tipCn: "越南工厂与清关连休7–9天，叠加中国国内工厂停工，须提前40天锁排产" },
+    // 10a. Thailand Songkran
+    { group: "songkran", mode: "shutdown", nameCn: "泰国泼水节新年 (Songkran)", regionCn: "泰国/柬埔寨", ranges: [["2026-04-13","2026-04-16"],["2027-04-13","2027-04-16"],["2028-04-13","2028-04-16"],["2029-04-13","2029-04-16"],["2030-04-13","2030-04-16"]], tipCn: "泰国全年最大长假，提前确认到港免箱期(Free Demurrage)" },
+    // 10b. India Diwali
+    { group: "diwali", mode: "shutdown", nameCn: "印度排灯节大假 (Diwali)", regionCn: "印度", ranges: [["2026-11-07","2026-11-11"],["2027-10-28","2027-11-01"],["2028-10-16","2028-10-20"],["2029-11-04","2029-11-08"],["2030-10-25","2030-10-29"]], tipCn: "印度工业界最大节日，工厂停工发奖金，节前备货集中" },
+    // 10c. Russia & CIS New Year / May Holidays
+    { group: "ru_ny_may", mode: "shutdown", nameCn: "俄语区新年/五月连休", regionCn: "俄罗斯/哈萨克/乌兹别克等", ranges: [["2026-01-01","2026-01-08"],["2026-05-01","2026-05-09"],["2027-01-01","2027-01-08"],["2027-05-01","2027-05-09"],["2028-01-01","2028-01-08"],["2028-05-01","2028-05-09"],["2029-01-01","2029-01-08"],["2029-05-01","2029-05-09"],["2030-01-01","2030-01-08"],["2030-05-01","2030-05-09"]], tipCn: "俄语区1月首周与5月首周官方连休，银行结算暂停" },
+    // Supply-side global alert: China Spring Festival Factory & Shipping Cutoff
+    { group: "cn_factory", mode: "supply_cutoff", nameCn: "中国春节工厂截单与海运爆舱期", regionCn: "全球买家催单通用", ranges: [["2026-02-15","2026-02-24"],["2027-02-04","2027-02-14"],["2028-01-24","2028-02-03"],["2029-02-11","2029-02-20"],["2030-02-01","2030-02-10"]], tipCn: "提前35–50天通知所有在谈客户锁定年前最后排产与海运舱位（2027春节与斋月几乎重合，务必提前！）" }
+  ];
+
+  function findCountryHolidayMatch(prof, isoDate) {
+    var groups = (prof && prof.groups) || [];
+    var activeShutdown = null;
+    var activeSpecial = null;
+    var nearestUpcoming = null;
+    var baseMs = Date.parse(isoDate + "T00:00:00Z");
+    for (var i = 0; i < TRADE_WINDOWS.length; i++) {
+      var w = TRADE_WINDOWS[i];
+      if (groups.indexOf(w.group) < 0) continue;
+      for (var r = 0; r < w.ranges.length; r++) {
+        var st = w.ranges[r][0], ed = w.ranges[r][1];
+        if (isoDate >= st && isoDate <= ed) {
+          if (w.mode === "shutdown") activeShutdown = { nameCn: w.nameCn, mode: w.mode, start: st, end: ed, tipCn: w.tipCn };
+          else if (!activeSpecial) activeSpecial = { nameCn: w.nameCn, mode: w.mode, start: st, end: ed, tipCn: w.tipCn };
+        } else if (st > isoDate) {
+          var diffDays = Math.round((Date.parse(st + "T00:00:00Z") - baseMs) / 86400000);
+          if (diffDays > 0 && diffDays <= 65 && (!nearestUpcoming || diffDays < nearestUpcoming.daysAway)) {
+            nearestUpcoming = { nameCn: w.nameCn, mode: w.mode, start: st, end: ed, daysAway: diffDays, tipCn: w.tipCn };
+          }
+        }
+      }
+    }
+    return { active: activeShutdown || activeSpecial, nearestUpcoming: nearestUpcoming };
+  }
+
+  function isCountryNonWorkingDate(countryEn, isoDate, utcWeekday) {
+    var prof = getCountryTradeProfile(countryEn);
+    var wd = typeof utcWeekday === "number" ? utcWeekday : new Date(Date.parse(isoDate + "T00:00:00Z")).getUTCDay();
+    var isWknd = prof.workWeek === "sun_thu" ? (wd === 5 || wd === 6) : (wd === 0 || wd === 6);
+    if (isWknd) return true;
+    var hm = findCountryHolidayMatch(prof, isoDate);
+    return !!(hm.active && hm.active.mode === "shutdown");
+  }
+
+  var WD_MAP = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  var WD_CN = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+  function extractZonedParts(dateObj, tz) {
+    var yr = "2026", mo = "01", dy = "01", hh = 9, mm = 0, wd = 1;
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).formatToParts(dateObj);
+      parts.forEach(function (p) {
+        if (p.type === "year") yr = p.value;
+        else if (p.type === "month") mo = p.value;
+        else if (p.type === "day") dy = p.value;
+        else if (p.type === "hour") hh = parseInt(p.value, 10) % 24;
+        else if (p.type === "minute") mm = parseInt(p.value, 10) || 0;
+        else if (p.type === "weekday" && WD_MAP[p.value] !== undefined) wd = WD_MAP[p.value];
+      });
+    } catch (_) {}
+    return {
+      isoDate: yr + "-" + mo + "-" + dy,
+      hh: hh,
+      mm: mm,
+      timeStr: (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm,
+      wd: wd,
+      wdCn: WD_CN[wd]
+    };
+  }
+
+  function computeNextLocalWorkSlotBeijing(prof, nowMs) {
+    // Scan forward in 30-min steps (up to 12 days) to find buyer's next 09:30 working morning, then format in Beijing time
+    var stepMs = 1800000;
+    var startMs = Math.ceil(nowMs / stepMs) * stepMs;
+    for (var k = 1; k <= 576; k++) {
+      var candMs = startMs + k * stepMs;
+      var zp = extractZonedParts(new Date(candMs), prof.tz);
+      if (isCountryNonWorkingDateFromProf(prof, zp.isoDate, zp.wd)) continue;
+      var targetH = 9;
+      var hm = findCountryHolidayMatch(prof, zp.isoDate);
+      if (hm.active && hm.active.mode === "ramadan") targetH = 10;
+      if (zp.hh === targetH && zp.mm >= 15 && zp.mm <= 45) {
+        var bj = extractZonedParts(new Date(candMs), "Asia/Shanghai");
+        var bjNow = extractZonedParts(new Date(nowMs), "Asia/Shanghai");
+        var dayPrefix = bj.isoDate === bjNow.isoDate ? "今日 " : ("北京时间 " + bj.isoDate.slice(5) + "(" + bj.wdCn + ") ");
+        return dayPrefix.indexOf("北京时间") === 0 ? (dayPrefix + bj.timeStr) : ("北京时间 " + dayPrefix + bj.timeStr);
+      }
+    }
+    return "建议按对方工作日上午 09:30 定时发送";
+  }
+
+  function isCountryNonWorkingDateFromProf(prof, isoDate, wd) {
+    var isWknd = prof.workWeek === "sun_thu" ? (wd === 5 || wd === 6) : (wd === 0 || wd === 6);
+    if (isWknd) return true;
+    var hm = findCountryHolidayMatch(prof, isoDate);
+    return !!(hm.active && hm.active.mode === "shutdown");
+  }
+
+  function evaluateCountryContactTiming(countryEn, nowInput) {
+    var nowMs = nowInput instanceof Date ? nowInput.getTime() : (typeof nowInput === "number" ? nowInput : Date.now());
+    var prof = getCountryTradeProfile(countryEn);
+    var zp = extractZonedParts(new Date(nowMs), prof.tz);
+    var hm = findCountryHolidayMatch(prof, zp.isoDate);
+    var decHour = zp.hh + zp.mm / 60;
+    var isWknd = prof.workWeek === "sun_thu" ? (zp.wd === 5 || zp.wd === 6) : (zp.wd === 0 || zp.wd === 6);
+
+    var level = "green";
+    var dot = "🟢";
+    var statusLabel = "";
+    var actionAdvice = "";
+
+    if (hm.active && hm.active.mode === "shutdown") {
+      level = "red";
+      dot = "🔴";
+      statusLabel = "当地大假停工 · " + hm.active.nameCn;
+      actionAdvice = hm.active.tipCn + "｜恢复后首轮建议定时：" + computeNextLocalWorkSlotBeijing(prof, nowMs);
+    } else if (isWknd) {
+      level = "red";
+      dot = "🔴";
+      statusLabel = "当地周末公休（" + zp.wdCn + " " + zp.timeStr + (prof.workWeek === "sun_thu" ? " · 周日–周四上班" : "") + "）";
+      actionAdvice = "切勿周末发陌生 WhatsApp 防拉黑｜邮件建议定时：" + computeNextLocalWorkSlotBeijing(prof, nowMs);
+    } else if (decHour < 8 || decHour >= 20) {
+      level = "red";
+      dot = "🔴";
+      statusLabel = "当地深夜/清晨休息（" + zp.wdCn + " " + zp.timeStr + "）";
+      actionAdvice = "严禁直发 WhatsApp/电话吵醒客户｜邮件建议定时：" + computeNextLocalWorkSlotBeijing(prof, nowMs);
+    } else if (hm.active && hm.active.mode === "ramadan") {
+      if (decHour >= 10 && decHour < 15) {
+        level = "yellow";
+        dot = "🟡";
+        statusLabel = "斋月短班在岗（" + zp.timeStr + " · 斋月 10:00–15:00 办公）";
+        actionAdvice = "沟通宜简明扼要，避免催促；也可在日落开斋后晚间轻度问候";
+      } else {
+        level = "yellow";
+        dot = "🟡";
+        statusLabel = "斋月非集中办公时段（" + zp.timeStr + "）";
+        actionAdvice = "建议邮件定时至次日斋月上午：" + computeNextLocalWorkSlotBeijing(prof, nowMs);
+      }
+    } else if (prof.workWeek === "mon_fri_jummah" && zp.wd === 5 && decHour >= 11.75 && decHour < 14.5) {
+      level = "yellow";
+      dot = "🟡";
+      statusLabel = "当地周五主麻祈祷时段（" + zp.timeStr + "）";
+      actionAdvice = "阿联酋/印尼/马来/土耳其在此时段普遍离岗祈祷，建议延后2小时或排下周初定时邮件";
+    } else if (prof.lunch && decHour >= prof.lunch[0] && decHour < prof.lunch[1]) {
+      level = "yellow";
+      dot = "🟡";
+      statusLabel = "当地午休时段（" + zp.timeStr + "）";
+      actionAdvice = "可正常发邮件，但暂缓陌生电话直拨，1小时后联系接通率更高";
+    } else if (decHour >= 8 && decHour < 9) {
+      level = "yellow";
+      dot = "🟡";
+      statusLabel = "当地刚上班整理邮件（" + zp.timeStr + "）";
+      actionAdvice = "发开发信极佳（正好排在收件箱顶部），电话/WhatsApp建议等 09:15 后";
+    } else if (decHour >= 17.5 && decHour < 20) {
+      level = "yellow";
+      dot = "🟡";
+      statusLabel = "当地已下班（" + zp.timeStr + "）";
+      actionAdvice = "欧美/德日客户忌下班打扰；建议将开发信定时至：" + computeNextLocalWorkSlotBeijing(prof, nowMs);
+    } else {
+      level = "green";
+      dot = "🟢";
+      statusLabel = "黄金办公时段（" + prof.hubCn + " " + zp.wdCn + " " + zp.timeStr + "）";
+      actionAdvice = (hm.active && hm.active.mode === "slowdown")
+        ? ("注意当前处于「" + hm.active.nameCn + "」，部分采购轮休，回复可能偏慢")
+        : "买家正在上班，适合立即发开发信、WhatsApp 破冰或电话跟进";
+    }
+
+    return {
+      country: countryEn,
+      level: level,
+      dot: dot,
+      isWorkingNow: level === "green",
+      isRamadan: !!(hm.active && hm.active.mode === "ramadan"),
+      localTimeStr: zp.timeStr,
+      localDateStr: zp.isoDate,
+      weekdayCn: zp.wdCn,
+      hubCn: prof.hubCn,
+      statusLabel: statusLabel,
+      actionAdvice: actionAdvice,
+      activeHoliday: hm.active,
+      upcomingHoliday: hm.nearestUpcoming,
+      spec: {
+        voltage: prof.voltage,
+        is60Hz: !!prof.is60Hz,
+        pipeStd: prof.pipeStd,
+        cert: prof.cert
+      }
+    };
+  }
+
+  function getUpcomingGlobalTradeAlerts(nowDateStr, horizonDays) {
+    var iso = (nowDateStr && /^\d{4}-\d{2}-\d{2}$/.test(nowDateStr))
+      ? nowDateStr
+      : new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+    var maxDays = typeof horizonDays === "number" ? horizonDays : 65;
+    var baseMs = Date.parse(iso + "T00:00:00Z");
+    var activeOrSoon = [];
+    var preStocking = [];
+
+    for (var i = 0; i < TRADE_WINDOWS.length; i++) {
+      var w = TRADE_WINDOWS[i];
+      for (var r = 0; r < w.ranges.length; r++) {
+        var st = w.ranges[r][0], ed = w.ranges[r][1];
+        if (iso >= st && iso <= ed && w.mode !== "supply_cutoff") {
+          activeOrSoon.push({
+            group: w.group,
+            nameCn: w.nameCn,
+            regionCn: w.regionCn,
+            dateRange: st.slice(5) + "~" + ed.slice(5),
+            daysAway: 0,
+            mode: w.mode,
+            tipCn: w.tipCn
+          });
+          break;
+        } else if (st > iso) {
+          var dAway = Math.round((Date.parse(st + "T00:00:00Z") - baseMs) / 86400000);
+          if (dAway > 0 && dAway <= 20 && w.mode !== "supply_cutoff") {
+            activeOrSoon.push({
+              group: w.group,
+              nameCn: w.nameCn,
+              regionCn: w.regionCn,
+              dateRange: st.slice(5) + "~" + ed.slice(5),
+              daysAway: dAway,
+              mode: w.mode,
+              tipCn: w.tipCn
+            });
+          } else if (dAway > 10 && dAway <= maxDays) {
+            preStocking.push({
+              group: w.group,
+              nameCn: w.nameCn,
+              regionCn: w.regionCn,
+              dateRange: st + " 起",
+              daysAway: dAway,
+              mode: w.mode,
+              tipCn: w.tipCn
+            });
+          }
+          break;
+        }
+      }
+    }
+    preStocking.sort(function (a, b) { return a.daysAway - b.daysAway; });
+    return {
+      activeOrSoon: activeOrSoon.slice(0, 3),
+      preStocking: preStocking.slice(0, 4)
+    };
+  }
+
+  var SPAM_TRIGGERS = [
+    { re: /\b100%\s*free\b/i, label: "100% free" },
+    { re: /\blowest\s+price\b/i, label: "lowest price（低质群发高频词）" },
+    { re: /\bcheapest\b/i, label: "cheapest（易触发垃圾箱且拉低定位）" },
+    { re: /\bbest\s+price\s+guaranteed\b/i, label: "best price guaranteed" },
+    { re: /\bact\s+now\b/i, label: "act now" },
+    { re: /\bclick\s+here\b/i, label: "click here" },
+    { re: /\burgent\b/i, label: "urgent（陌生首封慎用）" },
+    { re: /\bdear\s+sir\s*\/?\s*madam\b/i, label: "Dear Sir/Madam（典型群发模板抬头）" },
+    { re: /\brisk[\s-]*free\b/i, label: "risk-free" },
+    { re: /\bno\s+obligation\b/i, label: "no obligation" }
+  ];
+
+  var SAFE_IND_ACRONYMS = {
+    FOB:1, CIF:1, CFR:1, EXW:1, DDP:1, DAP:1, FCA:1, API:1, ANSI:1, ASME:1, ASTM:1,
+    DIN:1, JIS:1, ISO:1, SGS:1, TUV:1, NOM:1, SABER:1, SONCAP:1, INMETRO:1, RCEP:1,
+    SABS:1, SIRIM:1, TISI:1, GOST:1, EAC:1, CBAM:1, BOQ:1, CAD:1, MTC:1, USD:1,
+    EUR:1, CNY:1, RMB:1, MOQ:1, LCL:1, FCL:1, TEU:1, EPC:1, MEP:1, OEM:1, ODM:1,
+    AQL:1, IEC:1, NEMA:1, UL:1, CSA:1, CE:1, JSC:1, LLC:1, GMBH:1, B2B:1, RFQ:1
+  };
+
+  function auditColdEmailDeliverability(subject, body, opts) {
+    var o = opts || {};
+    var sub = String(subject || "").trim();
+    var bd = String(body || "").trim();
+    var full = (o.noSubject ? "" : (sub + "\n")) + bd;
+    var issues = [];
+
+    for (var i = 0; i < SPAM_TRIGGERS.length; i++) {
+      if (SPAM_TRIGGERS[i].re.test(full)) {
+        issues.push("含垃圾箱高敏词「" + SPAM_TRIGGERS[i].label + "」");
+      }
+    }
+    var links = full.match(/https?:\/\/[^\s)]+|www\.[^\s)]+/gi) || [];
+    if (links.length >= 2) {
+      issues.push("含 " + links.length + " 条网址（冷启动首封建议 0–1 条链接防拦截）");
+    }
+    var exclamations = (full.match(/![!！]*|！[！!]*/g) || []).length;
+    if (exclamations >= 3) {
+      issues.push("感叹号过多（" + exclamations + " 处，易触发反垃圾评分）");
+    }
+    var capsWords = (sub.match(/\b[A-Z]{4,}\b/g) || []).filter(function (w) { return !SAFE_IND_ACRONYMS[w]; });
+    if (capsWords.length >= 2) {
+      issues.push("主题含多个全大写单词（" + capsWords.slice(0, 2).join(", ") + "）");
+    }
+    var words = bd.split(/\s+/).filter(Boolean).length;
+    if (!o.noSubject && words > 175) {
+      issues.push("正文偏长（" + words + " 词，工业开发信黄金长度为 70–145 词）");
+    }
+
+    var level = issues.length === 0 ? "green" : (issues.length >= 2 || links.length >= 3 ? "red" : "yellow");
+    var score = Math.max(0, 100 - issues.length * 22);
+    var badgeText = level === "green"
+      ? ("🛡️ 进收件箱体检通过（" + words + " 词 · " + links.length + " 外链 · 0 敏感词）")
+      : ("⚠️ 发信体检提醒（" + words + " 词）：" + issues.join("；"));
+    return {
+      level: level,
+      score: score,
+      words: words,
+      wordCount: words,
+      linkCount: links.length,
+      issues: issues,
+      badgeText: badgeText
+    };
+  }
+
+  var TLD_COUNTRY_HINT = {
+    vn: "Vietnam", id: "Indonesia", th: "Thailand", my: "Malaysia", ph: "Philippines", sg: "Singapore",
+    sa: "Saudi Arabia", ae: "United Arab Emirates", qa: "Qatar", kw: "Kuwait", om: "Oman", eg: "Egypt",
+    ma: "Morocco", dz: "Algeria", tr: "Turkey (Türkiye)", mx: "Mexico", br: "Brazil", cl: "Chile",
+    pe: "Peru", co: "Colombia", ar: "Argentina", de: "Germany", fr: "France", it: "Italy", es: "Spain",
+    pl: "Poland", uk: "United Kingdom", ru: "Russia", kz: "Kazakhstan", uz: "Uzbekistan",
+    za: "South Africa", ng: "Nigeria", ke: "Kenya", au: "Australia", in: "India", pk: "Pakistan",
+    bd: "Bangladesh", kr: "South Korea", jp: "Japan", ca: "Canada"
+  };
+
+  var DIAL_COUNTRY_HINT = [
+    ["+966", "Saudi Arabia"], ["+971", "United Arab Emirates"], ["+84", "Vietnam"], ["+62", "Indonesia"],
+    ["+66", "Thailand"], ["+60", "Malaysia"], ["+63", "Philippines"], ["+65", "Singapore"],
+    ["+91", "India"], ["+92", "Pakistan"], ["+880", "Bangladesh"], ["+20", "Egypt"], ["+212", "Morocco"],
+    ["+213", "Algeria"], ["+90", "Turkey (Türkiye)"], ["+52", "Mexico"], ["+55", "Brazil"], ["+56", "Chile"],
+    ["+51", "Peru"], ["+57", "Colombia"], ["+54", "Argentina"], ["+49", "Germany"], ["+33", "France"],
+    ["+39", "Italy"], ["+34", "Spain"], ["+48", "Poland"], ["+44", "United Kingdom"], ["+7", "Russia"],
+    ["+27", "South Africa"], ["+234", "Nigeria"], ["+254", "Kenya"], ["+61", "Australia"],
+    ["+82", "South Korea"], ["+81", "Japan"], ["+1", "United States"]
+  ];
+
+  function parseSmartBusinessCard(rawText) {
+    var txt = String(rawText || "").trim();
+    if (!txt) return { ok: false, company: "", contact: "", email: "", phone: "", website: "", country: "" };
+
+    var emMatch = txt.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    var email = emMatch ? emMatch[0].toLowerCase() : "";
+
+    var urlMatch = txt.match(/(?:https?:\/\/|www\.)[A-Z0-9.-]+\.[A-Z]{2,}(?:\/[^\s|,;]*)?/i);
+    var rawUrl = urlMatch ? urlMatch[0].replace(/[.,;)]+$/, "") : "";
+    if (!rawUrl && email) {
+      var emDom = email.split("@")[1] || "";
+      if (emDom && !PUBLIC_EMAIL_DOMAINS[emDom]) rawUrl = emDom;
+    }
+    var website = rawUrl ? extractCleanDomain(rawUrl) : "";
+
+    var phMatch = txt.match(/(?:\+\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,5}(?:\s*(?:ext\.?|x)\s*\d{1,5})?/i);
+    var phone = "";
+    if (phMatch && phMatch[0].replace(/\D/g, "").length >= 7) {
+      phone = phMatch[0].trim();
+    }
+
+    // Guess country from explicit country name, dial prefix, or ccTLD
+    var country = "";
+    var lower = txt.toLowerCase();
+    var knownNames = Object.keys(COUNTRY_TRADE_PROFILES);
+    for (var n = 0; n < knownNames.length; n++) {
+      var nm = knownNames[n].replace(/\s*\([^)]*\)/g, "").toLowerCase();
+      if (nm.length >= 4 && lower.indexOf(nm) >= 0) { country = knownNames[n]; break; }
+    }
+    if (!country && /UAE|Dubai|Abu Dhabi/i.test(txt)) country = "United Arab Emirates";
+    if (!country && /KSA|Riyadh|Dammam|Jeddah/i.test(txt)) country = "Saudi Arabia";
+    if (!country && /Monterrey|Guadalajara|CDMX/i.test(txt)) country = "Mexico";
+    if (!country && /Ho Chi Minh|Hanoi/i.test(txt)) country = "Vietnam";
+    if (!country && phone.indexOf("+") === 0) {
+      for (var d = 0; d < DIAL_COUNTRY_HINT.length; d++) {
+        if (phone.indexOf(DIAL_COUNTRY_HINT[d][0]) === 0) { country = DIAL_COUNTRY_HINT[d][1]; break; }
+      }
+    }
+    if (!country) {
+      var domHost = website || extractCleanDomain(email);
+      if (domHost) {
+        var lastSeg = domHost.split(".").pop();
+        if (TLD_COUNTRY_HINT[lastSeg]) country = TLD_COUNTRY_HINT[lastSeg];
+      }
+    }
+
+    var signoffRe = /^(?:best\s+regards|kind\s+regards|warm\s+regards|regards|sincerely|yours\s+truly|thanks(?:\s*(?:&|and)\s*regards)?|atentamente|saludos(?:\s+cordiales)?|cordialmente|cordialement|mit\s+freundlichen\s+grüßen|trân\s+trọng|hormat\s+kami)[,!.\s]*$/i;
+
+    // Split tokens across lines / pipes / semicolons to identify Company vs Contact Name + Role
+    var segments = txt
+      .split(/[\r\n|｜;；]+/)
+      .map(function (s) {
+        return s
+          .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
+          .replace(/(?:https?:\/\/|www\.)[^\s]+/gi, "")
+          .replace(/^(?:company|organization|firm|client|name|contact|tel|phone|mobile|whatsapp|email|web|website|address)\s*[:：\/\s]*/i, "")
+          .trim();
+      })
+      .filter(function (s) {
+        return s.length >= 2 && !/^\+?[\d\s().\/-]+$/.test(s) && !signoffRe.test(s);
+      });
+
+    var company = "";
+    var roleSeg = "";
+    var personSeg = "";
+    var compSuffixRe = /\b(Ltd\.?|Limited|LLC|Inc\.?|Corp\.?|Corporation|Co\.?\s*,?\s*Ltd|Co\.|S\.?A\.?\s*de\s*C\.?V\.?|S\.?A\.?C?\.?|S\.?R\.?L\.?|Ltda\.?|GmbH|AG|BV|NV|JSC|PLC|Pvt|Sdn\s*Bhd|PT\.?\s+\w|CV\.?\s+\w|Industrial|Engineering|Trading|Supply|Supplies|Equipment|Machinery|Valves?|Pumps?|Steel|Piping|Group|Enterprises?|Constructora|Comercializadora|Importadora|Distribuidora)\b/i;
+    var roleWordRe = /\b(Manager|Director|Engineer|Buyer|Procurement|Purchasing|Sourcing|Head|VP|President|Owner|CEO|Founder|Coordinator|Specialist|Jefe|Gerente|Diretor|Ingeniero|采购|经理|总监|工程师)\b/i;
+
+    for (var s = 0; s < segments.length; s++) {
+      var seg = segments[s];
+      if (!company && compSuffixRe.test(seg)) {
+        company = seg;
+      } else if (!roleSeg && roleWordRe.test(seg)) {
+        roleSeg = seg;
+      }
+    }
+    for (var s2 = 0; s2 < segments.length; s2++) {
+      var seg2 = segments[s2];
+      if (seg2 === company || seg2 === roleSeg) continue;
+      if (knownNames.some(function (k) { return k.toLowerCase() === seg2.toLowerCase(); })) continue;
+      if (!personSeg && seg2.split(/\s+/).length <= 5 && !/\d/.test(seg2)) {
+        personSeg = seg2;
+      } else if (!company) {
+        company = seg2;
+      }
+    }
+    var contact = "";
+    if (personSeg && roleSeg) contact = personSeg + " (" + roleSeg + ")";
+    else contact = personSeg || roleSeg || "";
+
+    if (!company && website) {
+      var stem = website.split(".")[0] || "";
+      if (stem) company = stem.charAt(0).toUpperCase() + stem.slice(1);
+    }
+
+    return {
+      ok: Boolean(company || contact || email || phone || website),
+      company: company,
+      contact: contact,
+      email: email,
+      phone: phone,
+      website: website,
+      country: country
+    };
+  }
+
   return {
     escHtml: escHtml,
     extractCleanDomain: extractCleanDomain,
@@ -1719,7 +2280,13 @@
     buildLinkedInOutreach: buildLinkedInOutreach,
     buildBuyerRoleDorks: buildBuyerRoleDorks,
     buildInquiryClarification: buildInquiryClarification,
-    computeWeeklyFunnel: computeWeeklyFunnel
+    computeWeeklyFunnel: computeWeeklyFunnel,
+    getCountryTradeProfile: getCountryTradeProfile,
+    isCountryNonWorkingDate: isCountryNonWorkingDate,
+    evaluateCountryContactTiming: evaluateCountryContactTiming,
+    getUpcomingGlobalTradeAlerts: getUpcomingGlobalTradeAlerts,
+    auditColdEmailDeliverability: auditColdEmailDeliverability,
+    parseSmartBusinessCard: parseSmartBusinessCard
   };
 });
 

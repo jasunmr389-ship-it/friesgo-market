@@ -657,5 +657,86 @@ test("11. Phase 2B: Product profiles, signal icebreakers, LinkedIn <=280-char ca
   assert.equal(funnel.topLossReasons[0].count, 1);
 });
 
+test("V2.0: Foreign-Trade Working Hours, Islamic Fri-Sat / Ramadan / Eid Skipping, 60Hz Guardrail, Spam Check & Smart Paste", () => {
+  // 1. Saudi Arabia (Sun-Thu) vs Germany (Mon-Fri) weekend skipping in computeDefaultNextFollowDate & nextCadenceSchedule
+  // 2026-11-24 is Tuesday -> +3d = 2026-11-27 (Friday!)
+  // For Saudi Arabia, Friday & Saturday are weekends -> MUST land on Sunday 2026-11-29!
+  assert.equal(FG_CORE.isCountryNonWorkingDate("Saudi Arabia", "2026-11-27"), true);
+  assert.equal(FG_CORE.isCountryNonWorkingDate("Saudi Arabia", "2026-11-28"), true);
+  assert.equal(FG_CORE.isCountryNonWorkingDate("Saudi Arabia", "2026-11-29"), false);
+  assert.equal(FG_CORE.computeDefaultNextFollowDate("2026-11-24", 3, "Saudi Arabia"), "2026-11-29");
+  assert.equal(FG_CORE.nextCadenceSchedule("first", "2026-11-24", "Saudi Arabia").nextDate, "2026-11-29");
 
+  // For Germany (Mon-Fri), 2026-11-24 + 3d = Friday 2026-11-27 (working day); 2026-11-25 + 3d = Saturday 2026-11-28 -> Monday 2026-11-30!
+  assert.equal(FG_CORE.computeDefaultNextFollowDate("2026-11-24", 3, "Germany"), "2026-11-27");
+  assert.equal(FG_CORE.computeDefaultNextFollowDate("2026-11-25", 3, "Germany"), "2026-11-30");
 
+  // Legacy backward-compatibility when countryEn omitted: shifts Sunday -> Monday
+  assert.equal(FG_CORE.computeDefaultNextFollowDate("2026-11-26", 3), "2026-11-30");
+
+  // Eid al-Fitr shutdown skipping: 2027-03-09..2027-03-14 is Eid al-Fitr -> Saudi Arabia skips right through to Monday 2027-03-15!
+  assert.equal(FG_CORE.computeDefaultNextFollowDate("2027-03-07", 3, "Saudi Arabia"), "2027-03-15");
+
+  // 2. Real-time contact timing across Ramadan, Jummah Friday prayer, Midnight, and Working Hours
+  // Ramadan in Riyadh: 2027-02-15 07:30 UTC = 10:30 Riyadh (Monday during Ramadan 10:00-15:00 window) -> yellow Ramadan mode!
+  const tmRamadan = FG_CORE.evaluateCountryContactTiming("Saudi Arabia", new Date("2027-02-15T07:30:00Z"));
+  assert.equal(tmRamadan.level, "yellow");
+  assert.equal(tmRamadan.isRamadan, true);
+  assert.ok(tmRamadan.statusLabel.includes("斋月"), `Expected Ramadan label, got: ${tmRamadan.statusLabel}`);
+
+  // UAE Jummah Friday prayer: 2026-11-27 09:00 UTC = 13:00 Dubai (Friday!) -> yellow Jummah warning
+  const tmJummah = FG_CORE.evaluateCountryContactTiming("United Arab Emirates", new Date("2026-11-27T09:00:00Z"));
+  assert.equal(tmJummah.level, "yellow");
+  assert.ok(tmJummah.statusLabel.includes("主麻"), `Expected Jummah label, got: ${tmJummah.statusLabel}`);
+
+  // Mexico midnight: 2026-11-26 08:00 UTC = 02:00 Monterrey CST -> red with exact Beijing send-later calculation!
+  const tmMxNight = FG_CORE.evaluateCountryContactTiming("Mexico", new Date("2026-11-26T08:00:00Z"));
+  assert.equal(tmMxNight.level, "red");
+  assert.ok(tmMxNight.actionAdvice.includes("北京时间"), `Expected Beijing schedule advice, got: ${tmMxNight.actionAdvice}`);
+  assert.equal(tmMxNight.spec.is60Hz, true, "Mexico MUST trigger 60Hz motor/pump engineering alert!");
+
+  // Vietnam golden working hours: 2026-11-26 03:00 UTC = 10:00 Ho Chi Minh -> green & 50Hz
+  const tmVnWork = FG_CORE.evaluateCountryContactTiming("Vietnam", new Date("2026-11-26T03:00:00Z"));
+  assert.equal(tmVnWork.level, "green");
+  assert.equal(tmVnWork.spec.is60Hz, false);
+
+  // 3. 60Hz Industrial Guardrails across key countries
+  for (const c60 of ["Saudi Arabia", "United States", "Canada", "Mexico", "Brazil", "Peru", "Colombia", "Philippines", "South Korea"]) {
+    assert.equal(FG_CORE.getCountryTradeProfile(c60).is60Hz, true, `${c60} must be flagged as 60Hz`);
+  }
+  for (const c50 of ["Germany", "Vietnam", "Indonesia", "United Arab Emirates", "South Africa", "Australia", "Chile", "Argentina"]) {
+    assert.equal(FG_CORE.getCountryTradeProfile(c50).is60Hz, false, `${c50} must be 50Hz`);
+  }
+
+  // 4. Global 60-day Dual-Track Alerts (Shutdowns + Pre-Stocking)
+  const alerts = FG_CORE.getUpcomingGlobalTradeAlerts("2026-11-27", 75);
+  assert.ok(alerts.activeOrSoon.length >= 1, "Should detect SA Builders' Holiday within 20 days of Nov 27");
+  assert.ok(alerts.preStocking.some(x => x.group === "cn_factory"), "Should detect China Spring Festival factory cutoff");
+
+  // 5. Cold-Email Spam / Deliverability Checker
+  const badSpam = FG_CORE.auditColdEmailDeliverability(
+    "100% FREE SAMPLE!!! LOWEST PRICE",
+    "Dear Sir/Madam, CLICK HERE to buy now at lowest price 100% free guarantee! https://a.com https://b.com https://c.com"
+  );
+  assert.equal(badSpam.level, "red");
+  assert.ok(badSpam.score < 55);
+  assert.ok(badSpam.issues.length >= 3);
+
+  const cleanB2B = FG_CORE.auditColdEmailDeliverability(
+    "Sub-supply support for Acero Monterrey – API 6D Ball Valves",
+    "Dear Carlos,\n\nWe supply API 6D / ANSI B16.5 ball valves from our ISO 9001 facility in China with full MTC EN 10204 3.1.\n\nMay I send our 1-page spec sheet and FOB Qingdao / CIF Manzanillo quote?\n\nBest regards,\nJasun"
+  );
+  assert.equal(cleanB2B.level, "green");
+  assert.ok(cleanB2B.score >= 85);
+
+  // 6. Smart Business Card / Email Signature Parser
+  const parsedCard = FG_CORE.parseSmartBusinessCard(
+    "Best regards,\nIng. Carlos Mendez\nPurchasing Manager\nAcero Monterrey S.A. de C.V.\nEmail: cmendez@acero.mx\nWhatsApp / Tel: +52 81 8345 6789\nWeb: https://www.acero.mx"
+  );
+  assert.equal(parsedCard.email, "cmendez@acero.mx");
+  assert.equal(parsedCard.website, "acero.mx");
+  assert.equal(parsedCard.country, "Mexico");
+  assert.equal(parsedCard.company, "Acero Monterrey S.A. de C.V.");
+  assert.ok(parsedCard.contact.includes("Carlos Mendez"), `Expected contact Carlos Mendez, got: ${parsedCard.contact}`);
+  assert.ok(parsedCard.phone.includes("+52"), `Expected +52 phone, got: ${parsedCard.phone}`);
+});

@@ -1392,24 +1392,33 @@ def enrich_with_gemini(items, prev_items=None):
 def build_brief_markdown(feed):
     """Build crisp Chinese morning brief for WeChat / WxPusher / WeCom / Feishu / DingTalk."""
     stats = feed["stats"]
+    award_cnt = stats.get("award", 0)
     lines = [
         f"🌍 FriesGo 全球工业商机早报（{feed['updatedCn']}）",
-        f"今日抓取 {stats['total']} 条：🌀 台风/灾害 {stats['weather']} ｜ 🏦 世行放款项目 {stats['loan']} ｜ 📰 融资/扩产/EPC {stats['news']}",
+        f"今日精选 {stats['total']} 条：🏆 刚中标买家 {award_cnt} ｜ 🏦 在投招标 {stats['loan']} ｜ 📰 融资/扩产/EPC {stats['news']} ｜ 🌀 灾害急单 {stats['weather']}",
         "",
     ]
+    awards = [x for x in feed["items"] if x.get("cat") == "award"][:3]
     weathers = [x for x in feed["items"] if x["cat"] == "weather"][:3]
-    loans = [x for x in feed["items"] if x["cat"] == "loan"][:4]
-    news = [x for x in feed["items"] if x["cat"] == "news"][:4]
+    loans = [x for x in feed["items"] if x["cat"] == "loan"][:3]
+    news = [x for x in feed["items"] if x["cat"] == "news"][:3]
 
+    if awards:
+        lines.append("【🏆 世行刚中标总包商（现成采购买家 · 黄金分包窗口）】")
+        for x in awards:
+            ctr = x.get("contractor") or x.get("awardedContractor") or ""
+            price = f" · {x['contractPrice']}" if x.get("contractPrice") else ""
+            lines.append(f"• [{x.get('countryCn') or x.get('country')}] 中标商：{ctr}{price} → 推：{x.get('productsCn', '')}")
+        lines.append("")
     if weathers:
-        lines.append("【🌀 台风/灾害预警（钢构/排水泵/备电抢修机会）】")
+        lines.append("【🌀 高危台风/灾害预警（钢构/排水泵/备电抢修机会）】")
         for x in weathers:
             lines.append(f"• {x['titleCn']} → 推：{x['productsCn']}")
         lines.append("")
     if loans:
-        lines.append("【🏦 世界银行最新基建/工业获批项目】")
+        lines.append("【🏦 世界银行最新基建/工业在投招标】")
         for x in loans:
-            amt = f"（{x['amount']}）" if x["amount"] else ""
+            amt = f"（{x['amount']}）" if x.get("amount") else ""
             lines.append(f"• {x['titleCn']}{amt} → 推：{x['productsCn']}")
         lines.append("")
     if news:
@@ -1417,7 +1426,7 @@ def build_brief_markdown(feed):
         for x in news:
             lines.append(f"• [{x['countryCn']}] {x['titleCn']}")
         lines.append("")
-    lines.append(f"👉 点击进入作战地图查看全文、一键背调与生成开发信：\n{SITE_URL}")
+    lines.append(f"👉 点击进入工作台查看详情、一键查当地工作时间与生成开发信：\n{SITE_URL}")
     return "\n".join(lines)
 
 
@@ -1458,6 +1467,8 @@ def push_notifications(feed):
                     return re.sub(r"[^\u4e00-\u9fffA-Za-z0-9\s\-\.\$\(\)（）：:、/|，,]", "", str(s or "")).strip()
 
                 stats = feed["stats"]
+                award_cnt = stats.get("award", 0)
+                awards = [x for x in feed["items"] if x.get("cat") == "award"]
                 weathers = [x for x in feed["items"] if x["cat"] == "weather"]
                 loans = [x for x in feed["items"] if x["cat"] == "loan"]
                 w_countries = []
@@ -1471,8 +1482,13 @@ def push_notifications(feed):
                     w_txt = "今日全球主要市场无红橙级别灾害预警"
 
                 lead_items = []
+                for a in awards[:1]:
+                    cn_a = a.get("countryCn") or a.get("country") or ""
+                    ctr_a = strip_emoji(a.get("contractor") or a.get("awardedContractor") or "")[:16]
+                    if ctr_a:
+                        lead_items.append(f"中标商[{cn_a}]{ctr_a}")
                 zh_loans = [x for x in loans if len(re.findall(r"[\u4e00-\u9fff]", x.get("titleCn") or "")) >= 5]
-                pick_pool = (zh_loans + [x for x in loans if x not in zh_loans])[:2]
+                pick_pool = (zh_loans + [x for x in loans if x not in zh_loans])[: (1 if lead_items else 2)]
                 for x in pick_pool:
                     raw_t = re.sub(r"^【([^】]+)】\s*", r"\1：", str(x.get("titleCn") or ""))
                     t_clean = re.sub(r"\s+", " ", strip_emoji(raw_t)).strip()
@@ -1481,7 +1497,7 @@ def push_notifications(feed):
                         t_clean = f"{t_clean}({amt})"
                     if t_clean:
                         lead_items.append(t_clean[:22])
-                l_txt = "；".join(lead_items) if lead_items else "点下方「详情」查看全部全球招标与新建项目商机"
+                l_txt = "；".join(lead_items) if lead_items else "点下方「详情」查看全部中标总包商与全球招标商机"
 
                 send_url = f"https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={urllib.parse.quote(access_token)}"
                 sent_ok = 0
@@ -1492,7 +1508,7 @@ def push_notifications(feed):
                         "url": SITE_URL,
                         "data": {
                             "date": {"value": feed["updatedCn"]},
-                            "stats": {"value": f"共{stats['total']}条（灾害{stats['weather']}｜世行招标{stats['loan']}｜扩产总包{stats['news']}）"},
+                            "stats": {"value": f"共{stats['total']}条（中标买家{award_cnt}｜世行招标{stats['loan']}｜扩产总包{stats['news']}｜灾害{stats['weather']}）"},
                             "weather": {"value": w_txt},
                             "leads": {"value": l_txt},
                         },
