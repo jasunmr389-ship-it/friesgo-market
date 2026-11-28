@@ -92,11 +92,13 @@
     crmMode: "local", // pool | mine | team | osm | local
     pageOffset: 0,
     pageLimit: 30,
+    failedPage: 0,
     total: 0,
     items: [],
     bindingCache: [],
     bindingTotal: 0,
     bindingLoadedAt: 0,
+    lastEmployeeId: "",
     lastMergeAuditId: "",
     selectedCompanyId: "",
     selectedDetail: null,
@@ -110,6 +112,46 @@
     if (typeof global._refreshCloudBoundModules === "function") {
       try {
         global._refreshCloudBoundModules(uiState.bindingCache, uiState.bindingTotal);
+      } catch (_) {}
+    }
+  }
+
+  // R07: Immediately wipe all cloud-rendered DOM panels, modals & cloud-prefilled business forms on logout / revoke / account switch
+  function clearCloudUiContainers(reason) {
+    uiState.crmMode = "local";
+    uiState.pageOffset = 0;
+    uiState.failedPage = 0;
+    uiState.total = 0;
+    uiState.items = [];
+    uiState.bindingCache = [];
+    uiState.bindingTotal = 0;
+    uiState.bindingLoadedAt = 0;
+    uiState.lastMergeAuditId = "";
+    uiState.selectedCompanyId = "";
+    uiState.selectedDetail = null;
+    uiState.activeLockCtx = null;
+
+    ["cloudPoolDetailBox", "cloudPoolList", "cloudRecentEventsBox", "cloudOsmList", "fbCloudList", "cloudLockBody", "cloudAdminBody", "cloudMigrateBody"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = "";
+      if (id === "cloudPoolDetailBox") el.hidden = true;
+    });
+    ["cloudLockModal", "cloudAdminModal", "cloudMigrateModal"].forEach(function (mid) {
+      var m = document.getElementById(mid);
+      if (m) m.hidden = true;
+    });
+    ["cloudNewCompName", "cloudNewCompCity", "cloudNewCompWeb", "cloudNewCompEmail", "cloudNewCompProd", "cloudPoolSearch"].forEach(function (id) {
+      var inp = document.getElementById(id);
+      if (inp) inp.value = "";
+    });
+    var addBox = document.getElementById("cloudNewCompBox");
+    if (addBox) addBox.hidden = true;
+
+    notifyCrossModuleRefresh();
+    if (typeof global._clearCloudDerivedUiState === "function") {
+      try {
+        global._clearCloudDerivedUiState(reason || "cleared");
       } catch (_) {}
     }
   }
@@ -364,19 +406,36 @@
     var failed = global.FG_CLOUD.getFailedQueue();
     box.hidden = false;
     if (!failed.length) {
+      uiState.failedPage = 0;
       box.innerHTML = '<div class="v2-guard-bar lv-green">✅ 当前没有同步失败的离线记录。</div>';
       return;
     }
+    var pageSize = 25;
+    var totalPages = Math.max(1, Math.ceil(failed.length / pageSize));
+    if (uiState.failedPage >= totalPages) uiState.failedPage = totalPages - 1;
+    if (uiState.failedPage < 0) uiState.failedPage = 0;
+    var start = uiState.failedPage * pageSize;
+    var pageItems = failed.slice(start, start + pageSize);
+
+    var pagerHtml = totalPages > 1
+      ? ('<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:12px">'
+          + '<span class="src-ok">第 ' + (uiState.failedPage + 1) + ' / ' + totalPages + ' 页（当前展示 ' + (start + 1) + '–' + (start + pageItems.length) + ' / 共 ' + failed.length + ' 条，底层完整持久保存、绝不截断）</span>'
+          + '<div class="pills" style="margin:0">'
+          + '  <button type="button" class="pill" id="btnFailedPrevPage"' + (uiState.failedPage <= 0 ? ' disabled' : '') + ' style="min-height:26px;padding:2px 8px;font-size:11.5px">上一页</button>'
+          + '  <button type="button" class="pill" id="btnFailedNextPage"' + (uiState.failedPage >= totalPages - 1 ? ' disabled' : '') + ' style="min-height:26px;padding:2px 8px;font-size:11.5px">下一页</button>'
+          + '</div></div>')
+      : '';
+
     box.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
-      + '  <h3 style="margin:0;color:var(--danger)">⚠️ 离线同步被拒绝记录（共 ' + failed.length + ' 条，已完整保留未丢失）</h3>'
+      + '  <h3 style="margin:0;color:var(--danger)">⚠️ 离线同步被拒绝记录（共 ' + failed.length + ' 条，已完整保留未截断）</h3>'
       + '  <div class="pills" style="margin:0">'
       + '    <button type="button" class="pill primary" id="btnRetryAllFailed" style="min-height:28px;padding:2px 10px;font-size:12px">🔄 全部重新补传</button>'
       + '    <button type="button" class="pill" id="btnCloseFailedBox" style="min-height:28px;padding:2px 8px;font-size:12px">× 收起</button>'
       + '  </div>'
       + '</div>'
       + '<div class="fb-log-list" style="margin-top:8px">'
-      + failed.map(function (f) {
+      + pageItems.map(function (f) {
           var ev = f.event || {};
           return '<div class="fb-log-item" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">'
             + '<div><b>[' + esc(ev.channel || "event") + ' / ' + esc(ev.action_outcome || "") + ']</b> ' + esc(ev.summary || "（无摘要）")
@@ -385,8 +444,13 @@
             + '<button type="button" class="pill" data-dismiss-failed="' + esc(ev.event_id) + '" style="min-height:26px;padding:2px 8px;font-size:11.5px">移除此条</button>'
             + '</div>';
         }).join("")
-      + '</div>';
+      + '</div>'
+      + pagerHtml;
     document.getElementById("btnCloseFailedBox").addEventListener("click", function () { box.hidden = true; });
+    var bPrev = document.getElementById("btnFailedPrevPage");
+    var bNext = document.getElementById("btnFailedNextPage");
+    if (bPrev) bPrev.addEventListener("click", function () { uiState.failedPage = Math.max(0, uiState.failedPage - 1); renderFailedQueueInspector(); });
+    if (bNext) bNext.addEventListener("click", function () { uiState.failedPage = Math.min(totalPages - 1, uiState.failedPage + 1); renderFailedQueueInspector(); });
     document.getElementById("btnRetryAllFailed").addEventListener("click", function () {
       global.FG_CLOUD.retryFailedQueue().then(function (r) {
         toast("重传完成：成功 " + (r.flushed || 0) + " 条，待传 " + (r.remaining || 0) + " 条，仍失败 " + (r.failed || 0) + " 条");
@@ -1379,9 +1443,37 @@
         + '  <input id="inpAdminRestorePhrase" type="text" placeholder="输入 RESTORE_CONFIRM" style="min-height:30px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);width:170px">'
         + '  <button type="button" class="pill danger" id="btnAdminDoRestore" style="min-height:30px;padding:3px 10px;font-size:12px">📥 验证 2FA 并执行恢复</button>'
         + '</div></div>'
-        + '<div class="fb-log-item"><b>③ 数据库恢复后强制安全重核验并解除冻结</b><div class="src-ok" style="white-space:normal">重核验已停用成员状态、全量重建退订/合规阻断单调保护，并吊销其他设备旧会话要求重登，全部核查通过后自动解除恢复冻结。</div>'
+        + '<div class="fb-log-item"><b>③ 数据库恢复后强制安全重核验并解除冻结</b><div class="src-ok" style="white-space:normal">重核验已停用成员状态、全量重建退订/合规阻断单调保护，并吊销其他设备旧会话要求重登；若最近一次恢复作业失败或未对账完成，服务端将拒绝解冻（409）。</div>'
         + '<button type="button" class="pill danger" id="btnAdminPostRestore" style="margin-top:6px">🔒 验证 2FA 并执行安全重核验（解冻）</button></div>'
-        + '<div id="adminBackupOut"></div></div>';
+        + '<div id="adminBackupOut"></div>'
+        + '<div id="adminRestoreJobsBox"><div class="src-ok">加载最近恢复作业台账…</div></div></div>';
+
+      function refreshRestoreJobsBox() {
+        var jBox = document.getElementById("adminRestoreJobsBox");
+        if (!jBox || typeof global.FG_CLOUD.listRestoreJobs !== "function") return;
+        global.FG_CLOUD.listRestoreJobs().then(function (jr) {
+          if (!jr.ok) { jBox.innerHTML = ""; return; }
+          var jobs = (jr.data && jr.data.jobs) || [];
+          if (!jobs.length) {
+            jBox.innerHTML = '<div class="src-ok">暂无云端备份恢复作业记录。</div>';
+            return;
+          }
+          jBox.innerHTML =
+            '<div style="font-size:12px;font-weight:800;color:var(--brown);margin-bottom:4px">📋 最近恢复作业与对账台账（最新 5 次）：</div>'
+            + '<div class="fb-log-list">'
+            + jobs.slice(0, 5).map(function (jb) {
+                var stBadge = jb.status === "completed"
+                  ? (jb.verified_at ? '<span class="mx-ok">✅ 已完成并核验解冻</span>' : '<span class="mx-warn">⏳ 已对账待核验</span>')
+                  : '<span class="mx-bad">❌ 失败/未完成（禁止解冻）</span>';
+                return '<div class="fb-log-item"><b>' + esc(jb.job_id) + '</b> · ' + stBadge + ' · 操作人：' + esc(jb.actor_name || "总负责人")
+                  + '<div class="src-ok">快照摘要：<code>' + esc((jb.snapshot_sha256 || "").slice(0, 16)) + '…</code> · 开始于 ' + esc(fmtBjt(jb.started_at)) + (jb.verified_at ? (' · 解冻于 ' + esc(fmtBjt(jb.verified_at))) : '') + '</div>'
+                  + (jb.error_message ? ('<div style="color:var(--danger);font-size:11.5px">错误：' + esc(jb.error_message) + '</div>') : '')
+                  + '</div>';
+              }).join("")
+            + '</div>';
+        });
+      }
+      refreshRestoreJobsBox();
 
       document.getElementById("btnAdminExportBak").addEventListener("click", function () {
         global.FG_CLOUD.exportBackup(getAdminTotp()).then(function (r) {
@@ -1389,7 +1481,7 @@
           if (typeof global.downloadFile === "function") {
             global.downloadFile("friesgo-cloud-d1-backup-" + fmtBjt(new Date().toISOString(), { dateOnly: true }) + ".json", JSON.stringify(r.data, null, 2), "application/json;charset=utf-8");
           }
-          document.getElementById("adminBackupOut").innerHTML = '<div class="v2-guard-bar lv-green">✅ 已导出逻辑备份：' + esc(JSON.stringify(r.data.counts)) + '</div>';
+          document.getElementById("adminBackupOut").innerHTML = '<div class="v2-guard-bar lv-green">✅ 已导出逻辑备份（SHA-256: <code>' + esc((r.data.snapshotSha256 || "").slice(0, 16)) + '…</code>）：' + esc(JSON.stringify(r.data.counts)) + '</div>';
         });
       });
 
@@ -1407,14 +1499,23 @@
             toast("所选 JSON 文件格式无效（缺少 tables 字段）");
             return;
           }
-          global.FG_CLOUD.restoreBackup(totp, "RESTORE_CONFIRM", parsed.tables).then(function (r) {
-            if (!r.ok) { toast((r.data && r.data.error) || "恢复失败"); return; }
+          global.FG_CLOUD.restoreBackup(totp, "RESTORE_CONFIRM", parsed.tables, {
+            counts: parsed.counts,
+            snapshotSha256: parsed.snapshotSha256,
+          }).then(function (r) {
+            refreshRestoreJobsBox();
+            if (!r.ok) {
+              document.getElementById("adminBackupOut").innerHTML = '<div class="v2-guard-bar lv-red">❌ ' + esc((r.data && r.data.error) || "恢复失败") + '</div>';
+              toast((r.data && r.data.error) || "恢复失败");
+              return;
+            }
             document.getElementById("adminBackupOut").innerHTML =
-              '<div class="v2-guard-bar lv-yellow"><b>✅ 快照已恢复并进入安全冻结期！</b><br>'
+              '<div class="v2-guard-bar lv-yellow"><b>✅ 快照已原子恢复并通过逐 ID 对账（作业 ' + esc(r.data.jobId || "") + '），已进入安全冻结期！</b><br>'
+              + '快照摘要：<code>' + esc((r.data.snapshotSha256 || "").slice(0, 16)) + '…</code><br>'
               + '恢复行数：' + esc(JSON.stringify(r.data.restoredCounts)) + '<br>'
               + '自动保留最新退订/阻断保护：<b>' + esc((r.data.preservedProtections || []).length) + '</b> 家。<br>'
               + '<b>请立即点击上方「③ 执行安全重核验（解冻）」完成闭环！</b></div>';
-            toast("✅ 备份已恢复，请立刻执行步骤 ③ 安全重核验解冻！");
+            toast("✅ 备份已恢复并对账通过，请立刻执行步骤 ③ 安全重核验解冻！");
           });
         };
         reader.readAsText(fileInp.files[0]);
@@ -1422,7 +1523,12 @@
 
       document.getElementById("btnAdminPostRestore").addEventListener("click", function () {
         global.FG_CLOUD.postRestoreVerify(getAdminTotp(), true).then(function (r) {
-          if (!r.ok) { toast((r.data && r.data.error) || "校验失败"); return; }
+          refreshRestoreJobsBox();
+          if (!r.ok) {
+            document.getElementById("adminBackupOut").innerHTML = '<div class="v2-guard-bar lv-red">⛔ ' + esc((r.data && r.data.error) || "校验失败") + '</div>';
+            toast((r.data && r.data.error) || "校验失败");
+            return;
+          }
           document.getElementById("adminBackupOut").innerHTML = '<div class="v2-guard-bar lv-green">✅ 恢复后安全重核验已完成并解除冻结：' + esc(JSON.stringify(r.data.report)) + '</div>';
           toast("✅ 重核验通过，团队云端服务已恢复正常！");
           loadCloudActiveTab();
@@ -1993,13 +2099,20 @@
     }
 
     global.FG_CLOUD.subscribe(function (st, evType) {
+      var curEmpId = (st && st.loggedIn && st.employee && st.employee.id) ? st.employee.id : "";
+      var empChanged = Boolean(uiState.lastEmployeeId && uiState.lastEmployeeId !== curEmpId);
+      if (evType === "cleared" || evType === "account_switched" || empChanged) {
+        clearCloudUiContainers(evType || (empChanged ? "account_switched" : "cleared"));
+      }
+      uiState.lastEmployeeId = curEmpId;
       renderTopbarAuthState(st);
       if (evType === "cleared" && st.lastError) {
-        toast("⚠️ " + st.lastError + "，已清除本机私有缓存");
+        toast("⚠️ " + st.lastError + "，已清除本机私有缓存与云端带入表单");
       }
     });
 
     var initSt = global.FG_CLOUD.getState();
+    uiState.lastEmployeeId = (initSt && initSt.loggedIn && initSt.employee && initSt.employee.id) ? initSt.employee.id : "";
     renderTopbarAuthState(initSt);
     if (initSt.loggedIn) {
       global.FG_CLOUD.refreshMe().then(function (r) {

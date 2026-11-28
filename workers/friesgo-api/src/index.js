@@ -2,7 +2,7 @@
 // Security: strict Origin allowlist, Bearer session auth on every private endpoint,
 // Cache-Control: no-store on all responses, zero unauthenticated access to company data.
 
-import { handleAuthRoutes } from "./auth.js";
+import { checkSystemMaintenanceGate, EXPECTED_SCHEMA_VERSION, handleAuthRoutes, probeSchemaHealth } from "./auth.js";
 import { handleAdminRoutes } from "./routes/admin.js";
 import { handleCompanyRoutes } from "./routes/companies.js";
 import { handleEventRoutes } from "./routes/events.js";
@@ -27,41 +27,71 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    // Minimal public health endpoint (exposes zero private data, only service readiness, environment & build identity)
+    // Public health endpoint (exposes zero secrets/private data; actively verifies DB schema & maintenance gate)
     if (url.pathname === "/api/health" && request.method === "GET") {
       const hasDb = Boolean(env && env.DB);
       const hasSecrets = Boolean(env && env.AUTH_PEPPER && env.TOTP_ENC_KEY);
       let bootstrapped = false;
-      let restoreFrozen = false;
+      let schemaProbe = {
+        schemaVersion: 0,
+        expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+        schemaReady: false,
+        missingSchema: hasDb ? ["schema_unprobed"] : ["database_binding"],
+      };
+      let gate = {
+        allowed: false,
+        frozen: true,
+        readable: false,
+        code: "SYSTEM_MAINTENANCE_STATE_UNAVAILABLE",
+        latestJob: null,
+      };
+
       if (hasDb) {
+        schemaProbe = await probeSchemaHealth(env.DB);
         try {
           const row = await env.DB.prepare("SELECT COUNT(*) AS cnt FROM employees").first();
           bootstrapped = Number((row && row.cnt) || 0) > 0;
         } catch {
-          // Schema not migrated yet
+          bootstrapped = false;
         }
-        try {
-          const fRow = await env.DB
-            .prepare("SELECT state_value FROM system_maintenance_state WHERE state_key = 'restore_freeze'")
-            .first();
-          restoreFrozen = Boolean(fRow && fRow.state_value === "1");
-        } catch {
-          // Migration 0002 optional on older DBs
-        }
+        gate = await checkSystemMaintenanceGate(env.DB);
       }
+
+      const ready = hasDb && hasSecrets && schemaProbe.schemaReady && gate.readable;
+      const unreadyReasons = [];
+      if (!hasDb) unreadyReasons.push("DATABASE_BINDING_MISSING");
+      if (!hasSecrets) unreadyReasons.push("CORE_SECRETS_MISSING");
+      if (!schemaProbe.schemaReady) unreadyReasons.push("SCHEMA_MIGRATION_INCOMPLETE");
+      if (!gate.readable) unreadyReasons.push(gate.code || "SYSTEM_MAINTENANCE_STATE_UNAVAILABLE");
+
       return json(
         {
-          ok: hasDb && hasSecrets,
+          ok: ready,
           service: "friesgo-api",
           version: "v2.1-m2a",
           buildCommit: (env && env.BUILD_COMMIT) || "dev-local",
-          schemaVersion: 2,
+          schemaVersion: schemaProbe.schemaVersion,
+          expectedSchemaVersion: schemaProbe.expectedSchemaVersion,
+          schemaReady: schemaProbe.schemaReady,
+          missingSchema: schemaProbe.missingSchema,
+          maintenanceReadable: gate.readable,
+          unreadyReasons,
           environment: (env && env.ENVIRONMENT) || "unknown",
           bootstrapped,
-          restoreFrozen,
+          restoreFrozen: !gate.allowed,
+          maintenanceGateCode: gate.code || null,
+          latestRestoreJob: gate.latestJob
+            ? {
+                job_id: gate.latestJob.job_id,
+                status: gate.latestJob.status,
+                started_at: gate.latestJob.started_at,
+                finished_at: gate.latestJob.finished_at || null,
+                verified_at: gate.latestJob.verified_at || null,
+              }
+            : null,
           timestamp: nowIso(),
         },
-        hasDb && hasSecrets ? 200 : 503,
+        ready ? 200 : 503,
         cors
       );
     }

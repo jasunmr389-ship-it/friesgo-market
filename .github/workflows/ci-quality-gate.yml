@@ -5,12 +5,22 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-main"
+  cancel-in-progress: false
 
 jobs:
   quality-gate:
-    name: Unit, API Security, E2E Chrome & Policy Freshness Gate
+    name: Unit, API Security, R01-R07, E2E Chrome & Policy Freshness Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -45,6 +55,9 @@ jobs:
       - name: Run Cloud API Security, RBAC, 2FA, Locks, Dedupe & Restore Tests
         run: node --test tests/m2a-api-security.test.js
 
+      - name: Run V2.1 R01-R07 & CSV 10k Directed Reliability/Security Gate
+        run: node tests/v21-r01-r07-verify.js
+
       - name: Run V2.1 D01-D12 & S01-S14 Directed Security + E2E Regression Suite
         run: node tests/v21-d01-d12-verify.js
 
@@ -60,5 +73,36 @@ jobs:
       - name: Run V2.0 UX & Foreign-Trade Guardrails Browser Suite
         run: node tests/v2-ux-verify.js
 
+      - name: Run Full E2E & 10k Stress Suite
+        run: node tests/e2e-and-stress.js
+
       - name: Run Policy Shelf-Life Check
         run: python3 scripts/check_policy_review.py
+
+      - name: Assemble exact tested static site artifact for GitHub Pages (R06)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          rm -rf _pages_dist
+          mkdir -p _pages_dist
+          cp index.html privacy.html terms.html favicon.png apple-touch-icon.png _pages_dist/
+          cp -R js data _pages_dist/
+          touch _pages_dist/.nojekyll
+
+      - name: Upload verified GitHub Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _pages_dist
+
+  deploy-pages:
+    name: Deploy Verified SHA to GitHub Pages (R06 Gated)
+    needs: quality-gate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy verified Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1043,6 +1043,11 @@ Best regards,
           WA 主推品：<input id="csvWaProd" type="text" value="industrial valves, pumps & steel structures" placeholder="英文品名" style="width:195px;min-height:30px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px">
         </label>
       </div>
+      <div id="csvFilterProgressWrap" hidden style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);font-size:12px">
+        <span id="csvFilterProgressText" style="font-weight:700;color:var(--brown)">⏳ 正在分块筛选名单…</span>
+        <div style="flex:1;min-width:120px;height:6px;border-radius:99px;background:var(--line);overflow:hidden"><div id="csvFilterProgressBar" style="height:100%;width:0%;background:var(--orange);transition:width 80ms linear"></div></div>
+        <button type="button" class="pill danger" id="btnCancelCsvFilter" style="min-height:26px;padding:2px 9px;font-size:11.5px">⏹ 取消筛选</button>
+      </div>
       <div class="mini-scroll" style="margin-top:10px">
         <table>
           <thead><tr><th>公司 / 客户名</th><th>国家</th><th>邮箱 &amp; 邮局 MX 状态</th><th>电话 / WhatsApp（含当地时段灯）</th><th>官网</th><th>第 3 步 · 行动</th></tr></thead>
@@ -4189,6 +4194,7 @@ window.setActiveClientContext = function(clientObj){
   } else {
     window._activeClientCtx = {
       id: clientObj.id || "",
+      isCloud: Boolean(clientObj.isCloud || (clientObj.id && String(clientObj.id).indexOf("cloud:") === 0)),
       company: clientObj.company || "",
       country: clientObj.country || "Vietnam",
       contact: clientObj.contact || "",
@@ -6741,11 +6747,32 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
   if(bindSelEl){
     bindSelEl.addEventListener("change", function(){
       _currentDraftQuoteId = window.FG_CORE.genStableId("qt");
-      var ldB = bindSelEl.value && typeof findLeadById === "function" ? findLeadById(bindSelEl.value) : null;
+      var val = bindSelEl.value || "";
+      if(val.indexOf("cloud:") === 0){
+        bindSelEl.dataset.fgCloudSource = "1";
+      } else {
+        delete bindSelEl.dataset.fgCloudSource;
+        var qp = document.getElementById("qcProdName");
+        if(qp) delete qp.dataset.fgCloudSource;
+      }
+      var ldB = val && val.indexOf("cloud:") !== 0 && typeof findLeadById === "function" ? findLeadById(val) : null;
       if(ldB && typeof window.setActiveClientContext === "function") window.setActiveClientContext(ldB);
       updateCalc();
     });
   }
+  window._resetCloudQuoteForm = function(){
+    var cSel = document.getElementById("qcBindClient");
+    var qp = document.getElementById("qcProdName");
+    var wasCloud = Boolean((cSel && (cSel.dataset.fgCloudSource === "1" || (cSel.value && cSel.value.indexOf("cloud:") === 0))) || (qp && qp.dataset.fgCloudSource === "1"));
+    if(!wasCloud) return;
+    if(cSel){ cSel.value = ""; delete cSel.dataset.fgCloudSource; }
+    if(qp && qp.dataset.fgCloudSource === "1"){
+      qp.value = "DN100 PN16 Cast Steel Gate Valve (Industrial Valves)";
+      delete qp.dataset.fgCloudSource;
+    }
+    _currentDraftQuoteId = window.FG_CORE.genStableId("qt");
+    updateCalc();
+  };
   [
     "qcProdName","qcFactoryRmb","qcQty","qcUnitName","qcTaxMode","qcVatPct","qcRebate","qcExTaxExtraPct",
     "qcDecimals","qcCommBasis","qcFx","qcMargin","qcMinMarginFloor","qcLocalRmb","qcFreightUsd","qcInsPct","qcBankUsd",
@@ -7111,16 +7138,26 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
 
   window.loadIntoCalc = function(country, prod, clientId, quoteSnap){
     navigateTo("quote-calc");
+    var isCloudBind = Boolean(clientId && String(clientId).indexOf("cloud:") === 0);
     if(country && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(qcSel, country, false);
-    if(prod) document.getElementById("qcProdName").value = window.FG_GEO ? window.FG_GEO.ensureEnglishProd(prod) : prod;
+    var qcProdEl = document.getElementById("qcProdName");
+    if(prod && qcProdEl){
+      qcProdEl.value = window.FG_GEO ? window.FG_GEO.ensureEnglishProd(prod) : prod;
+      if(isCloudBind) qcProdEl.dataset.fgCloudSource = "1";
+      else delete qcProdEl.dataset.fgCloudSource;
+    } else if(qcProdEl && !isCloudBind){
+      delete qcProdEl.dataset.fgCloudSource;
+    }
     syncCountryDuty();
     if(typeof window.refreshQuoteClientSelect === "function") window.refreshQuoteClientSelect();
     var cSel = document.getElementById("qcBindClient");
     if(cSel){
       cSel.value = clientId || "";
+      if(isCloudBind) cSel.dataset.fgCloudSource = "1";
+      else delete cSel.dataset.fgCloudSource;
       renderQuoteDdGateUI(_lastQuoteState && _lastQuoteState.belowProfitFloor);
     }
-    var boundLd = (clientId && String(clientId).indexOf("cloud:") !== 0 && typeof findLeadById === "function") ? findLeadById(clientId) : null;
+    var boundLd = (clientId && !isCloudBind && typeof findLeadById === "function") ? findLeadById(clientId) : null;
     if(boundLd && typeof window.setActiveClientContext === "function") window.setActiveClientContext(boundLd);
     if(quoteSnap && typeof quoteSnap === "object"){
       if(quoteSnap.priceMode && quoteSnap.priceMode !== qcPriceMode && modePills){
@@ -7796,6 +7833,7 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
   updateEmail();
 
   window.loadIntoEmailGen = function(country, lang, prod, comp, toEmail, opts){
+    var isCloudOrigin = Boolean((opts && opts.isCloud) || (opts && opts.clientId && String(opts.clientId).indexOf("cloud:") === 0));
     window._emAwardContext = (opts && opts.awardProject) ? {
       company: comp ? String(comp).trim() : "",
       projectTitle: String(opts.awardProject || "").trim(),
@@ -7810,15 +7848,23 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     if(sigEl) sigEl.value = (opts && opts.emSignal) ? opts.emSignal : "general";
     var sigNoteEl = document.getElementById("emSignalNote");
     if(sigNoteEl) sigNoteEl.value = (opts && opts.signalNote) ? String(opts.signalNote).trim() : "";
-    document.getElementById("emProduct").value = prod ? (window.FG_GEO ? window.FG_GEO.ensureEnglishProd(prod) : prod) : "industrial equipment";
-    document.getElementById("emCompany").value = comp ? String(comp).trim() : "";
+    var prodEl = document.getElementById("emProduct");
+    var compEl = document.getElementById("emCompany");
     var ctEl = document.getElementById("emContact");
-    if(ctEl) ctEl.value = (opts && opts.contact) ? String(opts.contact).trim() : "";
     var toEl = document.getElementById("emToEmail");
+    if(prodEl) prodEl.value = prod ? (window.FG_GEO ? window.FG_GEO.ensureEnglishProd(prod) : prod) : "industrial equipment";
+    if(compEl) compEl.value = comp ? String(comp).trim() : "";
+    if(ctEl) ctEl.value = (opts && opts.contact) ? String(opts.contact).trim() : "";
     if(toEl) toEl.value = toEmail ? String(toEmail).trim() : "";
+    [prodEl, compEl, ctEl, toEl, sigNoteEl].forEach(function(el){
+      if(!el) return;
+      if(isCloudOrigin) el.dataset.fgCloudSource = "1";
+      else delete el.dataset.fgCloudSource;
+    });
     if(comp && String(comp).trim() && typeof window.setActiveClientContext === "function"){
       window.setActiveClientContext({
         id: (opts && opts.clientId) || "",
+        isCloud: isCloudOrigin,
         company: String(comp).trim(),
         country: cRes.ok ? cRes.value : (country || "Vietnam"),
         contact: (opts && opts.contact) ? String(opts.contact).trim() : "",
@@ -7829,6 +7875,19 @@ window.FG_CORE.safeInit("OutreachQuoteEmail", function(){
     updateEmail(); updateLF();
     var suffix = cRes.generic ? "（该线索未指定单一国家，已设为通用区域，可按需选择具体国家）" : "";
     showToast("已载入「"+(comp || cRes.cn || CN[country] || country || "开发信")+"」到写开发信" + suffix);
+  };
+  window._resetCloudEmailForm = function(){
+    var ids = ["emCompany", "emContact", "emToEmail", "emSignalNote", "emProduct"];
+    var hadCloud = ids.some(function(id){ var el = document.getElementById(id); return el && el.dataset.fgCloudSource === "1"; });
+    if(!hadCloud) return;
+    ["emCompany", "emContact", "emToEmail", "emSignalNote"].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el){ el.value = ""; delete el.dataset.fgCloudSource; }
+    });
+    var prodEl = document.getElementById("emProduct");
+    if(prodEl){ prodEl.value = "industrial equipment"; delete prodEl.dataset.fgCloudSource; }
+    window._emAwardContext = null;
+    updateEmail();
   };
 
   document.getElementById("actions").addEventListener("click", function(e){
@@ -9036,12 +9095,18 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
   });
 
   window.loadIntoDd = function(country, company, domain, email, cloudComp){
+    var isCloudOrigin = Boolean(cloudComp && cloudComp.id);
     window._activeCloudDdCompany = cloudComp || null;
     navigateTo("duediligence");
     selectDdCountry(country);
     var cEl = document.getElementById("ddCompany"); if(cEl) cEl.value = company || "";
     var dEl = document.getElementById("ddDomain"); if(dEl) dEl.value = domain || "";
     var eEl = document.getElementById("ddEmail"); if(eEl) eEl.value = email || "";
+    [cEl, dEl, eEl].forEach(function(el){
+      if(!el) return;
+      if(isCloudOrigin) el.dataset.fgCloudSource = "1";
+      else delete el.dataset.fgCloudSource;
+    });
     resetDdState(false);
     document.getElementById("ddAutoResult").textContent = "已载入新客户信息（已重置旧核查项与结论），请点击「开始自动体检」并逐项核查。";
     var sb = document.getElementById("ddStaleNote"); if(sb) sb.hidden = true;
@@ -9050,7 +9115,8 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
       var prevCtx = window._activeClientCtx;
       var sameComp = prevCtx && prevCtx.company && prevCtx.company.toLowerCase() === String(company).trim().toLowerCase();
       window.setActiveClientContext({
-        id: sameComp ? (prevCtx.id || "") : "",
+        id: isCloudOrigin ? ("cloud:" + cloudComp.id) : (sameComp ? (prevCtx.id || "") : ""),
+        isCloud: isCloudOrigin,
         company: String(company).trim(),
         country: ddSel.value || country || "Vietnam",
         contact: sameComp ? (prevCtx.contact || "") : "",
@@ -9060,6 +9126,22 @@ window.FG_CORE.safeInit("EmailSpfCtn", function(){
       });
     }
     showToast("已载入客户背调：" + (company || CN[country] || country || "客户核验"));
+  };
+  window._resetCloudDdForm = function(){
+    var cEl = document.getElementById("ddCompany");
+    var dEl = document.getElementById("ddDomain");
+    var eEl = document.getElementById("ddEmail");
+    var hadCloud = Boolean(window._activeCloudDdCompany || [cEl, dEl, eEl].some(function(el){ return el && el.dataset.fgCloudSource === "1"; }));
+    window._activeCloudDdCompany = null;
+    if(!hadCloud) return;
+    [cEl, dEl, eEl].forEach(function(el){
+      if(el){ el.value = ""; delete el.dataset.fgCloudSource; }
+    });
+    resetDdState(false);
+    var ar = document.getElementById("ddAutoResult");
+    if(ar) ar.textContent = "已清除云端带入背调信息。";
+    var sb = document.getElementById("ddStaleNote");
+    if(sb) sb.hidden = true;
   };
 
   renderPortals();
@@ -9797,25 +9879,37 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
       var cid = pcBindEl.value;
       // Switching client/order ALWAYS resets orderRef, evidence, endUser, decision, and checkmarks!
       ["pcOrderRef","pcEndUser","pcEvidence"].forEach(function(id){
-        var el = document.getElementById(id); if(el) el.value = "";
+        var el = document.getElementById(id); if(el){ el.value = ""; delete el.dataset.fgCloudSource; }
       });
       resetChecklistBoxes();
       if(cid && cid.indexOf("cloud:") === 0){
+        pcBindEl.dataset.fgCloudSource = "1";
         var cList = (window.FG_CLOUD_UI && typeof window.FG_CLOUD_UI.getCachedCloudCompanies === "function") ? window.FG_CLOUD_UI.getCachedCloudCompanies() : [];
         var cComp = cList.filter(function(x){ return x && ("cloud:" + x.id) === cid; })[0];
         if(cComp){
           var nmElC = document.getElementById("pcClientName");
           var hsElC = document.getElementById("pcProductHs");
           var revElC = document.getElementById("pcReviewer");
-          if(nmElC) nmElC.value = cComp.canonical_name || "";
+          if(nmElC){ nmElC.value = cComp.canonical_name || ""; nmElC.dataset.fgCloudSource = "1"; }
           if(pcCountryEl && window.FG_GEO) window.FG_GEO.selectOrAppendCountry(pcCountryEl, cComp.country_en || "Saudi Arabia", false);
-          if(hsElC && cComp.product_summary) hsElC.value = cComp.product_summary;
+          if(hsElC){
+            if(cComp.product_summary) hsElC.value = cComp.product_summary;
+            hsElC.dataset.fgCloudSource = "1";
+          }
           var cst = window.FG_CLOUD && window.FG_CLOUD.getState();
-          if(revElC && !revElC.value) revElC.value = (cst && cst.employee && cst.employee.display_name) || defaultOwner || "";
+          if(revElC && (!revElC.value || revElC.dataset.fgCloudSource === "1")){
+            revElC.value = (cst && cst.employee && cst.employee.display_name) || defaultOwner || "";
+            revElC.dataset.fgCloudSource = "1";
+          }
         }
         updateChk();
         return;
       }
+      delete pcBindEl.dataset.fgCloudSource;
+      ["pcClientName","pcProductHs","pcReviewer"].forEach(function(id){
+        var el = document.getElementById(id);
+        if(el) delete el.dataset.fgCloudSource;
+      });
       var l = cid ? findLeadById(cid) : null;
       if(l){
         var nmEl = document.getElementById("pcClientName");
@@ -9853,9 +9947,9 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
   if(pcCountryEl) pcCountryEl.addEventListener("change", updateChk);
 
   document.getElementById("btnResetChk").addEventListener("click", function(){
-    if(pcBindEl) pcBindEl.value = "";
+    if(pcBindEl){ pcBindEl.value = ""; delete pcBindEl.dataset.fgCloudSource; }
     ["pcOrderRef","pcClientName","pcProductHs","pcEndUser","pcEvidence"].forEach(function(id){
-      var el = document.getElementById(id); if(el) el.value = "";
+      var el = document.getElementById(id); if(el){ el.value = ""; delete el.dataset.fgCloudSource; }
     });
     resetChecklistBoxes();
     showToast("已开启新订单合规自查（上一单订单号、结论与勾选已清空）");
@@ -9936,7 +10030,7 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
         allPassed: decision === "approved" && done === allCbs.length
       };
 
-      // D09/S01: When bound to a Cloud Company Pool enterprise, save directly to Cloud D1!
+      // D09/S01/R07: When bound to a Cloud Company Pool enterprise, save strictly to Cloud D1 (NEVER mirror private cloud records into unauthenticated local IndexedDB!)
       if(rec.clientId && rec.clientId.indexOf("cloud:") === 0 && window.FG_CLOUD && window.FG_CLOUD.getState().loggedIn){
         var cloudCompId = rec.clientId.slice(6);
         window.FG_CLOUD.saveComplianceLog(cloudCompId, {
@@ -9958,9 +10052,6 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
           if(!res.ok){
             showToast("❌ 云端合规归档被拒绝：" + ((res.data && res.data.error) || ("HTTP " + res.status)));
             return;
-          }
-          if(window.FG_STORE){
-            window.FG_STORE.saveComplianceLog(rec).then(function(){ return reloadCrmFromStore(); }).catch(function(){});
           }
           showToast("☁️ 已将订单 [" + orderRef + "] 合规台账归档至公司云端（" + (DEC_LABELS[decision] || decision) + " · 全团队可查）");
         });
@@ -9995,12 +10086,37 @@ window.FG_CORE.safeInit("PrecheckOrderBound", function(){
     if(typeof renderHomeWorkspace === "function") renderHomeWorkspace();
   };
 
+  // R07: Clear all cloud-context-prefilled fields across Precheck, Quote, Email, Due Diligence & Active Client Banner on logout / revoke / account switch
+  window._clearCloudDerivedUiState = function(){
+    var pcWasCloud = Boolean(
+      (pcBindEl && (pcBindEl.dataset.fgCloudSource === "1" || (pcBindEl.value && pcBindEl.value.indexOf("cloud:") === 0)))
+      || ["pcClientName", "pcProductHs", "pcReviewer"].some(function(id){
+        var el = document.getElementById(id);
+        return el && el.dataset.fgCloudSource === "1";
+      })
+    );
+    if(pcWasCloud){
+      if(pcBindEl){ pcBindEl.value = ""; delete pcBindEl.dataset.fgCloudSource; }
+      ["pcOrderRef", "pcClientName", "pcProductHs", "pcEndUser", "pcEvidence", "pcReviewer"].forEach(function(id){
+        var el = document.getElementById(id);
+        if(el){ el.value = ""; delete el.dataset.fgCloudSource; }
+      });
+      resetChecklistBoxes();
+    }
+    if(typeof window._resetCloudQuoteForm === "function") window._resetCloudQuoteForm();
+    if(typeof window._resetCloudEmailForm === "function") window._resetCloudEmailForm();
+    if(typeof window._resetCloudDdForm === "function") window._resetCloudDdForm();
+    if(window._activeClientCtx && (window._activeClientCtx.isCloud || (window._activeClientCtx.id && String(window._activeClientCtx.id).indexOf("cloud:") === 0))){
+      if(typeof window.setActiveClientContext === "function") window.setActiveClientContext(null);
+    }
+  };
+
   window._jumpFromCloudCompany = function(c, contacts, targetTool){
     if(!c || !c.id) return;
     var firstCt = (Array.isArray(contacts) && contacts[0]) || {};
     var bindVal = "cloud:" + c.id;
     if(targetTool === "email-gen" && typeof window.loadIntoEmailGen === "function"){
-      window.loadIntoEmailGen(c.country_en, guessLang(c.country_en), c.product_summary || "", c.canonical_name, firstCt.email || "", { emType: "first" });
+      window.loadIntoEmailGen(c.country_en, guessLang(c.country_en), c.product_summary || "", c.canonical_name, firstCt.email || "", { emType: "first", isCloud: true, clientId: bindVal });
       showToast("✉️ 已带入云端企业「" + c.canonical_name + "」信息到开发信生成器");
     } else if(targetTool === "quote-calc" && typeof window.loadIntoCalc === "function"){
       window.loadIntoCalc(c.country_en, c.product_summary || "", bindVal);
@@ -12901,48 +13017,63 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   }
   window.getCsvLeadsCount = function(){ return csvLeads.length; };
 
-  function renderCsvTable(){
+  var csvFilterRunSeq = 0;
+  var csvFilterTimer = null;
+  var csvLastCommittedFilter = "all";
+
+  function syncCsvFilterPillsUi(activeVal){
+    var pills = document.getElementById("csvFilterPills");
+    if(!pills) return;
+    pills.querySelectorAll("button[data-csvf]").forEach(function(x){
+      x.setAttribute("aria-pressed", x.getAttribute("data-csvf") === activeVal ? "true" : "false");
+    });
+  }
+
+  function hideCsvFilterProgress(){
+    var wrap = document.getElementById("csvFilterProgressWrap");
+    if(wrap){
+      wrap.hidden = true;
+      wrap.removeAttribute("data-csv-filtering");
+    }
+  }
+
+  function cancelActiveCsvFilter(restorePrev){
+    csvFilterRunSeq++;
+    if(csvFilterTimer){ clearTimeout(csvFilterTimer); csvFilterTimer = null; }
+    hideCsvFilterProgress();
+    if(restorePrev){
+      csvFilter = csvLastCommittedFilter;
+      syncCsvFilterPillsUi(csvFilter);
+    }
+  }
+
+  function matchesCsvFilter(r, flt){
+    if(flt === "clean") return !r.suspect;
+    if(flt === "suspect") return !!r.suspect;
+    if(flt === "corp") return !r.isFree && !r.suspect && r.mxStatus === "ok";
+    if(flt === "wa"){ var ph = r._phInfo || analyzePhone(r.phone, r.country); return ph.digits.length >= 7; }
+    if(flt === "free") return r.isFree;
+    return true;
+  }
+
+  function renderCsvSliceDom(shown, tot, activeFlt){
     var tb = document.getElementById("csvTbody");
-    var tot = csvLeads.length;
-    var nOk = 0, nWa = 0, nFree = 0, nBad = 0, nErr = 0, nPend = 0, nSus = 0, nRole = 0;
-    csvLeads.forEach(function(r){
-      if(r.mxStatus==="ok") nOk++;
-      else if(r.mxStatus==="bad") nBad++;
-      else if(r.mxStatus==="error") nErr++;
-      else if(r.mxStatus==="pending") nPend++;
-      if(r.isFree) nFree++;
-      if(r.suspect) nSus++;
-      if(r.isRoleEmail) nRole++;
-      var ph = r._phInfo || (r._phInfo = analyzePhone(r.phone, r.country));
-      if(ph.digits.length >= 7) nWa++;
-    });
-    var susCntEl = document.getElementById("csvSuspectCnt");
-    if(susCntEl) susCntEl.textContent = String(nSus);
-    var purgeBtn = document.getElementById("btnPurgeSuspect");
-    if(purgeBtn) purgeBtn.hidden = !nSus;
-
-    document.getElementById("csvStats").textContent = tot
-      ? ("共 " + tot + " 家去重客户 ｜ 域名可收信 " + nOk + (nPend ? (" ｜ 未验证 " + nPend) : "") + " ｜ 可发 WhatsApp " + nWa + (nSus ? (" ｜ 疑似货代/非终端 " + nSus) : "") + (nRole ? (" ｜ 泛邮箱 " + nRole) : "") + " ｜ 免费邮箱 " + nFree + (nBad ? (" ｜ 明确不可收信 " + nBad) : "") + (nErr ? (" ｜ 暂时失败 " + nErr) : ""))
-      : "尚未导入名单";
-
-    var shown = csvLeads.map(function(r, i){ return {r:r, i:i}; }).filter(function(o){
-      var r = o.r;
-      if(csvFilter === "clean") return !r.suspect;
-      if(csvFilter === "suspect") return !!r.suspect;
-      if(csvFilter === "corp") return !r.isFree && !r.suspect && r.mxStatus === "ok";
-      if(csvFilter === "wa"){ var ph = r._phInfo || analyzePhone(r.phone, r.country); return ph.digits.length >= 7; }
-      if(csvFilter === "free") return r.isFree;
-      return true;
-    });
+    if(!tb) return;
     if(!shown.length){
-      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">' + (csvFilter === "corp" && tot ? "暂无已通过 MX 验证的非货代企业域名，请先点击「批量核验企业邮局（MX）」。" : "当前筛选条件下无客户记录。") + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">' + (activeFlt === "corp" && tot ? "暂无已通过 MX 验证的非货代企业域名，请先点击「批量核验企业邮局（MX）」。" : "当前筛选条件下无客户记录。") + '</td></tr>';
       return;
     }
-    var limit = csvShowAll ? shown.length : Math.min(shown.length, 500);
+    var maxPreview = (typeof window !== "undefined" && window.innerWidth <= 640 && tot > 2000) ? 200 : 500;
+    var limit = csvShowAll ? shown.length : Math.min(shown.length, maxPreview);
     var renderSlice = shown.slice(0, limit);
     var moreRowHtml = shown.length > limit
       ? ('<tr class="csv-more-row"><td colspan="6" style="text-align:center;padding:12px;background:var(--surface2)">当前极速预览前 <b>'+limit+'</b> / <b>'+shown.length+'</b> 条（全部 '+tot+' 条均已纳入去重统计与 CSV 导出） <button type="button" class="pill" data-csv-showall="1" style="min-height:28px;padding:3px 10px;font-size:12px;margin-left:8px">展开全部 '+shown.length+' 条</button></td></tr>')
       : '';
+
+    // Cache evaluateCountryContactTiming per country per render pass (avoids 500x repeated Intl.DateTimeFormat calls!)
+    var timingCache = Object.create(null);
+    var hasTimingFn = Boolean(window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function");
+
     tb.innerHTML = renderSlice.map(function(o){
       var r = o.r, i = o.i;
       var badge = "";
@@ -12956,9 +13087,13 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
 
       var phInfo = r._phInfo || analyzePhone(r.phone, r.country);
       var digits = phInfo.digits;
-      var tmWa = (digits.length >= 7 && r.country && window.FG_CORE && typeof window.FG_CORE.evaluateCountryContactTiming === "function")
-        ? window.FG_CORE.evaluateCountryContactTiming(r.country)
-        : null;
+      var tmWa = null;
+      if(digits.length >= 7 && r.country && hasTimingFn){
+        if(!Object.prototype.hasOwnProperty.call(timingCache, r.country)){
+          timingCache[r.country] = window.FG_CORE.evaluateCountryContactTiming(r.country);
+        }
+        tmWa = timingCache[r.country];
+      }
       var waDot = tmWa ? (tmWa.dot + " ") : "💬 ";
       var waTimeTip = tmWa ? ("｜" + tmWa.statusLabel + " · " + tmWa.actionAdvice) : "";
       var waRedWarn = (tmWa && tmWa.level === "red") ? '<div style="font-size:11px;color:var(--danger);font-weight:700;margin-top:2px">🌙 当地休假/深夜，建议暂缓秒发防拉黑</div>' : '';
@@ -12987,13 +13122,92 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     }).join("") + moreRowHtml;
   }
 
+  function renderCsvTable(opts){
+    cancelActiveCsvFilter(false);
+    var tot = csvLeads.length;
+    var nOk = 0, nWa = 0, nFree = 0, nBad = 0, nErr = 0, nPend = 0, nSus = 0, nRole = 0;
+    for(var sIdx = 0; sIdx < tot; sIdx++){
+      var r = csvLeads[sIdx];
+      if(r.mxStatus==="ok") nOk++;
+      else if(r.mxStatus==="bad") nBad++;
+      else if(r.mxStatus==="error") nErr++;
+      else if(r.mxStatus==="pending") nPend++;
+      if(r.isFree) nFree++;
+      if(r.suspect) nSus++;
+      if(r.isRoleEmail) nRole++;
+      var ph = r._phInfo || (r._phInfo = analyzePhone(r.phone, r.country));
+      if(ph.digits.length >= 7) nWa++;
+    }
+    var susCntEl = document.getElementById("csvSuspectCnt");
+    if(susCntEl) susCntEl.textContent = String(nSus);
+    var purgeBtn = document.getElementById("btnPurgeSuspect");
+    if(purgeBtn) purgeBtn.hidden = !nSus;
+
+    document.getElementById("csvStats").textContent = tot
+      ? ("共 " + tot + " 家去重客户 ｜ 域名可收信 " + nOk + (nPend ? (" ｜ 未验证 " + nPend) : "") + " ｜ 可发 WhatsApp " + nWa + (nSus ? (" ｜ 疑似货代/非终端 " + nSus) : "") + (nRole ? (" ｜ 泛邮箱 " + nRole) : "") + " ｜ 免费邮箱 " + nFree + (nBad ? (" ｜ 明确不可收信 " + nBad) : "") + (nErr ? (" ｜ 暂时失败 " + nErr) : ""))
+      : "尚未导入名单";
+
+    var targetFlt = csvFilter;
+    var useChunked = Boolean(opts && opts.asyncChunked && (tot > 1500 || window._fgCsvForceChunkSize));
+    if(!useChunked){
+      var shownSync = [];
+      for(var idx = 0; idx < tot; idx++){
+        if(matchesCsvFilter(csvLeads[idx], targetFlt)) shownSync.push({ r: csvLeads[idx], i: idx });
+      }
+      csvLastCommittedFilter = targetFlt;
+      renderCsvSliceDom(shownSync, tot, targetFlt);
+      return;
+    }
+
+    // Chunked async filter pass with live progress indicator and explicit Cancel support
+    var myRun = ++csvFilterRunSeq;
+    var chunkSize = Math.max(100, Number(window._fgCsvForceChunkSize) || 2500);
+    var wrap = document.getElementById("csvFilterProgressWrap");
+    var txtEl = document.getElementById("csvFilterProgressText");
+    var barEl = document.getElementById("csvFilterProgressBar");
+    if(wrap){ wrap.hidden = false; wrap.setAttribute("data-csv-filtering", "1"); }
+    if(txtEl) txtEl.textContent = "⏳ 正在分块筛选 " + tot + " 条名单（0%）…";
+    if(barEl) barEl.style.width = "0%";
+
+    var shownAsync = [];
+    var cursor = 0;
+    function runChunk(){
+      if(myRun !== csvFilterRunSeq) return;
+      var end = Math.min(tot, cursor + chunkSize);
+      for(var i = cursor; i < end; i++){
+        if(matchesCsvFilter(csvLeads[i], targetFlt)) shownAsync.push({ r: csvLeads[i], i: i });
+      }
+      cursor = end;
+      var pct = tot ? Math.round((cursor / tot) * 100) : 100;
+      if(txtEl) txtEl.textContent = "⏳ 正在分块筛选 " + tot + " 条名单（" + pct + "% · 已匹配 " + shownAsync.length + " 条）…";
+      if(barEl) barEl.style.width = pct + "%";
+      if(cursor < tot){
+        csvFilterTimer = setTimeout(runChunk, 0);
+      } else {
+        csvFilterTimer = null;
+        csvLastCommittedFilter = targetFlt;
+        hideCsvFilterProgress();
+        renderCsvSliceDom(shownAsync, tot, targetFlt);
+      }
+    }
+    csvFilterTimer = setTimeout(runChunk, 0);
+  }
+
+  var btnCancelCsvFilter = document.getElementById("btnCancelCsvFilter");
+  if(btnCancelCsvFilter){
+    btnCancelCsvFilter.addEventListener("click", function(){
+      cancelActiveCsvFilter(true);
+      showToast("已取消本次筛选，保持上一视图");
+    });
+  }
+
   var btnPurgeSuspect = document.getElementById("btnPurgeSuspect");
   if(btnPurgeSuspect){
     btnPurgeSuspect.addEventListener("click", function(){
       var before = csvLeads.length;
       csvLeads = csvLeads.filter(function(r){ return !r.suspect; });
       var removed = before - csvLeads.length;
-      if(csvFilter === "suspect") csvFilter = "all";
+      if(csvFilter === "suspect"){ csvFilter = "all"; syncCsvFilterPillsUi("all"); }
       renderCsvTable();
       showToast("已一键剔除 " + removed + " 条疑似货代/物流及非工业主体");
     });
@@ -13067,8 +13281,12 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
   document.getElementById("btnClearCsv").addEventListener("click", function(){
     mxRunSeq++;
     finishMxRun();
+    cancelActiveCsvFilter(false);
     csvLeads = [];
     csvShowAll = false;
+    csvFilter = "all";
+    csvLastCommittedFilter = "all";
+    syncCsvFilterPillsUi("all");
     document.getElementById("csvPasteInput").value = "";
     renderCsvTable();
     showToast("已清空名单");
@@ -13078,17 +13296,17 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
     var waDebounce = null;
     waProdEl.addEventListener("input", function(){
       clearTimeout(waDebounce);
-      waDebounce = setTimeout(renderCsvTable, 200);
+      waDebounce = setTimeout(function(){ renderCsvTable({ asyncChunked: true }); }, 200);
     });
   }
   document.getElementById("csvFilterPills").addEventListener("click", function(e){
     var b = e.target.closest("button[data-csvf]"); if(!b) return;
     csvFilter = b.getAttribute("data-csvf");
-    this.querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", x===b ? "true" : "false"); });
+    syncCsvFilterPillsUi(csvFilter);
     if(csvLeads.length > 2000 && window.innerWidth <= 640){
       showToast("📱 当前名单较大（" + csvLeads.length + " 条），仅渲染前 200 条预览以保持手机流畅");
     }
-    renderCsvTable();
+    renderCsvTable({ asyncChunked: true });
   });
 
   btnVerifyMxEl.addEventListener("click", function(){
@@ -13216,7 +13434,7 @@ window.FG_CORE.safeInit("MapAndCsv", function(){
 });
 
 /* ===== V2.1 M1/M2-A: Lightweight In-App Team Feedback & Co-Creation Modal ===== */
-window.FG_BUILD_META = { version: "v2.1-m2a", schemaVersion: 2, buildDate: "2026-11-27" };
+window.FG_BUILD_META = { version: "v2.1-m2a", schemaVersion: 3, buildDate: "2026-11-28" };
 window.FG_CORE.safeInit("FeedbackModal", function(){
   var FB_STORAGE_KEY = "friesgo_m1_feedback_v1";
   var APP_VER = window.FG_BUILD_META.version;

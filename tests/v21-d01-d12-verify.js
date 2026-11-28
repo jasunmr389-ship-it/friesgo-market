@@ -211,10 +211,11 @@ async function launchChrome() {
   const h0 = await apiReq(apiUrl, "GET", "/api/health");
   assert.equal(h0.status, 200);
   assert.equal(h0.json.version, "v2.1-m2a");
-  assert.equal(h0.json.schemaVersion, 2);
+  assert.equal(h0.json.schemaVersion, 3);
+  assert.equal(h0.json.schemaReady, true);
   assert.equal(h0.json.restoreFrozen, false);
   assert.equal(h0.json.bootstrapped, false);
-  console.log("PASS B1 (S10): /api/health reports version=v2.1-m2a, schemaVersion=2, restoreFrozen=false, bootstrapped=false");
+  console.log("PASS B1 (S10): /api/health reports version=v2.1-m2a, schemaVersion=3, schemaReady=true, restoreFrozen=false, bootstrapped=false");
 
   // 2. Bootstrap super_admin & enroll 2FA
   const boot = await apiReq(apiUrl, "POST", "/api/auth/bootstrap", {
@@ -416,7 +417,7 @@ async function launchChrome() {
     assert.ok(staticChecks.authBtnText.includes("成员登录"));
     assert.equal(staticChecks.hasOman && staticChecks.hasGhana && staticChecks.hasBangladesh, true, "Oman, Ghana, Bangladesh must exist in #msCountry");
     assert.ok(staticChecks.maxDays <= 60, `Expected <=60d trade alert horizon, got ${staticChecks.maxDays}`);
-    assert.equal(staticChecks.buildMeta.schemaVersion, 2);
+    assert.equal(staticChecks.buildMeta.schemaVersion, 3);
     console.log("PASS F1 (Plan A / D11 / D12 / S10 / S11): Naming Plan A, 60d horizon, Oman/Ghana/Bangladesh & build metadata verified");
 
     // PASS F2: S03 Gentle non-blocking must_reset_pwd reminder + D01/D02 offline & failed queue resilience

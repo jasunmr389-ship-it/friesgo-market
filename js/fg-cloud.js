@@ -10,10 +10,14 @@
   var FAILED_KEY = "friesgo_cloud_failed_v1";
   var API_URL_KEY = "friesgo_cloud_api_url_v1";
   var MAX_PENDING_QUEUE = 200;
-  var MAX_FAILED_QUEUE = 100;
+  var IDB_QUEUE_DB = "friesgo_cloud_queue_v1";
+  var IDB_QUEUE_STORE = "cloud_event_queue";
 
   var listeners = [];
   var activeLocks = Object.create(null); // { [companyId]: { lock_id, expires_at, channel } }
+  var flushInFlight = null;
+  var flushRequestedAgain = false;
+  var idbQueuePromise = null;
   var state = {
     session: null, // { token, sessionId, expiresAt, employee, requireTotpSetup }
     syncStatus: "guest", // guest | synced | syncing | offline | error
@@ -23,6 +27,97 @@
     failedCount: 0,
     restoreFrozen: false,
   };
+
+  function openQueueIdb() {
+    if (typeof indexedDB === "undefined") return Promise.resolve(null);
+    if (idbQueuePromise) return idbQueuePromise;
+    idbQueuePromise = new Promise(function (resolve) {
+      try {
+        var req = indexedDB.open(IDB_QUEUE_DB, 1);
+        req.onupgradeneeded = function () {
+          var db = req.result;
+          if (!db.objectStoreNames.contains(IDB_QUEUE_STORE)) {
+            db.createObjectStore(IDB_QUEUE_STORE, { keyPath: "event_id" });
+          }
+        };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { idbQueuePromise = null; resolve(null); };
+      } catch (_) {
+        idbQueuePromise = null;
+        resolve(null);
+      }
+    });
+    return idbQueuePromise;
+  }
+
+  function idbQueuePutRecord(rec) {
+    if (!rec || !rec.event_id) return Promise.resolve(false);
+    return openQueueIdb().then(function (db) {
+      if (!db) return false;
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(IDB_QUEUE_STORE, "readwrite");
+          tx.objectStore(IDB_QUEUE_STORE).put(rec);
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = function () { resolve(false); };
+          tx.onabort = function () { resolve(false); };
+        } catch (_) {
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  function idbQueueDeleteIds(ids) {
+    if (!Array.isArray(ids) || !ids.length) return Promise.resolve(false);
+    return openQueueIdb().then(function (db) {
+      if (!db) return false;
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(IDB_QUEUE_STORE, "readwrite");
+          var st = tx.objectStore(IDB_QUEUE_STORE);
+          ids.forEach(function (id) { if (id) st.delete(id); });
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = function () { resolve(false); };
+          tx.onabort = function () { resolve(false); };
+        } catch (_) {
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  function idbQueueClearAll() {
+    return openQueueIdb().then(function (db) {
+      if (!db) return false;
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(IDB_QUEUE_STORE, "readwrite");
+          tx.objectStore(IDB_QUEUE_STORE).clear();
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = function () { resolve(false); };
+        } catch (_) {
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  function idbQueueLoadAll() {
+    return openQueueIdb().then(function (db) {
+      if (!db) return [];
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(IDB_QUEUE_STORE, "readonly");
+          var req = tx.objectStore(IDB_QUEUE_STORE).getAll();
+          req.onsuccess = function () { resolve(Array.isArray(req.result) ? req.result : []); };
+          req.onerror = function () { resolve([]); };
+        } catch (_) {
+          resolve([]);
+        }
+      });
+    });
+  }
 
   function getApiBase() {
     if (global.FG_CLOUD_API_OVERRIDE) {
@@ -87,6 +182,8 @@
       state.pendingCount = list.length;
       return { ok: true, count: list.length };
     } catch (err) {
+      // R03: NEVER fabricate memory count on storage failure; reflect actual persisted truth
+      state.pendingCount = loadPendingQueue().length;
       return {
         ok: false,
         storageFull: true,
@@ -104,16 +201,21 @@
     }
   }
 
+  // R02 / R03: NEVER silently slice/truncate failed records; NEVER fabricate memory count when persistence throws!
   function saveFailedQueue(arr) {
-    var list = Array.isArray(arr) ? arr.slice(-MAX_FAILED_QUEUE) : [];
+    var list = Array.isArray(arr) ? arr.slice() : [];
     try {
       if (list.length) localStorage.setItem(FAILED_KEY, JSON.stringify(list));
       else localStorage.removeItem(FAILED_KEY);
       state.failedCount = list.length;
       return { ok: true, count: list.length };
-    } catch (_) {
-      state.failedCount = list.length;
-      return { ok: false };
+    } catch (err) {
+      state.failedCount = loadFailedQueue().length;
+      return {
+        ok: false,
+        storageFull: true,
+        error: "失败队列持久化存储写入失败（原待同步记录已完整保留未删除）：" + ((err && err.message) || "QuotaExceeded"),
+      };
     }
   }
 
@@ -133,7 +235,9 @@
     saveSession(null);
     savePendingQueue([]);
     saveFailedQueue([]);
+    idbQueueClearAll();
     activeLocks = Object.create(null);
+    flushRequestedAgain = false;
     state.syncStatus = "guest";
     state.lastSyncedAt = "";
     state.lastError = reason || "";
@@ -279,6 +383,7 @@
 
   // ===== Auth & 2FA =====
   function login(loginId, password, totpCode) {
+    var prevEmpId = state.session && state.session.employee ? state.session.employee.id : "";
     return apiFetch("/api/auth/login", {
       method: "POST",
       auth: false,
@@ -291,6 +396,14 @@
       },
     }).then(function (r) {
       if (r.ok && r.data && r.data.token && r.data.employee) {
+        var nextEmpId = r.data.employee.id || "";
+        var switchedAccount = Boolean(prevEmpId && nextEmpId && prevEmpId !== nextEmpId);
+        if (switchedAccount) {
+          savePendingQueue([]);
+          saveFailedQueue([]);
+          idbQueueClearAll();
+          activeLocks = Object.create(null);
+        }
         saveSession({
           token: r.data.token,
           sessionId: r.data.sessionId,
@@ -302,7 +415,7 @@
         state.syncStatus = computeHealthySyncStatus();
         state.lastSyncedAt = new Date().toISOString();
         state.lastError = "";
-        emitChange("login");
+        emitChange(switchedAccount ? "account_switched" : "login");
       }
       return r;
     });
@@ -398,15 +511,21 @@
   function listAuditLogs(limit) {
     return apiFetch("/api/admin/audit-logs?limit=" + (limit || 50), { method: "GET" });
   }
+  function listRestoreJobs() {
+    return apiFetch("/api/admin/restore-jobs", { method: "GET" });
+  }
   function exportBackup(totpCode) {
     return apiFetch("/api/admin/export-backup", { method: "POST", body: { totp_code: totpCode } });
   }
-  function restoreBackup(totpCode, confirmPhrase, tables) {
+  function restoreBackup(totpCode, confirmPhrase, tables, opts) {
+    var payload = { totp_code: totpCode, confirmPhrase: confirmPhrase || "", tables: tables || {} };
+    if (opts && opts.counts) payload.counts = opts.counts;
+    if (opts && opts.snapshotSha256) payload.snapshotSha256 = opts.snapshotSha256;
     return apiFetch("/api/admin/restore-backup", {
       method: "POST",
-      body: { totp_code: totpCode, confirmPhrase: confirmPhrase || "", tables: tables || {} },
+      body: payload,
     }).then(function (r) {
-      if (r.ok) {
+      if (r.ok || (r.data && r.data.restoreFrozen)) {
         state.restoreFrozen = true;
         state.syncStatus = "error";
         emitChange("restore_frozen");
@@ -414,10 +533,13 @@
       return r;
     });
   }
-  function postRestoreVerify(totpCode, revokeOtherSessions) {
+  function postRestoreVerify(totpCode, revokeOtherSessions, opts) {
+    var payload = { totp_code: totpCode, revokeOtherSessions: revokeOtherSessions !== false };
+    if (opts && opts.expectedJobId) payload.expectedJobId = opts.expectedJobId;
+    if (opts && opts.expectedSnapshotSha256) payload.expectedSnapshotSha256 = opts.expectedSnapshotSha256;
     return apiFetch("/api/admin/post-restore-verify", {
       method: "POST",
-      body: { totp_code: totpCode, revokeOtherSessions: revokeOtherSessions !== false },
+      body: payload,
     }).then(function (r) {
       if (r.ok) {
         state.restoreFrozen = false;
@@ -565,7 +687,67 @@
       };
     }
     q.push(ev);
-    return savePendingQueue(q);
+    var saved = savePendingQueue(q);
+    if (saved.ok) {
+      idbQueuePutRecord({
+        event_id: ev.event_id,
+        status: "pending",
+        event: ev,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    return saved;
+  }
+
+  // R01: Remove ONLY the settled event_id from fresh persisted queue (NEVER overwrite newly enqueued records!)
+  function removePendingById(eventId) {
+    var cur = loadPendingQueue();
+    var next = cur.filter(function (x) { return !(x && x.event_id === eventId); });
+    if (next.length === cur.length) {
+      state.pendingCount = cur.length;
+      return { ok: true, count: cur.length, existed: false };
+    }
+    return savePendingQueue(next);
+  }
+
+  // R02 / R03: Write durable failed copy FIRST (without truncation) and verify success BEFORE removing from pending!
+  function transitionPendingToFailed(item, response) {
+    var failed = loadFailedQueue();
+    var exists = failed.some(function (f) { return f && f.event && f.event.event_id === item.event_id; });
+    var entry = {
+      event: item,
+      status: (response && response.status) || 400,
+      code: (response && response.data && response.data.code) || "SYNC_REJECTED",
+      error: (response && response.data && response.data.error) || ("服务端拒绝该记录 (HTTP " + ((response && response.status) || 400) + ")"),
+      failedAt: new Date().toISOString(),
+    };
+    if (!exists) {
+      failed.push(entry);
+    }
+    var fSave = saveFailedQueue(failed);
+    if (!fSave.ok) {
+      // R03 HARD RULE: Failed queue write failed (e.g. QuotaExceeded) -> DO NOT delete original pending copy!
+      state.pendingCount = loadPendingQueue().length;
+      state.failedCount = loadFailedQueue().length;
+      return { ok: false, storageError: true, error: fSave.error };
+    }
+    // Failed copy is now durably persisted; mirror atomic status flip in IndexedDB and remove from pending by ID
+    idbQueuePutRecord({
+      event_id: item.event_id,
+      status: "rejected",
+      event: item,
+      statusCode: entry.status,
+      code: entry.code,
+      error: entry.error,
+      failedAt: entry.failedAt,
+      updatedAt: entry.failedAt,
+    });
+    var pSave = removePendingById(item.event_id);
+    if (!pSave.ok) {
+      // Failed copy is safely persisted; report storage error truthfully without claiming full cleanup
+      return { ok: false, storageError: true, persistedInFailed: true, error: pSave.error };
+    }
+    return { ok: true, storageError: false };
   }
 
   function recordEvent(payload) {
@@ -621,78 +803,160 @@
     });
   }
 
-  function flushPendingQueue() {
-    if (!state.session) return Promise.resolve({ flushed: 0, remaining: 0, failed: state.failedCount });
-    var q = loadPendingQueue();
-    var failed = loadFailedQueue();
-    if (!q.length) {
+  function withCrossTabFlushLock(fn) {
+    if (typeof navigator !== "undefined" && navigator.locks && typeof navigator.locks.request === "function") {
+      return navigator.locks.request("friesgo_cloud_queue_flush_v1", fn);
+    }
+    return fn();
+  }
+
+  function executeSingleFlushPass() {
+    if (!state.session) {
+      var pNow = loadPendingQueue();
+      var fNow = loadFailedQueue();
+      state.pendingCount = pNow.length;
+      state.failedCount = fNow.length;
+      return Promise.resolve({ flushed: 0, remaining: pNow.length, failed: fNow.length, storageError: false });
+    }
+    var initialPending = loadPendingQueue();
+    var initialFailed = loadFailedQueue();
+    if (!initialPending.length) {
       state.pendingCount = 0;
-      state.failedCount = failed.length;
+      state.failedCount = initialFailed.length;
       state.syncStatus = computeHealthySyncStatus();
       emitChange("queue_flushed");
-      return Promise.resolve({ flushed: 0, remaining: 0, failed: failed.length });
+      return Promise.resolve({ flushed: 0, remaining: 0, failed: initialFailed.length, storageError: false });
     }
-    var remaining = [];
+
+    var attemptIds = initialPending
+      .map(function (x) { return x && x.event_id; })
+      .filter(Boolean);
     var flushed = 0;
     var hadTransientError = false;
+    var hadStorageError = false;
     var lastErr = "";
     var abortedByRevoke = false;
 
-    return q
-      .reduce(function (chain, item) {
+    return attemptIds
+      .reduce(function (chain, eid) {
         return chain.then(function () {
           if (abortedByRevoke || !state.session) return;
+          // Re-read fresh storage before each item in case another tab or user action settled/cleared it
+          var freshPending = loadPendingQueue();
+          var item = null;
+          for (var i = 0; i < freshPending.length; i++) {
+            if (freshPending[i] && freshPending[i].event_id === eid) {
+              item = freshPending[i];
+              break;
+            }
+          }
+          if (!item) return;
+
           return apiFetch("/api/events", { method: "POST", body: item, trackSync: false }).then(function (r) {
             if (r.revoked) {
               abortedByRevoke = true;
               return;
             }
+            if (!state.session) {
+              abortedByRevoke = true;
+              return;
+            }
             if (r.ok) {
-              flushed++;
+              // R01: Remove ONLY this confirmed event_id from current persisted queue; preserve all concurrent additions!
+              var rm = removePendingById(eid);
+              if (rm.ok) {
+                idbQueueDeleteIds([eid]);
+                flushed++;
+              } else {
+                hadStorageError = true;
+                lastErr = rm.error || "本地队列状态更新失败";
+              }
             } else if (isTransientFailure(r) || r.restoreFrozen) {
-              // D01: NEVER drop on 500/502/503/504/429/408/network error!
-              remaining.push(item);
+              // D01: NEVER drop on 500/502/503/504/429/408/network error or restore freeze!
               if (!r.networkError) {
                 hadTransientError = true;
                 lastErr = (r.data && r.data.error) || ("云端暂时异常 (HTTP " + r.status + ")");
               }
             } else {
-              // Permanent 4xx business rejection: move to visible failed queue so user can inspect/fix/dismiss, NEVER silently delete!
-              var exists = failed.some(function (f) { return f && f.event && f.event.event_id === item.event_id; });
-              if (!exists) {
-                failed.push({
-                  event: item,
-                  status: r.status || 400,
-                  code: (r.data && r.data.code) || "SYNC_REJECTED",
-                  error: (r.data && r.data.error) || ("服务端拒绝该记录 (HTTP " + r.status + ")"),
-                  failedAt: new Date().toISOString(),
-                });
+              // R02 / R03: Permanent 4xx -> persist full failed entry FIRST, remove pending ONLY if persistence succeeded!
+              var tr = transitionPendingToFailed(item, r);
+              if (!tr.ok) {
+                hadStorageError = true;
+                lastErr = tr.error || "失败队列持久化存储失败，原待同步记录已保留";
+              } else {
+                lastErr = (r.data && r.data.error) || ("HTTP " + r.status);
               }
-              lastErr = (r.data && r.data.error) || ("HTTP " + r.status);
             }
           });
         });
       }, Promise.resolve())
       .then(function () {
         if (abortedByRevoke || !state.session) {
-          return { flushed: flushed, remaining: 0, failed: 0, revoked: true };
+          return { flushed: flushed, remaining: 0, failed: 0, revoked: true, storageError: hadStorageError };
         }
-        savePendingQueue(remaining);
-        saveFailedQueue(failed);
-        if (remaining.length > 0) {
+        // Always derive final counts & status strictly from PERSISTED storage truth (never stale snapshots!)
+        var finalPending = loadPendingQueue();
+        var finalFailed = loadFailedQueue();
+        state.pendingCount = finalPending.length;
+        state.failedCount = finalFailed.length;
+
+        if (hadStorageError) {
+          state.syncStatus = "error";
+          state.lastError = lastErr || "本地存储受限，待同步记录已保留未丢失";
+        } else if (finalPending.length > 0) {
           state.syncStatus = hadTransientError || state.restoreFrozen ? "error" : "offline";
           if (lastErr) state.lastError = lastErr;
-        } else if (failed.length > 0) {
+        } else if (finalFailed.length > 0) {
           state.syncStatus = "error";
-          state.lastError = "有 " + failed.length + " 条离线记录同步被服务端拒绝，请点击查看详情";
+          state.lastError = "有 " + finalFailed.length + " 条离线记录同步被服务端拒绝，请点击查看详情";
         } else {
           state.syncStatus = state.restoreFrozen ? "error" : "synced";
           state.lastSyncedAt = new Date().toISOString();
           state.lastError = "";
         }
         emitChange("queue_flushed");
-        return { flushed: flushed, remaining: remaining.length, failed: failed.length };
+        return {
+          flushed: flushed,
+          remaining: finalPending.length,
+          failed: finalFailed.length,
+          storageError: hadStorageError,
+          error: hadStorageError ? lastErr : "",
+        };
       });
+  }
+
+  // R01: Serialized flush queue with cross-tab lock; concurrent flush calls chain cleanly without racing!
+  function flushPendingQueue() {
+    if (!state.session) return Promise.resolve({ flushed: 0, remaining: 0, failed: loadFailedQueue().length, storageError: false });
+    if (flushInFlight) {
+      flushRequestedAgain = true;
+      return flushInFlight.then(function (prevRes) {
+        if (!state.session || !flushRequestedAgain) return prevRes;
+        flushRequestedAgain = false;
+        return flushPendingQueue().then(function (nextRes) {
+          return {
+            flushed: (prevRes.flushed || 0) + (nextRes.flushed || 0),
+            remaining: nextRes.remaining,
+            failed: nextRes.failed,
+            revoked: Boolean(prevRes.revoked || nextRes.revoked),
+            storageError: Boolean(prevRes.storageError || nextRes.storageError),
+            error: nextRes.error || prevRes.error || "",
+          };
+        });
+      });
+    }
+    var run = withCrossTabFlushLock(executeSingleFlushPass);
+    flushInFlight = run;
+    return run.then(
+      function (res) {
+        if (flushInFlight === run) flushInFlight = null;
+        return res;
+      },
+      function (err) {
+        if (flushInFlight === run) flushInFlight = null;
+        throw err;
+      }
+    );
   }
 
   function getPendingQueue() {
@@ -705,23 +969,38 @@
 
   function retryFailedQueue() {
     var failed = loadFailedQueue();
-    if (!failed.length) return Promise.resolve({ flushed: 0, remaining: state.pendingCount, failed: 0 });
+    if (!failed.length) return Promise.resolve({ flushed: 0, remaining: loadPendingQueue().length, failed: 0 });
     var pending = loadPendingQueue();
-    var moved = 0;
+    var movedIds = [];
     var keptFailed = [];
     failed.forEach(function (f) {
       if (f && f.event && pending.length < MAX_PENDING_QUEUE) {
         if (!pending.some(function (p) { return p && p.event_id === f.event.event_id; })) {
           pending.push(f.event);
         }
-        moved++;
+        movedIds.push(f.event);
       } else {
         keptFailed.push(f);
       }
     });
+    // Write pending copy FIRST; if storage fails, keep failed untouched!
     var saved = savePendingQueue(pending);
-    if (!saved.ok) return Promise.resolve({ ok: false, error: saved.error, flushed: 0, remaining: state.pendingCount, failed: failed.length });
-    saveFailedQueue(keptFailed);
+    if (!saved.ok) {
+      state.syncStatus = "error";
+      state.lastError = saved.error || "重传写回待同步队列失败";
+      emitChange("queue_error");
+      return Promise.resolve({ ok: false, storageError: true, error: saved.error, flushed: 0, remaining: loadPendingQueue().length, failed: failed.length });
+    }
+    var fSaved = saveFailedQueue(keptFailed);
+    if (!fSaved.ok) {
+      state.syncStatus = "error";
+      state.lastError = fSaved.error || "更新失败队列存储失败";
+      emitChange("queue_error");
+      return Promise.resolve({ ok: false, storageError: true, error: fSaved.error, flushed: 0, remaining: loadPendingQueue().length, failed: loadFailedQueue().length });
+    }
+    movedIds.forEach(function (ev) {
+      idbQueuePutRecord({ event_id: ev.event_id, status: "pending", event: ev, updatedAt: new Date().toISOString() });
+    });
     emitChange("failed_requeued");
     return flushPendingQueue();
   }
@@ -729,7 +1008,15 @@
   function dismissFailedItem(eventId) {
     var failed = loadFailedQueue();
     var next = failed.filter(function (f) { return !(f && f.event && f.event.event_id === eventId); });
-    saveFailedQueue(next);
+    var saved = saveFailedQueue(next);
+    if (!saved.ok) {
+      state.syncStatus = "error";
+      state.lastError = saved.error || "移除失败记录时存储写入失败";
+      emitChange("queue_error");
+      return loadFailedQueue().length;
+    }
+    idbQueueDeleteIds([eventId]);
+    state.pendingCount = loadPendingQueue().length;
     state.syncStatus = computeHealthySyncStatus();
     if (!next.length && !state.pendingCount && !state.restoreFrozen) state.lastError = "";
     emitChange("failed_dismissed");
@@ -794,6 +1081,42 @@
     if (sess) {
       state.session = sess;
       state.syncStatus = failed.length ? "error" : pending.length ? "offline" : "syncing";
+      // Hydrate from IndexedDB mirror if localStorage lost queue entries while session is active
+      if (!pending.length && !failed.length && typeof indexedDB !== "undefined") {
+        idbQueueLoadAll().then(function (rows) {
+          if (!state.session || !rows || !rows.length) return;
+          var curP = loadPendingQueue();
+          var curF = loadFailedQueue();
+          var pAdded = false;
+          var fAdded = false;
+          rows.forEach(function (rec) {
+            if (!rec || !rec.event || !rec.event_id) return;
+            if (rec.status === "rejected") {
+              if (!curF.some(function (x) { return x && x.event && x.event.event_id === rec.event_id; })) {
+                curF.push({
+                  event: rec.event,
+                  status: rec.statusCode || 400,
+                  code: rec.code || "SYNC_REJECTED",
+                  error: rec.error || "同步被服务端拒绝",
+                  failedAt: rec.failedAt || rec.updatedAt || new Date().toISOString(),
+                });
+                fAdded = true;
+              }
+            } else if (curP.length < MAX_PENDING_QUEUE) {
+              if (!curP.some(function (x) { return x && x.event_id === rec.event_id; })) {
+                curP.push(rec.event);
+                pAdded = true;
+              }
+            }
+          });
+          if (pAdded) savePendingQueue(curP);
+          if (fAdded) saveFailedQueue(curF);
+          if (pAdded || fAdded) {
+            state.syncStatus = computeHealthySyncStatus();
+            emitChange("queue_hydrated");
+          }
+        });
+      }
     } else {
       state.syncStatus = "guest";
     }
@@ -805,6 +1128,38 @@
         if (state.session) {
           state.syncStatus = "offline";
           emitChange("offline");
+        }
+      });
+      // Cross-tab sync: keep session logout/switch and queue counts consistent across tabs (R01/R07)
+      global.addEventListener("storage", function (ev) {
+        if (!ev || !ev.key) return;
+        if (ev.key === SESSION_KEY) {
+          var prevId = state.session && state.session.employee ? state.session.employee.id : "";
+          var nextSess = loadSession();
+          var nextId = nextSess && nextSess.employee ? nextSess.employee.id : "";
+          state.session = nextSess;
+          if (!nextSess) {
+            activeLocks = Object.create(null);
+            state.pendingCount = 0;
+            state.failedCount = 0;
+            state.syncStatus = "guest";
+            state.restoreFrozen = false;
+            emitChange("cleared");
+          } else if (prevId && nextId && prevId !== nextId) {
+            activeLocks = Object.create(null);
+            state.pendingCount = loadPendingQueue().length;
+            state.failedCount = loadFailedQueue().length;
+            state.syncStatus = computeHealthySyncStatus();
+            emitChange("account_switched");
+          } else {
+            state.syncStatus = computeHealthySyncStatus();
+            emitChange("session_sync");
+          }
+        } else if (ev.key === PENDING_KEY || ev.key === FAILED_KEY) {
+          state.pendingCount = loadPendingQueue().length;
+          state.failedCount = loadFailedQueue().length;
+          state.syncStatus = computeHealthySyncStatus();
+          emitChange("queue_sync");
         }
       });
     }
@@ -832,6 +1187,7 @@
     listEmployeeSessions: listEmployeeSessions,
     revokeEmployeeSessions: revokeEmployeeSessions,
     listAuditLogs: listAuditLogs,
+    listRestoreJobs: listRestoreJobs,
     exportBackup: exportBackup,
     restoreBackup: restoreBackup,
     postRestoreVerify: postRestoreVerify,

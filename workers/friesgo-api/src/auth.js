@@ -58,14 +58,186 @@ export function sanitizeEmployeePublic(row) {
   };
 }
 
-export async function isSystemRestoreFrozen(db) {
+export const EXPECTED_SCHEMA_VERSION = 3;
+
+const REQUIRED_V1_TABLES = [
+  "employees",
+  "sessions",
+  "login_rate_limits",
+  "companies",
+  "company_contacts",
+  "company_product_interests",
+  "raw_osm_pool",
+  "source_evidences",
+  "contact_events",
+  "contact_locks",
+  "quote_records",
+  "compliance_order_logs",
+  "scrape_task_logs",
+  "product_profiles",
+  "audit_logs",
+  "feedback_items",
+  "gmaps_quota_usage",
+  "migration_batches",
+];
+
+/**
+ * Authoritative Fail-Closed maintenance & restore gate check (R04 / R05).
+ * Distinguishes:
+ *   - Readable & explicitly unfrozen (no row or state_value === '0') + no incomplete/failed restore job -> allowed
+ *   - Frozen (state_value === '1') or latest restore job failed/in_progress -> blocked (503 SYSTEM_RESTORE_FROZEN)
+ *   - Missing table / DB query failure / corrupt state value -> FAIL-CLOSED blocked (503 SYSTEM_MAINTENANCE_STATE_UNAVAILABLE)
+ */
+export async function checkSystemMaintenanceGate(db) {
+  if (!db) {
+    return {
+      allowed: false,
+      frozen: true,
+      readable: false,
+      code: "SYSTEM_MAINTENANCE_STATE_UNAVAILABLE",
+      error: "数据库连接不可用，系统已按 Fail-Closed 策略暂停业务访问",
+      latestJob: null,
+    };
+  }
+  let freezeRow = null;
   try {
-    const row = await db
-      .prepare("SELECT state_value, meta_json FROM system_maintenance_state WHERE state_key = 'restore_freeze'")
+    freezeRow = await db
+      .prepare("SELECT state_value, meta_json, updated_at FROM system_maintenance_state WHERE state_key = 'restore_freeze'")
       .first();
-    return Boolean(row && row.state_value === "1");
   } catch {
-    return false;
+    return {
+      allowed: false,
+      frozen: true,
+      readable: false,
+      code: "SYSTEM_MAINTENANCE_STATE_UNAVAILABLE",
+      error: "维护与恢复冻结状态表不可读（Schema 迁移未完成或数据库异常），系统已按 Fail-Closed 策略暂停业务访问",
+      latestJob: null,
+    };
+  }
+
+  let latestJob = null;
+  try {
+    latestJob = await db
+      .prepare(
+        `SELECT job_id, status, snapshot_sha256, error_message, started_at, finished_at, verified_at
+         FROM restore_jobs
+         ORDER BY started_at DESC, rowid DESC
+         LIMIT 1`
+      )
+      .first();
+  } catch {
+    return {
+      allowed: false,
+      frozen: true,
+      readable: false,
+      code: "SYSTEM_MAINTENANCE_STATE_UNAVAILABLE",
+      error: "恢复作业台账表不可读（Schema 迁移 v3 未完成或数据库异常），系统已按 Fail-Closed 策略暂停业务访问",
+      latestJob: null,
+    };
+  }
+
+  if (freezeRow && freezeRow.state_value !== "0" && freezeRow.state_value !== "1") {
+    return {
+      allowed: false,
+      frozen: true,
+      readable: false,
+      code: "SYSTEM_MAINTENANCE_STATE_UNAVAILABLE",
+      error: "维护冻结状态值异常，系统已按 Fail-Closed 策略暂停业务访问",
+      latestJob: latestJob || null,
+    };
+  }
+
+  if (latestJob && latestJob.status !== "completed") {
+    return {
+      allowed: false,
+      frozen: true,
+      readable: true,
+      code: "SYSTEM_RESTORE_FROZEN",
+      error: "最近一次备份恢复作业未完成或已失败，系统保持安全冻结（禁止常规重核验解冻，须先完成完整恢复/回滚对账）",
+      latestJob,
+    };
+  }
+
+  if (freezeRow && freezeRow.state_value === "1") {
+    return {
+      allowed: false,
+      frozen: true,
+      readable: true,
+      code: "SYSTEM_RESTORE_FROZEN",
+      error: "系统正处于备份恢复安全冻结期，须总负责人执行「恢复后安全重核验」方可恢复业务访问",
+      latestJob: latestJob || null,
+    };
+  }
+
+  return {
+    allowed: true,
+    frozen: false,
+    readable: true,
+    code: null,
+    error: "",
+    latestJob: latestJob || null,
+  };
+}
+
+export async function isSystemRestoreFrozen(db) {
+  const gate = await checkSystemMaintenanceGate(db);
+  return !gate.allowed;
+}
+
+/**
+ * Dynamically probes live SQLite/D1 schema instead of hardcoding schemaVersion (R05).
+ */
+export async function probeSchemaHealth(db) {
+  if (!db) {
+    return {
+      schemaVersion: 0,
+      expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+      schemaReady: false,
+      missingSchema: ["database_binding"],
+    };
+  }
+  try {
+    const tblRes = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all();
+    const tableSet = new Set((tblRes.results || []).map((r) => String(r && r.name || "")));
+    const missingV1 = REQUIRED_V1_TABLES.filter((t) => !tableSet.has(t));
+    if (missingV1.length) {
+      return {
+        schemaVersion: 0,
+        expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+        schemaReady: false,
+        missingSchema: missingV1,
+      };
+    }
+
+    const missingV2 = [];
+    if (!tableSet.has("system_maintenance_state")) missingV2.push("system_maintenance_state");
+    const empColsRes = await db.prepare("PRAGMA table_info(employees)").all();
+    const empCols = new Set((empColsRes.results || []).map((r) => String(r && r.name || "")));
+    if (!empCols.has("last_totp_step")) missingV2.push("employees.last_totp_step");
+
+    const missingV3 = [];
+    if (!tableSet.has("restore_jobs")) missingV3.push("restore_jobs");
+
+    let detectedVersion = 1;
+    if (!missingV2.length) {
+      detectedVersion = 2;
+      if (!missingV3.length) detectedVersion = 3;
+    }
+
+    const missingSchema = [...missingV2, ...missingV3];
+    return {
+      schemaVersion: detectedVersion,
+      expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+      schemaReady: missingSchema.length === 0,
+      missingSchema,
+    };
+  } catch {
+    return {
+      schemaVersion: 0,
+      expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+      schemaReady: false,
+      missingSchema: ["schema_probe_failed"],
+    };
   }
 }
 
@@ -220,16 +392,16 @@ export async function requireAuth(request, env, cors, opts = {}) {
     };
   }
 
-  // D05: Persistent restore maintenance freeze gate blocks ALL business access until super_admin runs post-restore-verify
+  // D05 / R04 / R05: Fail-Closed restore maintenance freeze & schema integrity gate
   if (!opts.allowDuringRestoreFreeze) {
-    const frozen = await isSystemRestoreFrozen(env.DB);
-    if (frozen) {
+    const gate = await checkSystemMaintenanceGate(env.DB);
+    if (!gate.allowed) {
       return {
         ok: false,
         response: json(
           {
-            error: "系统正处于备份恢复安全冻结期，须总负责人执行「恢复后安全重核验」方可恢复业务访问",
-            code: "SYSTEM_RESTORE_FROZEN",
+            error: gate.error,
+            code: gate.code || "SYSTEM_RESTORE_FROZEN",
           },
           503,
           cors
@@ -462,12 +634,22 @@ export async function handleAuthRoutes(request, env, cors, url) {
   if (path === "/api/auth/me" && method === "GET") {
     const auth = await requireAuth(request, env, cors, { allowPendingTotpSetup: true, allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
-    const restoreFrozen = await isSystemRestoreFrozen(env.DB);
+    const gate = await checkSystemMaintenanceGate(env.DB);
     return json(
       {
         ok: true,
         sessionId: auth.sessionId,
-        restoreFrozen,
+        restoreFrozen: !gate.allowed,
+        maintenanceGateCode: gate.code || null,
+        latestRestoreJob: gate.latestJob
+          ? {
+              job_id: gate.latestJob.job_id,
+              status: gate.latestJob.status,
+              started_at: gate.latestJob.started_at,
+              finished_at: gate.latestJob.finished_at || null,
+              verified_at: gate.latestJob.verified_at || null,
+            }
+          : null,
         requireTotpSetup: auth.actor.role === "super_admin" && !auth.actor.totp_enabled,
         employee: sanitizeEmployeePublic(auth.actor),
       },
