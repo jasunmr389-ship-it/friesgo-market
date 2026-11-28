@@ -101,20 +101,12 @@ async function attachPage(wsUrl) {
 
   const { srv, port } = await startServer();
   const baseUrl = `http://127.0.0.1:${port}/`;
-  const cdpPort = 9377;
   const profileDir = `/tmp/fg_r2_red_${Date.now()}`;
-  const chrome = spawn(
-    CHROME,
-    [
-      "--headless=new",
-      "--disable-gpu",
-      "--no-first-run",
-      `--remote-debugging-port=${cdpPort}`,
-      `--user-data-dir=${profileDir}`,
-      baseUrl
-    ],
-    { stdio: "ignore" }
-  );
+  const { spawnChromeEphemeralCdp } = require("./_chrome.cjs");
+  const { proc: chrome, cdpPort } = await spawnChromeEphemeralCdp({
+    profileDir,
+    url: baseUrl
+  });
 
   try {
     let targets = null;

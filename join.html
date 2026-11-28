@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>FriesGo Global · 合作与加入 / Join Us</title>
+<link rel="icon" type="image/png" href="favicon.png?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
+<style>
+:root{
+  --bg:#fdf8f1; --surface:#ffffff; --surface2:#f7ecdd; --ink:#2b1a10; --muted:#745f4d; --line:#e8d9c6;
+  --brown:#4a2c17; --orange:#e67312; --orange-soft:#fdebd7; --cta:#bf570a; --cta-ink:#fff;
+  --good:#1e6b3a; --good-bg:#e2f2e6; --danger:#a61c1c; --danger-bg:#fbe7e7; --radius:14px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#19110a; --surface:#261a10; --surface2:#322316; --ink:#f5e9da; --muted:#c4a88d; --line:#4a3520;
+    --brown:#f0c9a0; --orange:#ff9a3d; --orange-soft:#4a2f16; --cta:#ff9a3d; --cta-ink:#241305;
+    --good:#8fd6a8; --good-bg:#1e3a28; --danger:#ff9a9a; --danger-bg:#4a1f1f;
+  }
+}
+*{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:18px 14px 64px;width:100%}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--brown);font-weight:900;font-size:17px;min-width:0}
+.brand img{width:36px;height:36px;border-radius:9px;object-fit:cover;flex:0 0 auto}
+.nav-links{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn,.pill{border:1px solid var(--line);background:var(--surface);color:var(--brown);border-radius:999px;padding:7px 14px;min-height:40px;cursor:pointer;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .14s;max-width:100%}
+.btn:hover,.pill:hover{border-color:var(--orange)}
+.btn.primary,.pill.primary{background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
+.btn.active{background:var(--brown);color:var(--bg);border-color:var(--brown)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:0 6px 24px rgba(74,44,23,.06);margin-bottom:16px}
+h1{margin:0 0 6px;font-size:clamp(20px,4vw,26px);color:var(--brown);line-height:1.25}
+h2{margin:0 0 8px;font-size:17px;color:var(--brown)}
+.muted{color:var(--muted);font-size:13.5px}
+.steps-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+@media(max-width:600px){.steps-bar{grid-template-columns:1fr}}
+.step-item{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12.5px}
+.step-item b{display:block;color:var(--brown);margin-bottom:2px}
+.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+@media(max-width:640px){.tabs{grid-template-columns:1fr}}
+.track-card{border:2px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);cursor:pointer;text-align:left;transition:all .14s;width:100%}
+.track-card[aria-pressed="true"]{border-color:var(--orange);background:var(--orange-soft)}
+.track-card b{display:block;color:var(--brown);font-size:14.5px;margin-bottom:4px}
+.track-card span{font-size:12.5px;color:var(--muted);display:block;line-height:1.45}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.full{grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:4px}
+input,select,textarea{width:100%;max-width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;min-height:42px}
+textarea{min-height:86px;resize:vertical}
+.consent-box{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:12px;margin:12px 0;display:flex;flex-direction:column;gap:9px}
+.check-row{display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.check-row input{width:19px;height:19px;min-height:19px;margin-top:2px;flex:0 0 auto}
+.alert{padding:12px 14px;border-radius:10px;font-size:13.5px;margin-top:12px;overflow-wrap:anywhere}
+.alert.ok{background:var(--good-bg);border:1px solid var(--good);color:var(--good)}
+.alert.err{background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger)}
+.secret-box{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface);border:1px dashed var(--good);padding:10px 12px;border-radius:8px;margin:8px 0;word-break:break-all;font-size:13px;color:var(--ink)}
+.boundary-note{font-size:12.5px;background:var(--surface2);border-left:4px solid var(--orange);padding:10px 12px;border-radius:8px;color:var(--ink);margin-bottom:14px}
+footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="index.html">
+      <img src="apple-touch-icon.png?v=2" alt="FriesGo Global" onerror="this.style.display='none'">
+      <span>FriesGo Global · <span data-i18n="brandSub">合作与加入</span></span>
+    </a>
+    <div class="nav-links">
+      <button type="button" class="pill" id="btnLangToggle">EN / 中文</button>
+      <a class="pill" href="rfq.html" data-i18n="navRfq">买方产品询价 (RFQ)</a>
+      <a class="pill" href="index.html" data-i18n="navWorkspace">成员工作台</a>
+    </div>
+  </header>
+
+  <div class="card">
+    <h1 data-i18n="heroTitle">加入 FriesGo Global 国际工业品业务生态</h1>
+    <p class="muted" data-i18n="heroSub">本页面仅用于外贸合作伙伴申请、独立工具空间试用申请与内部销售岗位意向登记。海外买方产品询价请前往独立的买方询价页。</p>
+
+    <div class="steps-bar" aria-label="入驻流程">
+      <div class="step-item"><b data-i18n="step1Title">1. 提交申请与留存密钥</b><span data-i18n="step1Desc">无需预缴费用；提交后请保存申请编号与一次性展示的查询密钥。</span></div>
+      <div class="step-item"><b data-i18n="step2Title">2. 主管审核与规范培训</b><span data-i18n="step2Desc">1–3 个工作日核对合作方向，通过基础业务与合规考核。</span></div>
+      <div class="step-item"><b data-i18n="step3Title">3. 正式激活专属空间</b><span data-i18n="step3Desc">审批与激活分离，正式开通后方进入对应隔离数据空间开展业务。</span></div>
+    </div>
+
+    <div class="boundary-note" data-i18n="boundaryNote">
+      合规与合作边界说明：公司统一负责产品技术支持、正式报价审批、合同签署、指定账户收款、交付及售后决策；合作伙伴在获准授权范围内开发与维护客户。具体佣金比例、保护期与商业政策以审核通过后双方书面确认的协议版本为准（本页不构成预设对外费率承诺）。
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button type="button" class="btn active" id="tabBtnApply" data-i18n="tabApply">提交申请 / Apply</button>
+      <button type="button" class="btn" id="tabBtnStatus" data-i18n="tabStatus">查询申请进度 / Check Status</button>
+    </div>
+
+    <!-- Apply View -->
+    <div id="viewApply">
+      <div class="tabs" role="group" aria-label="申请类型选择">
+        <button type="button" class="track-card" data-track="partner" aria-pressed="true">
+          <b data-i18n="tPartnerTitle">🤝 外贸合作伙伴（优先）</b>
+          <span data-i18n="tPartnerDesc">按真实成交贡献结算。支持「客户推荐型」与「业务跟进型」，支持公司派单与伙伴自带客户报备。</span>
+        </button>
+        <button type="button" class="track-card" data-track="tool_trial" aria-pressed="false">
+          <b data-i18n="tToolTitle">🧰 独立工具空间试用</b>
+          <span data-i18n="tToolDesc">为独立外贸团队提供逻辑隔离的数据空间使用商机与跟进工具，数据归属各自空间，不访问公司客户库。</span>
+        </button>
+        <button type="button" class="track-card" data-track="team_career" aria-pressed="false">
+          <b data-i18n="tTeamTitle">💼 加入内部外贸团队</b>
+          <span data-i18n="tTeamDesc">面向工业品外贸销售、海外社媒需求运营与技术报价支持岗位，审核通过后由主管开通内部账号。</span>
+        </button>
+      </div>
+
+      <form id="joinForm" novalidate>
+        <div class="form-grid">
+          <div>
+            <label for="appName" data-i18n="lblName">姓名 / 称呼 *</label>
+            <input id="appName" name="applicant_name" type="text" required maxlength="120" data-i18n-placeholder="phName" placeholder="例如：Alex Chen / 陈先生">
+          </div>
+          <div id="partnerModeWrap">
+            <label for="partnerMode" data-i18n="lblPartnerMode">期望合作模式 *</label>
+            <select id="partnerMode" name="partner_mode">
+              <option value="followup" data-i18n="optModeFollowup">业务跟进型（开发并全程跟进客户至询盘/成交）</option>
+              <option value="referrer" data-i18n="optModeReferrer">客户推荐型（引荐买方线索，由官方团队承接跟进）</option>
+            </select>
+          </div>
+          <div>
+            <label for="contactChannel" data-i18n="lblChannel">首选联系渠道 *</label>
+            <select id="contactChannel" name="contact_channel">
+              <option value="wechat" data-i18n="optChWechat">WeChat（个人微信）</option>
+              <option value="whatsapp" data-i18n="optChWhatsapp">WhatsApp</option>
+              <option value="email" data-i18n="optChEmail">Email（电子邮箱）</option>
+              <option value="linkedin" data-i18n="optChLinkedin">LinkedIn</option>
+              <option value="phone" data-i18n="optChPhone">Phone（电话）</option>
+            </select>
+          </div>
+          <div>
+            <label for="contactValue" data-i18n="lblContactVal">联系方式（微信号/邮箱/号码） *</label>
+            <input id="contactValue" name="contact_value" type="text" required maxlength="160" data-i18n-placeholder="phContactVal" placeholder="请确保能接收审核通知">
+          </div>
+          <div>
+            <label for="countryTz" data-i18n="lblCountryTz">所在国家与时区（选填）</label>
+            <input id="countryTz" name="country_tz" type="text" maxlength="100" data-i18n-placeholder="phCountryTz" placeholder="例如：China (UTC+8) / UAE (UTC+4)">
+          </div>
+          <div>
+            <label for="languages" data-i18n="lblLanguages">工作语言（选填）</label>
+            <input id="languages" name="languages" type="text" maxlength="120" data-i18n-placeholder="phLanguages" placeholder="例如：中文, English, Spanish, Arabic">
+          </div>
+          <div class="full">
+            <label for="productLines" data-i18n="lblProducts">熟悉或关注的工业品类（选填，不限品类，逗号分隔）</label>
+            <input id="productLines" name="product_lines" type="text" maxlength="200" data-i18n-placeholder="phProducts" placeholder="候选参考：Valves, PE Pipes, Cables, Steel Structures 或其他工业品">
+          </div>
+          <div class="full">
+            <label for="experienceNote" data-i18n="lblSummary">背景说明 / 客户市场方向 / 试用需求（选填）</label>
+            <textarea id="experienceNote" name="experience_note" maxlength="1200" data-i18n-placeholder="phSummary" placeholder="简述您的外贸经验、可覆盖目标市场或独立工具使用场景"></textarea>
+          </div>
+        </div>
+
+        <div class="consent-box">
+          <label class="check-row">
+            <input type="checkbox" id="privacyConsent">
+            <span data-i18n="lblPrivacy">【必选】我已阅读并同意 FriesGo Global 仅为审核本次申请及沟通合作之目的处理上述信息，知悉审核通过后须完成规范培训方能激活账号。</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="marketingOptIn">
+            <span data-i18n="lblMarketing">【可选，默认不勾选】我同意接收 FriesGo Global 后续发布的合作开放通知与产品目录更新（可随时退订）。</span>
+          </label>
+        </div>
+
+        <div id="localApiGuardBanner" class="alert err" role="status" hidden></div>
+        <div id="turnstileSlot" class="muted" style="font-size:12px;margin-bottom:10px"></div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button type="submit" class="btn primary" id="btnSubmitJoin" data-i18n="btnSubmit">提交申请 / Submit Application</button>
+          <button type="button" class="btn" id="btnResetJoin" data-i18n="btnReset">清空重填</button>
+        </div>
+      </form>
+
+      <div id="joinErrorBox" class="alert err" role="alert" aria-live="assertive" hidden></div>
+      <div id="joinSuccessBox" class="alert ok" role="status" aria-live="polite" hidden></div>
+    </div>
+
+    <!-- Status Lookup View (ENG04) -->
+    <div id="viewStatus" hidden>
+      <h2 data-i18n="statusTitle">使用申请编号与查询密钥核对进度</h2>
+      <p class="muted" data-i18n="statusSub">为保护申请人隐私，须同时输入提交成功时获得的申请编号（FG-APP-...）与查询密钥（fglk_...）。如查询密钥遗失，请通过原登记联系方式联系官方运营人工核验重置。</p>
+      <form id="statusForm" novalidate>
+        <div class="form-grid">
+          <div>
+            <label for="stAppNo" data-i18n="lblAppNo">申请编号 (Application No.) *</label>
+            <input id="stAppNo" type="text" required placeholder="FG-APP-YYYYMMDD-XXXXXX">
+          </div>
+          <div>
+            <label for="stSecret" data-i18n="lblLookupSecret">查询密钥 (Lookup Secret) *</label>
+            <input id="stSecret" type="text" required placeholder="fglk_...">
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button type="submit" class="btn primary" id="btnCheckStatus" data-i18n="btnCheck">查询状态 / Check Status</button>
+        </div>
+      </form>
+      <div id="statusResultBox" class="alert" role="alert" aria-live="polite" hidden></div>
+    </div>
+  </div>
+
+  <footer>
+    <span data-i18n="footerLeft">FriesGo Global · 官方合作与空间入驻</span>
+    <span><a href="rfq.html" style="color:inherit" data-i18n="navRfq">买方产品询价 (RFQ)</a> · <a href="index.html" style="color:inherit" data-i18n="navWorkspace">成员工作台</a></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var DEFAULT_API = "https://friesgo-api.ntigravity-project.workers.dev";
+  var DRAFT_KEY = "friesgo_public_join_draft_v1";
+  var currentLang = "zh";
+  var currentTrack = "partner";
+  var currentIdemKey = "";
+  var currentPayloadSig = "";
+  var lastReceipt = null;
+
+  var I18N = {
+    zh: {
+      brandSub: "合作与加入",
+      navRfq: "买方产品询价 (RFQ)",
+      navWorkspace: "成员工作台",
+      heroTitle: "加入 FriesGo Global 国际工业品业务生态",
+      heroSub: "本页面仅用于外贸合作伙伴申请、独立工具空间试用申请与内部销售岗位意向登记。海外买方产品询价请前往独立的买方询价页。",
+      step1Title: "1. 提交申请与留存密钥",
+      step1Desc: "无需预缴费用；提交后请保存申请编号与一次性展示的查询密钥。",
+      step2Title: "2. 主管审核与规范培训",
+      step2Desc: "1–3 个工作日核对合作方向，通过基础业务与合规考核。",
+      step3Title: "3. 正式激活专属空间",
+      step3Desc: "审批与激活分离，正式开通后方进入对应隔离数据空间开展业务。",
+      boundaryNote: "合规与合作边界说明：公司统一负责产品技术支持、正式报价审批、合同签署、指定账户收款、交付及售后决策；合作伙伴在获准授权范围内开发与维护客户。具体佣金比例、保护期与商业政策以审核通过后双方书面确认的协议版本为准（本页不构成预设对外费率承诺）。",
+      tabApply: "提交申请 / Apply",
+      tabStatus: "查询申请进度 / Check Status",
+      tPartnerTitle: "🤝 外贸合作伙伴（优先）",
+      tPartnerDesc: "按真实成交贡献结算。支持「客户推荐型」与「业务跟进型」，支持公司派单与伙伴自带客户报备。",
+      tToolTitle: "🧰 独立工具空间试用",
+      tToolDesc: "为独立外贸团队提供逻辑隔离的数据空间使用商机与跟进工具，数据归属各自空间，不访问公司客户库。",
+      tTeamTitle: "💼 加入内部外贸团队",
+      tTeamDesc: "面向工业品外贸销售、海外社媒需求运营与技术报价支持岗位，审核通过后由主管开通内部账号。",
+      lblName: "姓名 / 称呼 *",
+      lblPartnerMode: "期望合作模式 *",
+      lblChannel: "首选联系渠道 *",
+      lblContactVal: "联系方式（微信号/邮箱/号码） *",
+      lblCountryTz: "所在国家与时区（选填）",
+      lblLanguages: "工作语言（选填）",
+      lblProducts: "熟悉或关注的工业品类（选填，不限品类，逗号分隔）",
+      lblSummary: "背景说明 / 客户市场方向 / 试用需求（选填）",
+      lblPrivacy: "【必选】我已阅读并同意 FriesGo Global 仅为审核本次申请及沟通合作之目的处理上述信息，知悉审核通过后须完成规范培训方能激活账号。",
+      lblMarketing: "【可选，默认不勾选】我同意接收 FriesGo Global 后续发布的合作开放通知与产品目录更新（可随时退订）。",
+      btnSubmit: "提交申请",
+      btnReset: "清空重填",
+      statusTitle: "使用申请编号与查询密钥核对进度",
+      statusSub: "为保护申请人隐私，须同时输入提交成功时获得的申请编号（FG-APP-...）与查询密钥（fglk_...）。如查询密钥遗失，请通过原登记联系方式联系官方运营人工核验重置。",
+      lblAppNo: "申请编号 (Application No.) *",
+      lblLookupSecret: "查询密钥 (Lookup Secret) *",
+      btnCheck: "查询状态",
+      footerLeft: "FriesGo Global · 官方合作与空间入驻",
+      optModeFollowup: "业务跟进型（开发并全程跟进客户至询盘/成交）",
+      optModeReferrer: "客户推荐型（引荐买方线索，由官方团队承接跟进）",
+      optChWechat: "WeChat（个人微信）",
+      optChWhatsapp: "WhatsApp",
+      optChEmail: "Email（电子邮箱）",
+      optChLinkedin: "LinkedIn",
+      optChPhone: "Phone（电话）",
+      phName: "例如：Alex Chen / 陈先生",
+      phContactVal: "请确保能接收审核通知",
+      phCountryTz: "例如：China (UTC+8) / UAE (UTC+4)",
+      phLanguages: "例如：中文, English, Spanish, Arabic",
+      phProducts: "候选参考：Valves, PE Pipes, Cables, Steel Structures 或其他工业品",
+      phSummary: "简述您的外贸经验、可覆盖目标市场或独立工具使用场景",
+      errNameRequired: "请先填写您的姓名或称呼。",
+      errContactRequired: "请填写有效的联系方式（微信号 / 邮箱 / 电话）。",
+      errPrivacyRequired: "请先阅读并勾选同意隐私与申请数据处理声明。",
+      errStatusFields: "请同时输入申请编号（FG-APP-...）与查询密钥（fglk_...）。",
+      errLocalProdBlocked: "安全拦截：当前为本地预览环境（localhost / file），未显式配置测试 API（?api=http://127.0.0.1:... 或 window.FG_CLOUD_API_OVERRIDE），已阻止将本地数据误发至生产接口。",
+      errSubmitFailed: "提交失败，您的填写内容已完整保留，请检查后重试。",
+      errNetworkInterrupted: "网络请求中断，您的表单输入与防重提交编号已完整保留；即使刷新页面后重试也不会重复建单。",
+      errStatusUnreachable: "查询服务暂不可达，请稍后重试。",
+      errStatusNotFound: "申请编号或查询密钥不匹配。",
+      receiptTitle: "✅ 申请已收到",
+      receiptReplayed: "（幂等重试安全返回，未重复建单）",
+      receiptAppNo: "申请编号：",
+      receiptSecretTitle: "查询密钥（仅本次明文展示，保存后可反复查进度）：",
+      receiptCopyBtn: "📋 一键复制编号与查询密钥",
+      receiptCopied: "✅ 已复制到剪贴板",
+      receiptCheckBtn: "🔎 立即核验进度",
+      stLabelNo: "申请编号：",
+      stLabelStatus: "当前状态：",
+      stLabelNext: "下一步说明：",
+      stLabelNote: "补充说明：",
+      stLabelUpdated: "更新时间："
+    },
+    en: {
+      brandSub: "Partner & Join Us",
+      navRfq: "Buyer Product RFQ",
+      navWorkspace: "Member Workspace",
+      heroTitle: "Join the FriesGo Global Industrial Export Network",
+      heroSub: "This page is exclusively for Overseas Trade Partners, Independent Workspace Tool Trials, and Internal Sales Careers. Buyers requesting product quotations should use the dedicated RFQ page.",
+      step1Title: "1. Apply & Save Key",
+      step1Desc: "No upfront fee. Save your Application No. and one-time Lookup Secret right after submission.",
+      step2Title: "2. Review & Onboarding",
+      step2Desc: "Our desk reviews applications within 1–3 business days and confirms compliance guidelines.",
+      step3Title: "3. Space Activation",
+      step3Desc: "Approval and activation are separated; your isolated workspace opens only after activation.",
+      boundaryNote: "Commercial Boundary: FriesGo Global centrally manages product technical support, official quotation approval, contracts, designated payment collection, delivery, and after-sales decisions. Partners develop and support clients within authorized scopes. Exact commission terms and protection periods are finalized only in signed onboarding agreements.",
+      tabApply: "Submit Application",
+      tabStatus: "Check Application Status",
+      tPartnerTitle: "🤝 Overseas Trade Partner (Priority)",
+      tPartnerDesc: "Settled on verified deal contribution. Supports Referrer & Follow-up partner tracks, supervisor dispatch, and deal registration.",
+      tToolTitle: "🧰 Independent Workspace Trial",
+      tToolDesc: "Logically isolated workspace for your own export team. Your data stays strictly isolated from FriesGo's main company pool.",
+      tTeamTitle: "💼 Internal Export Team",
+      tTeamDesc: "Join FriesGo's internal sales, social demand operations, or technical quotation desk.",
+      lblName: "Your Name *",
+      lblPartnerMode: "Preferred Partner Track *",
+      lblChannel: "Preferred Contact Channel *",
+      lblContactVal: "Contact Handle / Email / Phone *",
+      lblCountryTz: "Country & Timezone (Optional)",
+      lblLanguages: "Working Languages (Optional)",
+      lblProducts: "Familiar Industrial Categories (Optional, comma-separated)",
+      lblSummary: "Experience / Target Markets / Trial Use Case (Optional)",
+      lblPrivacy: "[Required] I agree that FriesGo Global processes this information solely to review my application and contact me regarding onboarding.",
+      lblMarketing: "[Optional, unchecked by default] I opt in to receive future partner program updates (unsubscribe anytime).",
+      btnSubmit: "Submit Application",
+      btnReset: "Clear Form",
+      statusTitle: "Check Application Status",
+      statusSub: "Enter both your Application No. (FG-APP-...) and Lookup Secret (fglk_...). If your secret is lost, contact our desk via your registered channel for manual reset.",
+      lblAppNo: "Application No. *",
+      lblLookupSecret: "Lookup Secret *",
+      btnCheck: "Check Status",
+      footerLeft: "FriesGo Global · Official Partner & Workspace Intake",
+      optModeFollowup: "Follow-up Partner (Develop and manage buyers through inquiry & order)",
+      optModeReferrer: "Referrer Partner (Introduce buyer leads; FriesGo desk handles follow-up)",
+      optChWechat: "WeChat (Personal)",
+      optChWhatsapp: "WhatsApp",
+      optChEmail: "Email",
+      optChLinkedin: "LinkedIn",
+      optChPhone: "Phone",
+      phName: "e.g. Alex Chen",
+      phContactVal: "Ensure you can receive review updates",
+      phCountryTz: "e.g. UAE (UTC+4) / Singapore (UTC+8)",
+      phLanguages: "e.g. English, Chinese, Spanish, Arabic",
+      phProducts: "e.g. Valves, PE Pipes, Cables, Steel Structures or other industrial items",
+      phSummary: "Briefly share your export experience, target markets, or workspace trial goals",
+      errNameRequired: "Please enter your name before submitting.",
+      errContactRequired: "Please enter a valid contact handle, email, or phone number.",
+      errPrivacyRequired: "Please review and check the required privacy consent box.",
+      errStatusFields: "Please enter both your Application No. (FG-APP-...) and Lookup Secret (fglk_...).",
+      errLocalProdBlocked: "Safety Guard: Localhost/file preview without an explicit test API override (?api=http://127.0.0.1:... or window.FG_CLOUD_API_OVERRIDE) is blocked from submitting to production.",
+      errSubmitFailed: "Submission failed. Your inputs are safely preserved — please check and retry.",
+      errNetworkInterrupted: "Network interrupted. Your inputs and duplicate-protection key are safely preserved even across reload — please retry.",
+      errStatusUnreachable: "Status lookup service is temporarily unreachable. Please retry later.",
+      errStatusNotFound: "Application No. or Lookup Secret did not match.",
+      receiptTitle: "✅ Application Received",
+      receiptReplayed: " (Safe Idempotent Replay — No Duplicate Created)",
+      receiptAppNo: "Application No.:",
+      receiptSecretTitle: "Lookup Secret (shown once; save to check status anytime):",
+      receiptCopyBtn: "📋 Copy No. & Lookup Secret",
+      receiptCopied: "✅ Copied to Clipboard",
+      receiptCheckBtn: "🔎 Verify Status Now",
+      stLabelNo: "Application No.: ",
+      stLabelStatus: "Status: ",
+      stLabelNext: "Next Step: ",
+      stLabelNote: "Review Note: ",
+      stLabelUpdated: "Updated: "
+    }
+  };
+
+  function t(key) {
+    return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.zh && I18N.zh[key]) || key;
+  }
+
+  function isLocalPreviewHost() {
+    var h = String(location.hostname || "").toLowerCase();
+    return location.protocol === "file:" || h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "[::1]";
+  }
+
+  function resolveApiTarget() {
+    if (window.FG_CLOUD_API_OVERRIDE) {
+      return { ok: true, url: String(window.FG_CLOUD_API_OVERRIDE).replace(/\/+$/, "") };
+    }
+    try {
+      var qsApi = new URLSearchParams(location.search).get("api");
+      if (qsApi && /^https?:\/\//i.test(qsApi)) return { ok: true, url: qsApi.replace(/\/+$/, "") };
+      var saved = localStorage.getItem("friesgo_cloud_api_url_v1");
+      if (saved && /^https?:\/\//i.test(saved)) return { ok: true, url: saved.replace(/\/+$/, "") };
+    } catch (_) {}
+    if (isLocalPreviewHost()) {
+      return { ok: false, blockedLocalProd: true, url: "" };
+    }
+    return { ok: true, url: DEFAULT_API };
+  }
+
+  function newIdemKey() {
+    return "app_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function computePayloadSig() {
+    return JSON.stringify({
+      track: currentTrack,
+      applicant_name: document.getElementById("appName").value.trim(),
+      partner_mode: currentTrack === "partner" ? document.getElementById("partnerMode").value : "",
+      contact_channel: document.getElementById("contactChannel").value,
+      contact_value: document.getElementById("contactValue").value.trim(),
+      country_tz: document.getElementById("countryTz").value.trim(),
+      languages: document.getElementById("languages").value.trim(),
+      product_lines: document.getElementById("productLines").value.trim(),
+      experience_note: document.getElementById("experienceNote").value.trim(),
+      privacyConsent: document.getElementById("privacyConsent").checked,
+      marketingOptIn: document.getElementById("marketingOptIn").checked
+    });
+  }
+
+  function refreshLocalGuardBanner() {
+    var banner = document.getElementById("localApiGuardBanner");
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok && apiInfo.blockedLocalProd) {
+      banner.textContent = t("errLocalProdBlocked");
+      banner.hidden = false;
+    } else {
+      banner.hidden = true;
+    }
+  }
+
+  function applyLang() {
+    var dict = I18N[currentLang];
+    document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n");
+      if (dict[k]) el.textContent = dict[k];
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n-placeholder");
+      if (dict[k]) el.setAttribute("placeholder", dict[k]);
+    });
+    refreshLocalGuardBanner();
+  }
+
+  function selectTrack(tr, opts) {
+    var silent = Boolean(opts && opts.silent);
+    currentTrack = tr;
+    document.querySelectorAll(".track-card").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-track") === tr ? "true" : "false");
+    });
+    document.getElementById("partnerModeWrap").hidden = tr !== "partner";
+    if (!silent) {
+      onFormMutated();
+    }
+  }
+
+  function saveDraft() {
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        lang: currentLang,
+        track: currentTrack,
+        idemKey: currentIdemKey,
+        payloadSig: currentPayloadSig,
+        applicant_name: document.getElementById("appName").value,
+        partner_mode: document.getElementById("partnerMode").value,
+        contact_channel: document.getElementById("contactChannel").value,
+        contact_value: document.getElementById("contactValue").value,
+        country_tz: document.getElementById("countryTz").value,
+        languages: document.getElementById("languages").value,
+        product_lines: document.getElementById("productLines").value,
+        experience_note: document.getElementById("experienceNote").value,
+        privacyConsent: document.getElementById("privacyConsent").checked,
+        marketingOptIn: document.getElementById("marketingOptIn").checked
+      }));
+    } catch (_) {}
+  }
+
+  function onFormMutated() {
+    var nextSig = computePayloadSig();
+    if (!currentIdemKey || (currentPayloadSig && nextSig !== currentPayloadSig)) {
+      currentIdemKey = newIdemKey();
+    }
+    currentPayloadSig = nextSig;
+    saveDraft();
+  }
+
+  function restoreDraft() {
+    try {
+      var raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) {
+        currentIdemKey = newIdemKey();
+        currentPayloadSig = computePayloadSig();
+        return;
+      }
+      var d = JSON.parse(raw);
+      if (d.lang === "en" || d.lang === "zh") currentLang = d.lang;
+      if (d.track) selectTrack(d.track, { silent: true });
+      if (typeof d.applicant_name === "string") document.getElementById("appName").value = d.applicant_name;
+      if (typeof d.partner_mode === "string") document.getElementById("partnerMode").value = d.partner_mode;
+      if (typeof d.contact_channel === "string") document.getElementById("contactChannel").value = d.contact_channel;
+      if (typeof d.contact_value === "string") document.getElementById("contactValue").value = d.contact_value;
+      if (typeof d.country_tz === "string") document.getElementById("countryTz").value = d.country_tz;
+      if (typeof d.languages === "string") document.getElementById("languages").value = d.languages;
+      if (typeof d.product_lines === "string") document.getElementById("productLines").value = d.product_lines;
+      if (typeof d.experience_note === "string") document.getElementById("experienceNote").value = d.experience_note;
+      if (typeof d.privacyConsent === "boolean") document.getElementById("privacyConsent").checked = d.privacyConsent;
+      if (typeof d.marketingOptIn === "boolean") document.getElementById("marketingOptIn").checked = d.marketingOptIn;
+      currentIdemKey = (typeof d.idemKey === "string" && d.idemKey) ? d.idemKey : newIdemKey();
+      currentPayloadSig = computePayloadSig();
+      saveDraft();
+    } catch (_) {
+      currentIdemKey = newIdemKey();
+      currentPayloadSig = computePayloadSig();
+    }
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function clearInvalidMarkers(formEl) {
+    formEl.querySelectorAll("[aria-invalid]").forEach(function (el) {
+      el.removeAttribute("aria-invalid");
+    });
+  }
+
+  function showValidationError(errBox, fieldEl, message) {
+    errBox.textContent = message;
+    errBox.hidden = false;
+    if (fieldEl) {
+      fieldEl.setAttribute("aria-invalid", "true");
+      try { fieldEl.focus(); } catch (_) {}
+    }
+  }
+
+  function switchTab(tab) {
+    var isApply = tab === "apply";
+    document.getElementById("tabBtnApply").classList.toggle("active", isApply);
+    document.getElementById("tabBtnStatus").classList.toggle("active", !isApply);
+    document.getElementById("viewApply").hidden = !isApply;
+    document.getElementById("viewStatus").hidden = isApply;
+  }
+
+  document.getElementById("btnLangToggle").addEventListener("click", function () {
+    currentLang = currentLang === "zh" ? "en" : "zh";
+    applyLang();
+    saveDraft(); // Preserve exact draft & idemKey across language switch!
+  });
+  document.getElementById("tabBtnApply").addEventListener("click", function () { switchTab("apply"); });
+  document.getElementById("tabBtnStatus").addEventListener("click", function () { switchTab("status"); });
+  document.querySelectorAll(".track-card").forEach(function (btn) {
+    btn.addEventListener("click", function () { selectTrack(btn.getAttribute("data-track")); });
+  });
+
+  document.getElementById("joinForm").addEventListener("input", onFormMutated);
+  document.getElementById("joinForm").addEventListener("change", onFormMutated);
+
+  document.getElementById("btnResetJoin").addEventListener("click", function () {
+    var form = document.getElementById("joinForm");
+    form.reset();
+    clearInvalidMarkers(form);
+    document.getElementById("joinErrorBox").hidden = true;
+    document.getElementById("joinSuccessBox").hidden = true;
+    currentIdemKey = newIdemKey();
+    currentPayloadSig = computePayloadSig();
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
+  });
+
+  document.getElementById("joinForm").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    var form = document.getElementById("joinForm");
+    var errBox = document.getElementById("joinErrorBox");
+    var okBox = document.getElementById("joinSuccessBox");
+    errBox.hidden = true;
+    okBox.hidden = true;
+    clearInvalidMarkers(form);
+
+    // N09: Strict client-side required-field validation with accessible focus BEFORE any network call
+    var nameEl = document.getElementById("appName");
+    var contactEl = document.getElementById("contactValue");
+    var consentEl = document.getElementById("privacyConsent");
+    if (!nameEl.value.trim()) {
+      showValidationError(errBox, nameEl, t("errNameRequired"));
+      return;
+    }
+    if (!contactEl.value.trim()) {
+      showValidationError(errBox, contactEl, t("errContactRequired"));
+      return;
+    }
+    if (!consentEl.checked) {
+      showValidationError(errBox, consentEl, t("errPrivacyRequired"));
+      return;
+    }
+
+    // N09: Block localhost/file fallback to production API unless explicitly overridden
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok) {
+      showValidationError(errBox, null, t("errLocalProdBlocked"));
+      return;
+    }
+
+    if (!currentIdemKey) currentIdemKey = newIdemKey();
+    currentPayloadSig = computePayloadSig();
+    saveDraft(); // Persist exact idemKey BEFORE fetch so reload after lost response replays cleanly!
+
+    var payload = {
+      app_type: currentTrack,
+      partner_mode: currentTrack === "partner" ? document.getElementById("partnerMode").value : "",
+      applicant_name: nameEl.value.trim(),
+      country_tz: document.getElementById("countryTz").value.trim(),
+      languages: document.getElementById("languages").value.trim(),
+      contact_channel: document.getElementById("contactChannel").value,
+      contact_value: contactEl.value.trim(),
+      product_lines: document.getElementById("productLines").value.split(/[,，]/).map(function (x) { return x.trim(); }).filter(Boolean),
+      summary: { note: document.getElementById("experienceNote").value.trim() },
+      privacyConsent: consentEl.checked,
+      marketingOptIn: document.getElementById("marketingOptIn").checked,
+      idem_key: currentIdemKey
+    };
+
+    var btn = document.getElementById("btnSubmitJoin");
+    btn.disabled = true;
+    try {
+      var resp = await fetch(apiInfo.url + "/api/public/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Idempotency-Key": currentIdemKey },
+        body: JSON.stringify(payload)
+      });
+      var data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        errBox.textContent = (data && data.error) || (t("errSubmitFailed") + " (" + resp.status + ")");
+        errBox.hidden = false;
+        return;
+      }
+      lastReceipt = { application_no: data.application_no, lookup_secret: data.lookup_secret || "" };
+      var secretBlock = data.lookup_secret
+        ? "<div class='secret-box'><b>" + esc(t("receiptSecretTitle")) + "</b><br>" + esc(data.lookup_secret) + "</div>"
+        : "<p>" + esc(data.lookupSecretNotice || "") + "</p>";
+      okBox.innerHTML =
+        "<b>" + esc(t("receiptTitle")) + (data.replayed ? esc(t("receiptReplayed")) : "") + "</b>" +
+        "<div class='secret-box'><b>" + esc(t("receiptAppNo")) + "</b> " + esc(data.application_no) + "</div>" +
+        secretBlock +
+        "<div style='display:flex;gap:8px;flex-wrap:wrap;margin:8px 0'>" +
+        "  <button type='button' class='pill' id='btnCopyReceipt'>" + esc(t("receiptCopyBtn")) + "</button>" +
+        "  <button type='button' class='pill' id='btnGoCheckStatus'>" + esc(t("receiptCheckBtn")) + "</button>" +
+        "</div>" +
+        "<p style='margin:6px 0 0'>" + esc(data.nextStep || "") + "</p>";
+      okBox.hidden = false;
+      document.getElementById("stAppNo").value = data.application_no || "";
+      if (data.lookup_secret) document.getElementById("stSecret").value = data.lookup_secret;
+
+      var btnCopy = document.getElementById("btnCopyReceipt");
+      if (btnCopy) {
+        btnCopy.addEventListener("click", function () {
+          var txt = "FriesGo Global Application Receipt\nApplication No: " + lastReceipt.application_no + (lastReceipt.lookup_secret ? ("\nLookup Secret: " + lastReceipt.lookup_secret) : "");
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(function () { btnCopy.textContent = t("receiptCopied"); });
+          }
+        });
+      }
+      var btnGo = document.getElementById("btnGoCheckStatus");
+      if (btnGo) {
+        btnGo.addEventListener("click", function () {
+          switchTab("status");
+          document.getElementById("btnCheckStatus").click();
+        });
+      }
+      try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
+    } catch (e) {
+      errBox.textContent = t("errNetworkInterrupted");
+      errBox.hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("statusForm").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    var form = document.getElementById("statusForm");
+    var box = document.getElementById("statusResultBox");
+    box.hidden = true;
+    clearInvalidMarkers(form);
+    var appNoEl = document.getElementById("stAppNo");
+    var secretEl = document.getElementById("stSecret");
+    var appNo = appNoEl.value.trim();
+    var secret = secretEl.value.trim();
+    if (!appNo) {
+      box.className = "alert err";
+      showValidationError(box, appNoEl, t("errStatusFields"));
+      return;
+    }
+    if (!secret) {
+      box.className = "alert err";
+      showValidationError(box, secretEl, t("errStatusFields"));
+      return;
+    }
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok) {
+      box.className = "alert err";
+      showValidationError(box, null, t("errLocalProdBlocked"));
+      return;
+    }
+    try {
+      var resp = await fetch(apiInfo.url + "/api/public/applications/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ application_no: appNo, lookup_secret: secret })
+      });
+      var data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        box.className = "alert err";
+        box.textContent = (data && data.error) || t("errStatusNotFound");
+        box.hidden = false;
+        return;
+      }
+      box.className = "alert ok";
+      box.innerHTML =
+        "<b>" + esc(t("stLabelNo")) + "</b>" + esc(data.application_no) + "<br>" +
+        "<b>" + esc(t("stLabelStatus")) + "</b>" + esc(data.statusLabel || data.status) + "<br>" +
+        "<b>" + esc(t("stLabelNext")) + "</b>" + esc(data.nextStep || "") +
+        (data.publicNote ? "<br><b>" + esc(t("stLabelNote")) + "</b>" + esc(data.publicNote) : "") +
+        "<br><small>" + esc(t("stLabelUpdated")) + esc(data.updated_at) + "</small>";
+      box.hidden = false;
+    } catch (e) {
+      box.className = "alert err";
+      box.textContent = t("errStatusUnreachable");
+      box.hidden = false;
+    }
+  });
+
+  // Expose read-only diagnostic getter for automated verification of N06/N07/N09
+  window.__FG_JOIN_DEBUG__ = function () {
+    return {
+      lang: currentLang,
+      track: currentTrack,
+      idemKey: currentIdemKey,
+      apiTarget: resolveApiTarget()
+    };
+  };
+
+  restoreDraft();
+  applyLang();
+})();
+</script>
+</body>
+</html>

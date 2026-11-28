@@ -184,26 +184,48 @@ export async function isSystemRestoreFrozen(db) {
   return !gate.allowed;
 }
 
+export const REQUIRED_V4_SLICE1_TABLES = [
+  "orgs",
+  "org_memberships",
+  "support_access_grants",
+  "idempotency_keys",
+  "applications",
+  "product_catalog_approvals",
+  "projects",
+  "project_participants",
+  "discovery_tasks",
+  "discovery_task_efforts",
+  "demand_signals",
+  "inquiries",
+  "lead_assignments",
+  "assignment_events",
+  "deal_registrations",
+  "attachments_meta",
+];
+
 /**
- * Dynamically probes live SQLite/D1 schema instead of hardcoding schemaVersion (R05).
+ * Dynamically probes live SQLite/D1 schema by deployed stage (R05 / REV12).
+ * Never hardcodes schemaVersion; never falsely breaks V2.1 tests when optional V3 Slice-1 tables are not yet enabled.
  */
-export async function probeSchemaHealth(db) {
+export async function probeSchemaHealth(db, env = null) {
+  const v4Required = Boolean(env && String(env.V3_SLICE1_ENABLED || "") === "1");
+  const baseExpected = v4Required ? 4 : EXPECTED_SCHEMA_VERSION;
   if (!db) {
     return {
       schemaVersion: 0,
-      expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+      expectedSchemaVersion: baseExpected,
       schemaReady: false,
       missingSchema: ["database_binding"],
     };
   }
   try {
     const tblRes = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all();
-    const tableSet = new Set((tblRes.results || []).map((r) => String(r && r.name || "")));
+    const tableSet = new Set((tblRes.results || []).map((r) => String((r && r.name) || "")));
     const missingV1 = REQUIRED_V1_TABLES.filter((t) => !tableSet.has(t));
     if (missingV1.length) {
       return {
         schemaVersion: 0,
-        expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+        expectedSchemaVersion: baseExpected,
         schemaReady: false,
         missingSchema: missingV1,
       };
@@ -212,32 +234,518 @@ export async function probeSchemaHealth(db) {
     const missingV2 = [];
     if (!tableSet.has("system_maintenance_state")) missingV2.push("system_maintenance_state");
     const empColsRes = await db.prepare("PRAGMA table_info(employees)").all();
-    const empCols = new Set((empColsRes.results || []).map((r) => String(r && r.name || "")));
+    const empCols = new Set((empColsRes.results || []).map((r) => String((r && r.name) || "")));
     if (!empCols.has("last_totp_step")) missingV2.push("employees.last_totp_step");
 
     const missingV3 = [];
     if (!tableSet.has("restore_jobs")) missingV3.push("restore_jobs");
 
+    const v4Present = v4Required || tableSet.has("orgs");
+    const expectedVersion = v4Present ? 4 : EXPECTED_SCHEMA_VERSION;
+    const missingV4 = [];
+    if (v4Present) {
+      for (const t of REQUIRED_V4_SLICE1_TABLES) {
+        if (!tableSet.has(t)) missingV4.push(t);
+      }
+      const compColsRes = await db.prepare("PRAGMA table_info(companies)").all();
+      const compCols = new Set((compColsRes.results || []).map((r) => String((r && r.name) || "")));
+      if (!compCols.has("org_id")) missingV4.push("companies.org_id");
+    }
+
     let detectedVersion = 1;
     if (!missingV2.length) {
       detectedVersion = 2;
-      if (!missingV3.length) detectedVersion = 3;
+      if (!missingV3.length) {
+        detectedVersion = 3;
+        if (v4Present && !missingV4.length) detectedVersion = 4;
+      }
     }
 
-    const missingSchema = [...missingV2, ...missingV3];
+    const missingSchema = [...missingV2, ...missingV3, ...(v4Present ? missingV4 : [])];
     return {
       schemaVersion: detectedVersion,
-      expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+      expectedSchemaVersion: expectedVersion,
       schemaReady: missingSchema.length === 0,
       missingSchema,
     };
   } catch {
     return {
       schemaVersion: 0,
-      expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+      expectedSchemaVersion: baseExpected,
       schemaReady: false,
       missingSchema: ["schema_probe_failed"],
     };
+  }
+}
+
+/**
+ * REV01 / S02: Authoritative multi-tenant logical isolation context resolver.
+ * - Requires explicit X-FG-Org-Id when actor has multiple orgs or operates outside legacy main-only mode.
+ * - Never silently falls back to org_friesgo_main once an actor has ANY org_memberships row (including disabled!).
+ * - Denies super_admin default access to independent_trial orgs unless an explicit, unexpired, unrevoked support_access_grants record exists!
+ */
+export async function resolveTenantContext(request, env, auth, cors, opts = {}) {
+  const reqOrgId = String(request.headers.get("X-FG-Org-Id") || "").trim();
+  const reqMemId = String(request.headers.get("X-FG-Membership-Id") || "").trim();
+  const now = nowIso();
+
+  const allMemRowsRes = await env.DB
+    .prepare(
+      `SELECT m.*, o.org_type, o.name AS org_name, o.status AS org_status, o.settings_json AS org_settings_json
+       FROM org_memberships m
+       JOIN orgs o ON o.id = m.org_id
+       WHERE m.employee_id = ?
+       ORDER BY CASE o.org_type WHEN 'company_main' THEN 0 ELSE 1 END, m.created_at ASC`
+    )
+    .bind(auth.actor.id)
+    .all();
+  const allMemberships = allMemRowsRes.results || [];
+  const memberships = allMemberships.filter((m) => m.status === "active" && m.org_status === "active");
+
+  // S02: If actor EVER had an org_memberships record and now has ZERO active memberships,
+  // fail-closed immediately — NEVER fall back to legacy org_friesgo_main!
+  if (allMemberships.length > 0 && memberships.length === 0) {
+    return {
+      ok: false,
+      response: json(
+        {
+          error: "当前账号组织成员身份已停用或所属数据空间不可用，已拦截默认主空间回落",
+          code: "ORG_MEMBERSHIP_DISABLED",
+        },
+        403,
+        cors
+      ),
+    };
+  }
+
+  // Backward compatibility ONLY for legacy main-org internal employees who have 0 org_memberships rows of any status
+  if (allMemberships.length === 0 && ["super_admin", "manager", "staff"].includes(auth.actor.role)) {
+    if (reqOrgId && reqOrgId !== "org_friesgo_main") {
+      // Check if super_admin has an explicit user-approved support grant for an independent_trial org
+      if (auth.actor.role === "super_admin") {
+        const grant = await env.DB
+          .prepare(
+            `SELECT g.*, o.org_type, o.name AS org_name, o.status AS org_status, o.settings_json AS org_settings_json
+             FROM support_access_grants g
+             JOIN orgs o ON o.id = g.org_id
+             WHERE g.org_id = ? AND g.grantee_employee_id = ? AND g.revoked_at IS NULL AND g.expires_at > ? AND o.status = 'active'
+             LIMIT 1`
+          )
+          .bind(reqOrgId, auth.actor.id, now)
+          .first();
+        if (grant) {
+          if (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length && !opts.allowedRoles.includes("support_readonly")) {
+            return {
+              ok: false,
+              response: json({ error: "限时支持只读授权无权执行此写入操作", code: "FORBIDDEN_ORG_ROLE" }, 403, cors),
+            };
+          }
+          await writeAuditLog(env.DB, auth.actor, "SUPPORT_GRANT_ACCESS", "org", reqOrgId, `grant_id=${grant.id} scope=${grant.scope}`);
+          return {
+            ok: true,
+            orgId: reqOrgId,
+            orgType: grant.org_type,
+            orgName: grant.org_name,
+            orgSettings: safeJsonParse(grant.org_settings_json, {}),
+            role: "support_readonly",
+            canFinanceSettle: false,
+            supportGrantId: grant.id,
+            membership: null,
+          };
+        }
+      }
+      return {
+        ok: false,
+        response: json(
+          {
+            error: "无权访问目标数据空间（多租户逻辑隔离拦截；独立空间需用户限时授权工单）",
+            code: "ORG_ACCESS_DENIED",
+          },
+          403,
+          cors
+        ),
+      };
+    }
+    if (opts.requireExplicitOrgHeader && !reqOrgId) {
+      return {
+        ok: false,
+        response: json({ error: "缺少明确的数据空间上下文头 X-FG-Org-Id", code: "ORG_CONTEXT_REQUIRED" }, 403, cors),
+      };
+    }
+    if (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length && !opts.allowedRoles.includes(auth.actor.role)) {
+      return {
+        ok: false,
+        response: json({ error: "当前空间角色无权执行此操作", code: "FORBIDDEN_ORG_ROLE" }, 403, cors),
+      };
+    }
+    const mainOrg = await env.DB.prepare("SELECT * FROM orgs WHERE id = 'org_friesgo_main'").first();
+    return {
+      ok: true,
+      orgId: "org_friesgo_main",
+      orgType: (mainOrg && mainOrg.org_type) || "company_main",
+      orgName: (mainOrg && mainOrg.name) || "FriesGo Global",
+      orgSettings: safeJsonParse(mainOrg && mainOrg.settings_json, {}),
+      role: auth.actor.role,
+      canFinanceSettle: auth.actor.role === "super_admin",
+      supportGrantId: null,
+      membership: null,
+    };
+  }
+
+  // Actor HAS explicit org_memberships -> strict context matching (never silently fall back to company_main!)
+  if (!reqOrgId) {
+    if (opts.requireExplicitOrgHeader || memberships.length > 1) {
+      return {
+        ok: false,
+        response: json(
+          { error: "请显式选择并携带数据空间上下文 X-FG-Org-Id，严禁默认回落主空间", code: "ORG_CONTEXT_REQUIRED" },
+          403,
+          cors
+        ),
+      };
+    }
+  }
+
+  const targetOrgId = reqOrgId || (memberships[0] && memberships[0].org_id) || "";
+  if (!targetOrgId) {
+    return {
+      ok: false,
+      response: json({ error: "当前账号无有效已激活组织身份", code: "ORG_CONTEXT_REQUIRED" }, 403, cors),
+    };
+  }
+
+  let chosen = memberships.find((m) => m.org_id === targetOrgId && (!reqMemId || m.id === reqMemId));
+  if (!chosen) {
+    // S02: Explicitly reject if the actor had a membership in targetOrgId that is now disabled/inactive
+    const disabledTarget = allMemberships.find(
+      (m) => m.org_id === targetOrgId && (!reqMemId || m.id === reqMemId) && (m.status !== "active" || m.org_status !== "active")
+    );
+    if (disabledTarget) {
+      return {
+        ok: false,
+        response: json(
+          { error: "当前账号在目标数据空间的成员身份已停用或组织已冻结", code: "ORG_MEMBERSHIP_DISABLED" },
+          403,
+          cors
+        ),
+      };
+    }
+    // Allow explicit time-bounded user support grant for super_admin on independent_trial org
+    if (auth.actor.role === "super_admin") {
+      const grant = await env.DB
+        .prepare(
+          `SELECT g.*, o.org_type, o.name AS org_name, o.status AS org_status, o.settings_json AS org_settings_json
+           FROM support_access_grants g
+           JOIN orgs o ON o.id = g.org_id
+           WHERE g.org_id = ? AND g.grantee_employee_id = ? AND g.revoked_at IS NULL AND g.expires_at > ? AND o.status = 'active'
+           LIMIT 1`
+        )
+        .bind(targetOrgId, auth.actor.id, now)
+        .first();
+      if (grant) {
+        if (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length && !opts.allowedRoles.includes("support_readonly")) {
+          return {
+            ok: false,
+            response: json({ error: "限时支持只读授权无权执行此写入操作", code: "FORBIDDEN_ORG_ROLE" }, 403, cors),
+          };
+        }
+        await writeAuditLog(env.DB, auth.actor, "SUPPORT_GRANT_ACCESS", "org", targetOrgId, `grant_id=${grant.id} scope=${grant.scope}`);
+        return {
+          ok: true,
+          orgId: targetOrgId,
+          orgType: grant.org_type,
+          orgName: grant.org_name,
+          orgSettings: safeJsonParse(grant.org_settings_json, {}),
+          role: "support_readonly",
+          canFinanceSettle: false,
+          supportGrantId: grant.id,
+          membership: null,
+        };
+      }
+    }
+    return {
+      ok: false,
+      response: json(
+        { error: "无权访问所请求的数据空间或成员身份已失效", code: "ORG_ACCESS_DENIED" },
+        403,
+        cors
+      ),
+    };
+  }
+
+  if (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length && !opts.allowedRoles.includes(chosen.role)) {
+    return {
+      ok: false,
+      response: json({ error: "当前空间角色无权执行此操作", code: "FORBIDDEN_ORG_ROLE" }, 403, cors),
+    };
+  }
+
+  return {
+    ok: true,
+    orgId: chosen.org_id,
+    orgType: chosen.org_type,
+    orgName: chosen.org_name,
+    orgSettings: safeJsonParse(chosen.org_settings_json, {}),
+    role: chosen.role,
+    canFinanceSettle: Boolean(chosen.can_finance_settle) || chosen.role === "super_admin",
+    supportGrantId: null,
+    membership: chosen,
+  };
+}
+
+/**
+ * S01: Guard for all legacy V2.1 main-org endpoints (/api/companies*, /api/osm-pool*, /api/locks*, /api/events*, /api/migrate*, /api/feedback*, /api/gmaps*, /api/admin*).
+ * - On Schema v3 (pre-V4): transparently delegates to requireAuth (100% V2.1 backward compatibility).
+ * - On Schema v4+: strictly permits ONLY active FriesGo main-org internal staff/manager/super_admin,
+ *   blocks independent_user / partner_* / disabled memberships / non-main X-FG-Org-Id with 403,
+ *   and returns { v4: true, orgId: 'org_friesgo_main' } so legacy queries enforce org_id = 'org_friesgo_main'.
+ */
+export async function requireLegacyMainInternal(request, env, cors, opts = {}) {
+  const auth = await requireAuth(request, env, cors, opts);
+  if (!auth.ok) return auth;
+
+  let isV4 = false;
+  try {
+    const tbl = await env.DB.prepare("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'orgs'").first();
+    isV4 = Boolean(tbl);
+  } catch {
+    isV4 = false;
+  }
+  if (!isV4) {
+    return { ...auth, v4: false, orgId: null, tenantCtx: null };
+  }
+
+  const reqOrgId = String(request.headers.get("X-FG-Org-Id") || "").trim();
+  if (reqOrgId && reqOrgId !== "org_friesgo_main") {
+    return {
+      ok: false,
+      response: json(
+        {
+          error: "旧版主公海/管理接口仅允许访问总部主空间（多租户逻辑隔离拦截）",
+          code: "FORBIDDEN_LEGACY_POOL",
+        },
+        403,
+        cors
+      ),
+    };
+  }
+
+  const allMemRowsRes = await env.DB
+    .prepare(
+      `SELECT m.*, o.org_type, o.name AS org_name, o.status AS org_status
+       FROM org_memberships m
+       JOIN orgs o ON o.id = m.org_id
+       WHERE m.employee_id = ?`
+    )
+    .bind(auth.actor.id)
+    .all();
+  const allMemberships = allMemRowsRes.results || [];
+  const internalRoles = ["super_admin", "manager", "staff"];
+
+  if (allMemberships.length > 0) {
+    const mainActive = allMemberships.find(
+      (m) => m.org_id === "org_friesgo_main" && m.status === "active" && m.org_status === "active"
+    );
+    if (!mainActive) {
+      const hadMainDisabled = allMemberships.some(
+        (m) => m.org_id === "org_friesgo_main" && (m.status !== "active" || m.org_status !== "active")
+      );
+      const anyActive = allMemberships.some((m) => m.status === "active" && m.org_status === "active");
+      const code = hadMainDisabled || !anyActive ? "ORG_MEMBERSHIP_DISABLED" : "FORBIDDEN_LEGACY_POOL";
+      return {
+        ok: false,
+        response: json(
+          {
+            error:
+              code === "ORG_MEMBERSHIP_DISABLED"
+                ? "当前账号组织成员身份已停用，禁止回落访问总部主公海接口"
+                : "仅 FriesGo 总部内部成员可访问主公海接口（独立空间与合作方请使用 /api/v3 隔离工作台）",
+            code,
+          },
+          403,
+          cors
+        ),
+      };
+    }
+    if (!internalRoles.includes(mainActive.role)) {
+      return {
+        ok: false,
+        response: json(
+          {
+            error: "合作方与独立试用角色禁止访问总部主公海接口，请使用授权范围的 /api/v3 协作工作台",
+            code: "FORBIDDEN_LEGACY_POOL",
+          },
+          403,
+          cors
+        ),
+      };
+    }
+    if (Array.isArray(opts.roles) && opts.roles.length && !opts.roles.includes(mainActive.role)) {
+      return {
+        ok: false,
+        response: json({ error: "权限不足，仅授权总部角色可执行此操作", code: "FORBIDDEN_ROLE" }, 403, cors),
+      };
+    }
+    return {
+      ...auth,
+      v4: true,
+      orgId: "org_friesgo_main",
+      tenantCtx: { orgId: "org_friesgo_main", orgType: mainActive.org_type, role: mainActive.role },
+    };
+  }
+
+  // Legacy main-org employee with 0 explicit membership rows
+  if (!internalRoles.includes(auth.actor.role)) {
+    return {
+      ok: false,
+      response: json({ error: "仅总部内部成员可访问主公海接口", code: "FORBIDDEN_LEGACY_POOL" }, 403, cors),
+    };
+  }
+  return {
+    ...auth,
+    v4: true,
+    orgId: "org_friesgo_main",
+    tenantCtx: { orgId: "org_friesgo_main", orgType: "company_main", role: auth.actor.role },
+  };
+}
+
+/**
+ * ENG01 / S08: Strong Idempotency Guard with request SHA-256 binding, in_progress lease recovery,
+ * and SINGLE-TRANSACTION atomic commit via db.batch([...commitStmts, completeIdemStmt]).
+ * Caller MUST authenticate via requireAuth BEFORE invoking this so revoked sessions never replay cached responses!
+ */
+export async function runIdempotentOperation(
+  db,
+  { orgId, actorId, scope, targetId = "", idemKey, requestBody, leaseSeconds = 30, executor }
+) {
+  const cleanKey = String(idemKey || "").trim();
+  if (!cleanKey) {
+    const out = await executor({ idemKey: "" });
+    const outStatus = Number((out && out.status) || 200);
+    const outBody = (out && out.body) || { ok: outStatus < 400 };
+    if (out && Array.isArray(out.commitStmts) && out.commitStmts.length > 0) {
+      await db.batch(out.commitStmts);
+    }
+    return { status: outStatus, body: outBody, replayed: false };
+  }
+  const reqHash = await sha256Hex(JSON.stringify(requestBody || {}));
+  const now = nowIso();
+  const leaseUntil = addSecondsIso(leaseSeconds);
+
+  const existing = await db
+    .prepare(
+      `SELECT request_sha256, state, response_status, response_json, lease_expires_at
+       FROM idempotency_keys
+       WHERE org_id = ? AND actor_id = ? AND scope = ? AND target_id = ? AND idem_key = ?`
+    )
+    .bind(orgId, actorId, scope, targetId, cleanKey)
+    .first();
+
+  if (existing) {
+    if (existing.request_sha256 !== reqHash) {
+      return {
+        status: 409,
+        body: {
+          ok: false,
+          code: "IDEMPOTENCY_PAYLOAD_MISMATCH",
+          error: "同一幂等编号不允许修改请求内容、金额或目标组织",
+        },
+        replayed: false,
+      };
+    }
+    if (existing.state === "completed") {
+      return {
+        status: Number(existing.response_status || 200),
+        body: safeJsonParse(existing.response_json, { ok: true }),
+        replayed: true,
+      };
+    }
+    if (existing.state === "in_progress" && existing.lease_expires_at > now) {
+      return {
+        status: 409,
+        body: {
+          ok: false,
+          code: "IDEMPOTENCY_IN_PROGRESS",
+          error: "相同请求正在处理中，请稍候重试（已拦截并发重复提交）",
+        },
+        replayed: false,
+      };
+    }
+    // Lease expired -> recover stuck in_progress record atomically
+    const takeover = await db
+      .prepare(
+        `UPDATE idempotency_keys
+         SET lease_expires_at = ?, updated_at = ?
+         WHERE org_id = ? AND actor_id = ? AND scope = ? AND target_id = ? AND idem_key = ? AND state = 'in_progress' AND lease_expires_at <= ?`
+      )
+      .bind(leaseUntil, now, orgId, actorId, scope, targetId, cleanKey, now)
+      .run();
+    if (Number((takeover && takeover.meta && takeover.meta.changes) || 0) !== 1) {
+      return {
+        status: 409,
+        body: { ok: false, code: "IDEMPOTENCY_IN_PROGRESS", error: "并发幂等争用，请稍后重试" },
+        replayed: false,
+      };
+    }
+  } else {
+    try {
+      await db
+        .prepare(
+          `INSERT INTO idempotency_keys (org_id, actor_id, scope, target_id, idem_key, request_sha256, state, response_status, response_json, lease_expires_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'in_progress', 0, '{}', ?, ?, ?)`
+        )
+        .bind(orgId, actorId, scope, targetId, cleanKey, reqHash, leaseUntil, now, now)
+        .run();
+    } catch {
+      return {
+        status: 409,
+        body: { ok: false, code: "IDEMPOTENCY_IN_PROGRESS", error: "相同幂等请求并发到达，请稍后重试" },
+        replayed: false,
+      };
+    }
+  }
+
+  try {
+    const out = await executor({ idemKey: cleanKey });
+    const outStatus = Number((out && out.status) || 200);
+    const outBody = (out && out.body) || { ok: outStatus < 400 };
+    const commitStmts = Array.isArray(out && out.commitStmts) ? out.commitStmts : [];
+    // S08: Persist business writes + completed idempotency state in ONE atomic transaction
+    if (outStatus < 500) {
+      const completeStmt = db
+        .prepare(
+          `UPDATE idempotency_keys
+           SET state = 'completed', response_status = ?, response_json = ?, updated_at = ?
+           WHERE org_id = ? AND actor_id = ? AND scope = ? AND target_id = ? AND idem_key = ?`
+        )
+        .bind(outStatus, JSON.stringify(outBody), nowIso(), orgId, actorId, scope, targetId, cleanKey);
+      if (commitStmts.length > 0) {
+        await db.batch([...commitStmts, completeStmt]);
+      } else {
+        await completeStmt.run();
+      }
+    } else {
+      await db
+        .prepare(
+          `DELETE FROM idempotency_keys
+           WHERE org_id = ? AND actor_id = ? AND scope = ? AND target_id = ? AND idem_key = ? AND state = 'in_progress'`
+        )
+        .bind(orgId, actorId, scope, targetId, cleanKey)
+        .run();
+    }
+    return { status: outStatus, body: outBody, replayed: false };
+  } catch (err) {
+    // Release in_progress lease on unhandled exception (atomic batch already rolled back any business writes)
+    try {
+      await db
+        .prepare(
+          `DELETE FROM idempotency_keys
+           WHERE org_id = ? AND actor_id = ? AND scope = ? AND target_id = ? AND idem_key = ? AND state = 'in_progress'`
+        )
+        .bind(orgId, actorId, scope, targetId, cleanKey)
+        .run();
+    } catch {}
+    throw err;
   }
 }
 

@@ -5,7 +5,7 @@
 //   3. places.id included in FIELD_MASK (Terms 3.2.3 Place ID exemption); NEVER caches or stores Google business fields in D1.
 //   4. Cache-Control: no-store on all responses.
 
-import { requireAuth } from "../auth.js";
+import { requireLegacyMainInternal } from "../auth.js";
 import { json, nowIso, parseJsonBody, writeAuditLog } from "../utils.js";
 
 const FIELD_MASK = [
@@ -49,7 +49,7 @@ async function reserveQuotaAtomic(db, quotaKey, ym, scope, cap) {
 export async function handleGmapsRoutes(request, env, cors, url) {
   // Authoritative server-side quota status for logged-in members (D12)
   if (url.pathname === "/api/gmaps/quota" && request.method === "GET") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const ym = nowIso().slice(0, 7);
     const teamCap = Math.min(2000, Math.max(1, parseInt(env.GMAPS_TEAM_MONTHLY_CAP || "950", 10) || 950));
@@ -89,7 +89,7 @@ export async function handleGmapsRoutes(request, env, cors, url) {
 
   if (url.pathname !== "/api/gmaps/search" || request.method !== "POST") return null;
 
-  const auth = await requireAuth(request, env, cors);
+  const auth = await requireLegacyMainInternal(request, env, cors);
   if (!auth.ok) return auth.response;
 
   const ym = nowIso().slice(0, 7);

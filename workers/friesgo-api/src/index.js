@@ -10,13 +10,20 @@ import { handleFeedbackRoutes } from "./routes/feedback.js";
 import { handleGmapsRoutes } from "./routes/gmaps.js";
 import { handleLockRoutes } from "./routes/locks.js";
 import { handleMigrateRoutes } from "./routes/migrate.js";
+import { handlePublicIntakeRoutes } from "./routes/public_intake.js";
+import { handleV3WorkspaceRoutes } from "./routes/v3_workspace.js";
 import { buildCorsHeaders, isOriginAllowed, json, nowIso } from "./utils.js";
+
+export function isV3Slice1Enabled(env) {
+  return String((env && env.V3_SLICE1_ENABLED) || "").trim() === "1";
+}
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const reqOrigin = request.headers.get("Origin") || "";
     const cors = buildCorsHeaders(request, env);
+    const v3Enabled = isV3Slice1Enabled(env);
 
     // Reject disallowed browser Origins strictly with 403
     if (reqOrigin && !isOriginAllowed(reqOrigin, env)) {
@@ -47,7 +54,7 @@ export default {
       };
 
       if (hasDb) {
-        schemaProbe = await probeSchemaHealth(env.DB);
+        schemaProbe = await probeSchemaHealth(env.DB, env);
         try {
           const row = await env.DB.prepare("SELECT COUNT(*) AS cnt FROM employees").first();
           bootstrapped = Number((row && row.cnt) || 0) > 0;
@@ -68,7 +75,8 @@ export default {
         {
           ok: ready,
           service: "friesgo-api",
-          version: "v2.1-m2a",
+          version: schemaProbe.schemaVersion >= 4 && v3Enabled ? "v3.0-slice1" : "v2.1-m2a",
+          v3Slice1Enabled: v3Enabled,
           buildCommit: (env && env.BUILD_COMMIT) || "dev-local",
           schemaVersion: schemaProbe.schemaVersion,
           expectedSchemaVersion: schemaProbe.expectedSchemaVersion,
@@ -104,9 +112,30 @@ export default {
       );
     }
 
+    // S07: Fail-closed feature flag gate for ALL V3 Slice-1 and public intake endpoints
+    if (
+      !v3Enabled &&
+      (url.pathname === "/api/v3" ||
+        url.pathname.startsWith("/api/v3/") ||
+        url.pathname === "/api/public" ||
+        url.pathname.startsWith("/api/public/"))
+    ) {
+      return json(
+        {
+          ok: false,
+          code: "V3_FEATURE_DISABLED",
+          error: "V3 Slice-1 功能开关未开启（当前环境已按安全策略暂停 /api/v3 与 /api/public 接口）",
+        },
+        503,
+        cors
+      );
+    }
+
     try {
       const handlers = [
+        ...(v3Enabled ? [handlePublicIntakeRoutes] : []),
         handleAuthRoutes,
+        ...(v3Enabled ? [handleV3WorkspaceRoutes] : []),
         handleAdminRoutes,
         handleCompanyRoutes,
         handleLockRoutes,

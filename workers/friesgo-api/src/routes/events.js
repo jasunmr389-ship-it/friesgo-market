@@ -1,6 +1,6 @@
 // Append-Only Idempotent Contact Events & Team Activity Stream
 
-import { requireAuth } from "../auth.js";
+import { requireLegacyMainInternal } from "../auth.js";
 import { randomId } from "../crypto.js";
 import { json, monotonicOptOut, nowIso, parseJsonBody, writeAuditLog } from "../utils.js";
 import { recomputeCompanyDerivedState } from "./companies.js";
@@ -25,17 +25,22 @@ export async function handleEventRoutes(request, env, cors, url) {
 
   // 1. Append real business contact event (idempotent by client-generated event_id)
   if (path === "/api/events" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 32768);
 
     const companyId = String(body.company_id || "").trim();
     if (!companyId) return json({ error: "缺少 company_id" }, 400, cors);
 
-    const comp = await env.DB
-      .prepare("SELECT id, canonical_name, opt_out_status, compliance_status, deleted_at FROM companies WHERE id = ?")
-      .bind(companyId)
-      .first();
+    const comp = auth.v4
+      ? await env.DB
+          .prepare("SELECT id, canonical_name, opt_out_status, compliance_status, deleted_at FROM companies WHERE id = ? AND org_id = ?")
+          .bind(companyId, auth.orgId)
+          .first()
+      : await env.DB
+          .prepare("SELECT id, canonical_name, opt_out_status, compliance_status, deleted_at FROM companies WHERE id = ?")
+          .bind(companyId)
+          .first();
     if (!comp || comp.deleted_at) return json({ error: "目标企业不存在" }, 404, cors);
 
     const channel = VALID_CHANNELS.has(body.channel) ? body.channel : "other";
@@ -159,23 +164,26 @@ export async function handleEventRoutes(request, env, cors, url) {
 
   // 2. Team recent follow-up activity stream
   if (path === "/api/events/recent" && method === "GET") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const limit = Math.min(80, Math.max(10, parseInt(url.searchParams.get("limit") || "40", 10) || 40));
     const onlyMine = url.searchParams.get("mine") === "1";
-    const sql = onlyMine
-      ? `SELECT ev.*, c.canonical_name, c.country_en, c.derived_contact_status, c.opt_out_status
-         FROM contact_events ev
-         JOIN companies c ON c.id = ev.company_id
-         WHERE ev.employee_id = ? AND c.deleted_at IS NULL
-         ORDER BY ev.occurred_at DESC LIMIT ?`
-      : `SELECT ev.*, c.canonical_name, c.country_en, c.derived_contact_status, c.opt_out_status
-         FROM contact_events ev
-         JOIN companies c ON c.id = ev.company_id
-         WHERE c.deleted_at IS NULL
-         ORDER BY ev.occurred_at DESC LIMIT ?`;
-    const stmt = onlyMine ? env.DB.prepare(sql).bind(auth.actor.id, limit) : env.DB.prepare(sql).bind(limit);
-    const rows = await stmt.all();
+    const where = ["c.deleted_at IS NULL"];
+    const binds = [];
+    if (auth.v4) {
+      where.push("c.org_id = ?");
+      binds.push(auth.orgId);
+    }
+    if (onlyMine) {
+      where.push("ev.employee_id = ?");
+      binds.push(auth.actor.id);
+    }
+    const sql = `SELECT ev.*, c.canonical_name, c.country_en, c.derived_contact_status, c.opt_out_status
+       FROM contact_events ev
+       JOIN companies c ON c.id = ev.company_id
+       WHERE ${where.join(" AND ")}
+       ORDER BY ev.occurred_at DESC LIMIT ?`;
+    const rows = await env.DB.prepare(sql).bind(...binds, limit).all();
     return json({ ok: true, events: rows.results || [] }, 200, cors);
   }
 

@@ -39,13 +39,11 @@ function startServer() {
   const worker_hasQuotaLimiterDO = /export\s+class\s+QuotaLimiter\b/.test(workerSrc) && /950/.test(workerSrc);
 
   const { srv, port } = await startServer();
-  const cdpPort = 9361;
-  const chrome = spawn(CHROME, [
-    "--headless=new", "--disable-gpu", "--no-first-run",
-    "--remote-debugging-port=" + cdpPort,
-    "--user-data-dir=/tmp/fg_tdd_red_" + Date.now(),
-    "http://127.0.0.1:" + port + "/"
-  ], { stdio: "ignore" });
+  const { spawnChromeEphemeralCdp } = require("./_chrome.cjs");
+  const { proc: chrome, cdpPort } = await spawnChromeEphemeralCdp({
+    profileDir: "/tmp/fg_tdd_red_" + Date.now(),
+    url: "http://127.0.0.1:" + port + "/"
+  });
 
   try {
     let targets = null;

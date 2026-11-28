@@ -1,7 +1,7 @@
 // Server-Side Atomic Short-Term Anti-Duplicate Contact Lock (bound to unique lock_id + employee_id + session_id)
 // Explicitly NOT customer ownership; expires automatically (default 10 minutes) or upon completion/cancel.
 
-import { requireAuth } from "../auth.js";
+import { requireLegacyMainInternal } from "../auth.js";
 import { randomId } from "../crypto.js";
 import { addSecondsIso, json, nowIso, parseJsonBody, writeAuditLog } from "../utils.js";
 import { recomputeCompanyDerivedState } from "./companies.js";
@@ -12,17 +12,22 @@ export async function handleLockRoutes(request, env, cors, url) {
 
   // 1. Atomic acquire short-term contact lock
   if (path === "/api/locks/acquire" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 16384);
     const companyId = String(body.company_id || "").trim();
     const channel = String(body.channel || "general").trim().slice(0, 32);
     if (!companyId) return json({ error: "缺少 company_id" }, 400, cors);
 
-    const comp = await env.DB
-      .prepare("SELECT id, canonical_name, opt_out_status, compliance_status, deleted_at, merged_into_id FROM companies WHERE id = ?")
-      .bind(companyId)
-      .first();
+    const comp = auth.v4
+      ? await env.DB
+          .prepare("SELECT id, canonical_name, opt_out_status, compliance_status, deleted_at, merged_into_id FROM companies WHERE id = ? AND org_id = ?")
+          .bind(companyId, auth.orgId)
+          .first()
+      : await env.DB
+          .prepare("SELECT id, canonical_name, opt_out_status, compliance_status, deleted_at, merged_into_id FROM companies WHERE id = ?")
+          .bind(companyId)
+          .first();
     if (!comp || comp.deleted_at || comp.merged_into_id) {
       return json({ error: "目标企业不存在或已归档/合并", code: "COMPANY_NOT_FOUND" }, 404, cors);
     }
@@ -144,7 +149,7 @@ export async function handleLockRoutes(request, env, cors, url) {
 
   // 2. Renew lock (must match exact company_id + lock_id + employee_id + session_id)
   if (path === "/api/locks/renew" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 8192);
     const companyId = String(body.company_id || "").trim();
@@ -168,7 +173,7 @@ export async function handleLockRoutes(request, env, cors, url) {
 
   // 3. Release lock (strictly checks lock_id + employee_id + session_id so other devices/users CANNOT release it!)
   if (path === "/api/locks/release" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 8192);
     const companyId = String(body.company_id || "").trim();

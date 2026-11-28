@@ -96,21 +96,13 @@ async function connectCdpTarget(wsUrl) {
   console.log("=== Phase 2B Browser E2E Verification ===");
   const { srv, port } = await startServer();
   const baseUrl = `http://127.0.0.1:${port}/`;
-  const cdpPort = 9412;
-  const profileDir = `/tmp/fg_phase2b_${Date.now()}`;
-  const chromeProc = spawn(
-    CHROME,
-    [
-      "--headless=new",
-      `--remote-debugging-port=${cdpPort}`,
-      `--user-data-dir=${profileDir}`,
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--window-size=1440,900",
-      "about:blank"
-    ],
-    { stdio: "ignore" }
-  );
+  const profileDir = `/tmp/fg_phase2b_${Date.now()}_${process.pid}`;
+  const { spawnChromeEphemeralCdp } = require("./_chrome.cjs");
+  const { proc: chromeProc, cdpPort } = await spawnChromeEphemeralCdp({
+    profileDir,
+    url: "about:blank",
+    windowSize: "1440,900",
+  });
 
   let cdp = null;
   try {

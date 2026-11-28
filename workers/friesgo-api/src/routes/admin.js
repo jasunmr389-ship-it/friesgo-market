@@ -2,7 +2,7 @@
 // Employee lifecycle (create/disable/enable/reset password/device session revocation),
 // Audit logs, Full logical backup/restore, and Mandatory Post-Restore Security Re-Verification.
 
-import { EXPECTED_SCHEMA_VERSION, parseQuotaCapStrict, requireAuth, sanitizeEmployeePublic, verifyEmployeeTotpOrRecovery } from "../auth.js";
+import { EXPECTED_SCHEMA_VERSION, parseQuotaCapStrict, probeSchemaHealth, requireLegacyMainInternal, sanitizeEmployeePublic, verifyEmployeeTotpOrRecovery } from "../auth.js";
 import { hashPassword, randomId, sha256Hex, validatePasswordStrength } from "../crypto.js";
 import { json, monotonicCompliance, monotonicOptOut, nowIso, parseJsonBody, safeJsonParse, writeAuditLog } from "../utils.js";
 import { recomputeCompanyDerivedState } from "./companies.js";
@@ -22,6 +22,24 @@ const BACKUP_TABLES = [
   "migration_batches",
 ];
 
+const V4_SLICE1_BACKUP_TABLES = [
+  "orgs",
+  "org_memberships",
+  "support_access_grants",
+  "applications",
+  "product_catalog_approvals",
+  "projects",
+  "project_participants",
+  "discovery_tasks",
+  "discovery_task_efforts",
+  "demand_signals",
+  "inquiries",
+  "lead_assignments",
+  "assignment_events",
+  "deal_registrations",
+  "attachments_meta",
+];
+
 const TABLE_COLUMNS = {
   companies: new Set(["id","canonical_name","norm_name","aliases_json","country_en","city","address","website","website_domain","industry_type","buyer_type","product_summary","pool_stage","parent_company_id","google_place_id","compliance_status","dd_json","opt_out_status","opt_out_meta_json","stage","next_follow_date","cadence_step","cadence_label","note","last_event_summary_json","derived_contact_status","version","merged_into_id","deleted_at","created_by","updated_by","schema_version","created_at","updated_at"]),
   company_contacts: new Set(["id","company_id","name","role","email","email_verify_level","phone_e164","whatsapp_ok","source_type","verified_at","opt_out_flag","deleted_at","schema_version","created_at","updated_at"]),
@@ -35,6 +53,24 @@ const TABLE_COLUMNS = {
   product_profiles: new Set(["profile_key","version","config_json","updated_by","updated_at"]),
   feedback_items: new Set(["id","employee_id","employee_name","category","content","sanitized_context_json","status","admin_reply","created_at","updated_at"]),
   migration_batches: new Set(["batch_id","employee_id","employee_name","summary_json","created_at"]),
+};
+
+const V4_SLICE1_TABLE_COLUMNS = {
+  orgs: new Set(["id","org_type","name","status","settings_json","created_at","updated_at"]),
+  org_memberships: new Set(["id","employee_id","org_id","role","can_finance_settle","partner_ref_code","partner_approved_title","countries_json","languages_json","product_lines_json","lead_cap_inquiry","lead_cap_dev","status","approved_by","activated_at","created_at","updated_at"]),
+  support_access_grants: new Set(["id","org_id","granted_by_employee_id","grantee_employee_id","scope","reason","expires_at","revoked_at","created_at"]),
+  applications: new Set(["id","application_no","lookup_secret_hash","idem_key","app_type","partner_mode","applicant_name","country_tz","languages","contact_channel","contact_value","product_lines_json","summary_json","privacy_consent_at","marketing_opt_in","status","reviewer_id","review_note","quiz_passed_at","quiz_score","linked_employee_id","linked_membership_id","created_at","updated_at"]),
+  product_catalog_approvals: new Set(["id","org_id","category_key","title_en","title_cn","supply_status","approved_specs_json","verified_certs_json","moq_note","tech_owner_name","catalog_version","approved_by","approved_at","review_due_at","updated_at"]),
+  projects: new Set(["id","org_id","project_code","title","country_en","product_line","fulfillment_readiness","status","primary_owner_id","notes","created_by","created_at","updated_at"]),
+  project_participants: new Set(["id","org_id","project_id","company_id","buyer_role","contact_name","contact_channel","notes","created_at"]),
+  discovery_tasks: new Set(["id","org_id","platform","acquisition_mode","title","target_buyer_roles","product_keywords","intent_keywords","exclude_keywords","language","country_scope","owner_employee_id","review_window_days","candidate_cap","hours_logged_tenths","actual_spend_minor","spend_currency","effort_version","last_effort_op_id","status","created_by","created_at","updated_at"]),
+  discovery_task_efforts: new Set(["id","org_id","task_id","occurred_at","hours_delta_tenths","spend_delta_minor","spend_currency","entry_type","note","created_by","created_at"]),
+  demand_signals: new Set(["id","org_id","task_id","source_platform","acquisition_mode","signal_tier","source_url","external_id","published_at","discovered_at","last_verified_at","language","country_en","product_line","fulfillment_readiness","company_name","buyer_role","contact_name","contact_channel","demand_summary","usage_license_scope","ai_inferred_fields_json","judgment_tags_json","missing_info_json","audit_status","audit_reason","contact_result","opt_out_locked","opt_out_at","idem_key","draft_count","copy_count","manual_sent_count","manual_sent_at","replied_at","next_action","next_action_due_at","referrer_employee_id","linked_company_id","linked_project_id","linked_inquiry_id","created_by","created_at","updated_at"]),
+  inquiries: new Set(["id","org_id","inquiry_no","company_id","project_id","source_signal_id","source_platform","acquisition_mode","country_en","product_line","summary","specs_json","contact_channel","contact_value","referrer_employee_id","primary_owner_id","status","loss_reason","exit_stage","linked_quote_id","created_by","created_at","updated_at"]),
+  lead_assignments: new Set(["id","org_id","company_id","project_id","inquiry_id","signal_id","lead_kind","assignment_status","business_stage","primary_assignee_id","collaborators_json","source_contributor_id","assigned_by","accept_deadline_at","first_contact_deadline_at","sla_timezone","sla_paused_reason","loss_reason","last_op_id","version","created_at","updated_at"]),
+  assignment_events: new Set(["id","org_id","assignment_id","op_id","event_type","actor_id","from_assignee_id","to_assignee_id","reason","meta_json","created_at"]),
+  deal_registrations: new Set(["id","org_id","reg_no","reg_tier","partner_employee_id","company_name","norm_name","country_en","website_domain","contact_channel","relationship_note","demand_evidence","project_title","status","linked_company_id","linked_project_id","receipt_type","protection_cert_no","protection_scope_json","protection_starts_at","protection_expires_at","canonical_sha256","idem_key","reviewed_by","review_note","created_at","updated_at"]),
+  attachments_meta: new Set(["id","org_id","entity_type","entity_id","filename","content_type","size_bytes","sha256","content_b64","visibility","uploaded_by","expires_at","deleted_at","created_at"]),
 };
 
 const TABLE_RULES = {
@@ -109,10 +145,60 @@ const TABLE_RULES = {
   },
 };
 
-function canonicalizeTablesForDigest(tables) {
+const V4_SLICE1_TABLE_RULES = {
+  orgs: { pk: "id", required: ["id", "org_type", "name", "created_at", "updated_at"] },
+  org_memberships: { pk: "id", required: ["id", "employee_id", "org_id", "role", "created_at", "updated_at"] },
+  support_access_grants: { pk: "id", required: ["id", "org_id", "granted_by_employee_id", "grantee_employee_id", "expires_at", "created_at"] },
+  applications: { pk: "id", required: ["id", "application_no", "lookup_secret_hash", "idem_key", "app_type", "applicant_name", "contact_channel", "contact_value", "privacy_consent_at", "created_at", "updated_at"] },
+  product_catalog_approvals: { pk: "id", required: ["id", "org_id", "category_key", "title_en", "title_cn", "updated_at"] },
+  projects: { pk: "id", required: ["id", "org_id", "project_code", "title", "created_at", "updated_at"] },
+  project_participants: { pk: "id", required: ["id", "org_id", "project_id", "company_id", "created_at"] },
+  discovery_tasks: { pk: "id", required: ["id", "org_id", "platform", "acquisition_mode", "title", "created_at", "updated_at"] },
+  discovery_task_efforts: { pk: "id", required: ["id", "org_id", "task_id", "occurred_at", "created_at"] },
+  demand_signals: { pk: "id", required: ["id", "org_id", "source_platform", "acquisition_mode", "discovered_at", "demand_summary", "created_at", "updated_at"] },
+  inquiries: { pk: "id", required: ["id", "org_id", "inquiry_no", "summary", "created_at", "updated_at"] },
+  lead_assignments: { pk: "id", required: ["id", "org_id", "created_at", "updated_at"] },
+  assignment_events: { pk: "id", required: ["id", "org_id", "assignment_id", "op_id", "event_type", "actor_id", "created_at"] },
+  deal_registrations: { pk: "id", required: ["id", "org_id", "reg_no", "reg_tier", "partner_employee_id", "company_name", "norm_name", "created_at", "updated_at"] },
+  attachments_meta: { pk: "id", required: ["id", "org_id", "entity_type", "entity_id", "filename", "sha256", "uploaded_by", "created_at"] },
+};
+
+async function resolveBackupSpec(db, env) {
+  const probe = await probeSchemaHealth(db, env);
+  if (probe.schemaVersion < 4) {
+    return {
+      schemaVersion: EXPECTED_SCHEMA_VERSION,
+      backupVersion: "v2.1-m2a-backup-3",
+      tableList: BACKUP_TABLES,
+      columnMap: TABLE_COLUMNS,
+      ruleMap: TABLE_RULES,
+    };
+  }
+  const colMap = {};
+  for (const [k, s] of Object.entries(TABLE_COLUMNS)) colMap[k] = new Set(s);
+  colMap.companies.add("org_id");
+  colMap.companies.add("source_contributor_id");
+  colMap.companies.add("primary_owner_id");
+  colMap.company_contacts.add("org_id");
+  colMap.contact_events.add("org_id");
+  colMap.quote_records.add("org_id");
+  colMap.compliance_order_logs.add("org_id");
+  colMap.raw_osm_pool.add("org_id");
+  for (const [k, s] of Object.entries(V4_SLICE1_TABLE_COLUMNS)) colMap[k] = new Set(s);
+
+  return {
+    schemaVersion: 4,
+    backupVersion: "v3.0-slice1-backup-4",
+    tableList: [...BACKUP_TABLES, ...V4_SLICE1_BACKUP_TABLES],
+    columnMap: colMap,
+    ruleMap: { ...TABLE_RULES, ...V4_SLICE1_TABLE_RULES },
+  };
+}
+
+function canonicalizeTablesForDigest(tables, spec) {
   const out = {};
-  for (const tbl of BACKUP_TABLES) {
-    const allowedCols = TABLE_COLUMNS[tbl];
+  for (const tbl of spec.tableList) {
+    const allowedCols = spec.columnMap[tbl];
     const rows = Array.isArray(tables[tbl]) ? tables[tbl] : [];
     out[tbl] = rows.map((raw) => {
       const clean = {};
@@ -130,18 +216,18 @@ function canonicalizeTablesForDigest(tables) {
   return out;
 }
 
-async function computeSnapshotSha256(tables) {
-  const canonical = canonicalizeTablesForDigest(tables);
+async function computeSnapshotSha256(tables, spec) {
+  const canonical = canonicalizeTablesForDigest(tables, spec);
   return sha256Hex(JSON.stringify(canonical));
 }
 
-async function validateRestorePayload(tables, db, expectedCountsArg) {
+async function validateRestorePayload(tables, db, expectedCountsArg, spec) {
   const errors = [];
   const expectedCounts = {};
   const incomingCompanyIds = new Set();
   const childCompanyRefs = [];
 
-  for (const tbl of BACKUP_TABLES) {
+  for (const tbl of spec.tableList) {
     if (tables[tbl] !== undefined && !Array.isArray(tables[tbl])) {
       errors.push(`${tbl}: 必须为数组`);
       continue;
@@ -154,7 +240,7 @@ async function validateRestorePayload(tables, db, expectedCountsArg) {
       }
     }
 
-    const rule = TABLE_RULES[tbl];
+    const rule = spec.ruleMap[tbl];
     const seenPks = new Set();
     for (let idx = 0; idx < rows.length; idx++) {
       const row = rows[idx];
@@ -187,7 +273,7 @@ async function validateRestorePayload(tables, db, expectedCountsArg) {
           }
         }
       }
-      if (rule.fkCompany && row.company_id && String(row.company_id).trim()) {
+      if (rule.fkCompany && row.company_id && String(row.company_id).trim() && String(row.company_id) !== "unlinked_inquiry_buyer") {
         childCompanyRefs.push({ tbl, idx, companyId: String(row.company_id) });
       }
       if (errors.length >= 20) break;
@@ -252,7 +338,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 1. List members
   if (path === "/api/admin/employees" && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin", "manager"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin", "manager"] });
     if (!auth.ok) return auth.response;
     const rows = await env.DB
       .prepare(
@@ -269,7 +355,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 2. Create member (super_admin + TOTP)
   if (path === "/api/admin/employees" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 16384);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -313,7 +399,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 2b. Batch create members (super_admin + single TOTP 2FA verification for up to 20 members)
   if (path === "/api/admin/employees/batch" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 65536);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -414,7 +500,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
   // 3. Update member (disable / enable / reset password / change role / change quota cap)
   const empMatch = path.match(/^\/api\/admin\/employees\/([^/]+)$/);
   if (empMatch && method === "PATCH") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const targetId = decodeURIComponent(empMatch[1]);
     const body = await parseJsonBody(request, 16384);
@@ -508,7 +594,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
   // 4. List or revoke employee device sessions (super_admin + TOTP)
   const empSesMatch = path.match(/^\/api\/admin\/employees\/([^/]+)\/sessions$/);
   if (empSesMatch && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const targetId = decodeURIComponent(empSesMatch[1]);
     const rows = await env.DB
@@ -522,7 +608,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   const empRevMatch = path.match(/^\/api\/admin\/employees\/([^/]+)\/revoke-sessions$/);
   if (empRevMatch && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const targetId = decodeURIComponent(empRevMatch[1]);
     const body = await parseJsonBody(request, 8192);
@@ -549,7 +635,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 5. Audit logs
   if (path === "/api/admin/audit-logs" && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin", "manager"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin", "manager"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const limit = Math.min(100, Math.max(10, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
     const rows = await env.DB
@@ -561,20 +647,21 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 6. Export logical company backup snapshot (super_admin + TOTP; excludes password hashes & TOTP secrets)
   if (path === "/api/admin/export-backup" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 8192);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
     if (totpErr) return totpErr;
 
+    const spec = await resolveBackupSpec(env.DB, env);
     const tables = {};
     const counts = {};
-    for (const tbl of BACKUP_TABLES) {
+    for (const tbl of spec.tableList) {
       const r = await env.DB.prepare(`SELECT * FROM ${tbl}`).all();
       tables[tbl] = r.results || [];
       counts[tbl] = tables[tbl].length;
     }
-    const snapshotSha256 = await computeSnapshotSha256(tables);
+    const snapshotSha256 = await computeSnapshotSha256(tables, spec);
     const empSnap = await env.DB
       .prepare("SELECT id, login_id, display_name, role, status, totp_enabled, disabled_at FROM employees")
       .all();
@@ -582,8 +669,8 @@ export async function handleAdminRoutes(request, env, cors, url) {
     return json(
       {
         ok: true,
-        backupVersion: "v2.1-m2a-backup-3",
-        schemaVersion: EXPECTED_SCHEMA_VERSION,
+        backupVersion: spec.backupVersion,
+        schemaVersion: spec.schemaVersion,
         exportedAt: nowIso(),
         snapshotSha256,
         counts,
@@ -597,7 +684,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 7. Restore logical backup snapshot (D05/S02/R04: full pre-validation, persistent restore_jobs, atomic batch rollback, monotonic opt-out protection, per-ID reconciliation)
   if (path === "/api/admin/restore-backup" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 5 * 1024 * 1024);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -611,8 +698,10 @@ export async function handleAdminRoutes(request, env, cors, url) {
       return json({ error: "无效备份数据格式（缺少 tables 对象）", code: "RESTORE_PAYLOAD_INVALID" }, 400, cors);
     }
 
+    const spec = await resolveBackupSpec(env.DB, env);
+
     // Step 0: Full schema, required-column, enum, count, digest & referential pre-validation BEFORE mutating any row!
-    const validation = await validateRestorePayload(tables, env.DB, body.counts);
+    const validation = await validateRestorePayload(tables, env.DB, body.counts, spec);
     if (!validation.ok) {
       await writeAuditLog(
         env.DB,
@@ -634,7 +723,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
       );
     }
 
-    const snapshotSha256 = await computeSnapshotSha256(tables);
+    const snapshotSha256 = await computeSnapshotSha256(tables, spec);
     if (body.snapshotSha256 && String(body.snapshotSha256).trim() !== snapshotSha256) {
       return json(
         {
@@ -681,9 +770,9 @@ export async function handleAdminRoutes(request, env, cors, url) {
     const expectedIdsByTable = {};
     const preservedProtections = [];
 
-    for (const tbl of BACKUP_TABLES) {
-      const allowedCols = TABLE_COLUMNS[tbl];
-      const pkCol = TABLE_RULES[tbl].pk;
+    for (const tbl of spec.tableList) {
+      const allowedCols = spec.columnMap[tbl];
+      const pkCol = spec.ruleMap[tbl].pk;
       const rows = Array.isArray(tables[tbl]) ? tables[tbl] : [];
       expectedIdsByTable[tbl] = [];
 
@@ -750,9 +839,9 @@ export async function handleAdminRoutes(request, env, cors, url) {
       // Step 4: Mandatory per-ID & monotonic-protection post-write reconciliation before marking job 'completed'
       const actualCounts = {};
       const reconcileErrors = [];
-      for (const tbl of BACKUP_TABLES) {
+      for (const tbl of spec.tableList) {
         const ids = expectedIdsByTable[tbl] || [];
-        const pkCol = TABLE_RULES[tbl].pk;
+        const pkCol = spec.ruleMap[tbl].pk;
         let found = 0;
         for (let i = 0; i < ids.length; i += 100) {
           const chunk = ids.slice(i, i + 100);
@@ -837,7 +926,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
             if (!snap.prevRow) {
               await env.DB.prepare(`DELETE FROM ${snap.tbl} WHERE ${snap.pkCol} = ?`).bind(snap.pkVal).run();
             } else {
-              const allowedCols = TABLE_COLUMNS[snap.tbl];
+              const allowedCols = spec.columnMap[snap.tbl];
               const cols = Object.keys(snap.prevRow).filter((c) => allowedCols && allowedCols.has(c));
               const ph = cols.map(() => "?").join(", ");
               const vals = cols.map((c) => (snap.prevRow[c] === undefined ? null : snap.prevRow[c]));
@@ -892,7 +981,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 8. Mandatory Post-Restore Security Re-Verification Gate (D05/R04: refuses to unfreeze after failed/incomplete restore job!)
   if (path === "/api/admin/post-restore-verify" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 8192);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -976,8 +1065,9 @@ export async function handleAdminRoutes(request, env, cors, url) {
     // Re-check row counts against completed restore job expectations before lifting freeze
     const countReconcile = {};
     if (latestJob && latestJob.status === "completed") {
+      const spec = await resolveBackupSpec(env.DB, env);
       const expectedCounts = safeJsonParse(latestJob.expected_counts_json, {});
-      for (const tbl of BACKUP_TABLES) {
+      for (const tbl of spec.tableList) {
         const exp = Number(expectedCounts[tbl] || 0);
         if (exp > 0) {
           const cur = await env.DB.prepare(`SELECT COUNT(*) AS cnt FROM ${tbl}`).first();
@@ -1092,7 +1182,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 9. Restore Jobs Ledger (super_admin, readable even while frozen)
   if (path === "/api/admin/restore-jobs" && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const rows = await env.DB
       .prepare(

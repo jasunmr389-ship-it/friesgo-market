@@ -111,21 +111,13 @@ async function fetchJson(url) {
 (async () => {
   const { srv, port } = await startServer();
   const baseUrl = `http://127.0.0.1:${port}/`;
-  const cdpPort = 9369;
-  const profileDir = `/tmp/fg_e2e_stress_${Date.now()}`;
-  const chrome = spawn(
-    CHROME,
-    [
-      "--headless=new",
-      "--no-sandbox",
-      "--disable-gpu",
-      "--no-first-run",
-      `--remote-debugging-port=${cdpPort}`,
-      `--user-data-dir=${profileDir}`,
-      baseUrl
-    ],
-    { stdio: "ignore" }
-  );
+  const profileDir = `/tmp/fg_e2e_stress_${Date.now()}_${process.pid}`;
+  const { spawnChromeEphemeralCdp } = require("./_chrome.cjs");
+  const { proc: chrome, cdpPort } = await spawnChromeEphemeralCdp({
+    profileDir,
+    url: baseUrl,
+    windowSize: "1440,900",
+  });
 
   const report = {
     executedAt: new Date().toISOString(),

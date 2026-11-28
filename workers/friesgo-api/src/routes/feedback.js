@@ -1,7 +1,7 @@
 // Authenticated Team Co-Creation Feedback Board (D1 feedback_items)
 // External/unauthenticated visitors are strictly rejected with 401 (no anonymous DB spam).
 
-import { requireAuth } from "../auth.js";
+import { requireLegacyMainInternal } from "../auth.js";
 import { randomId } from "../crypto.js";
 import { json, nowIso, parseJsonBody, redactPii, safeJsonParse, writeAuditLog } from "../utils.js";
 
@@ -11,9 +11,9 @@ export async function handleFeedbackRoutes(request, env, cors, url) {
   const path = url.pathname;
   const method = request.method;
 
-  // 1. List team co-creation feedback board (authenticated employees only)
+  // 1. List team co-creation feedback board (authenticated internal main-org employees only)
   if (path === "/api/feedback" && method === "GET") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const status = String(url.searchParams.get("status") || "all").trim();
     const sql =
@@ -31,9 +31,9 @@ export async function handleFeedbackRoutes(request, env, cors, url) {
     return json({ ok: true, items }, 200, cors);
   }
 
-  // 2. Submit PII-scrubbed feedback item to company D1 board (authenticated employees only)
+  // 2. Submit PII-scrubbed feedback item to company D1 board (authenticated internal main-org employees only)
   if (path === "/api/feedback" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 16384);
 
@@ -71,7 +71,7 @@ export async function handleFeedbackRoutes(request, env, cors, url) {
   // 3. Admin / Manager triage & reply on feedback item
   const fbMatch = path.match(/^\/api\/feedback\/([^/]+)$/);
   if (fbMatch && method === "PATCH") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin", "manager"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin", "manager"] });
     if (!auth.ok) return auth.response;
     const id = decodeURIComponent(fbMatch[1]);
     const body = await parseJsonBody(request, 8192);
