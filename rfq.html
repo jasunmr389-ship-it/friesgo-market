@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FriesGo Global · Industrial Product Inquiry (RFQ)</title>
+<link rel="icon" type="image/png" href="favicon.png?v=3">
+<style>
+:root{
+  --bg:#fdf8f1; --surface:#ffffff; --surface2:#f7ecdd; --ink:#2b1a10; --muted:#745f4d; --line:#e8d9c6;
+  --brown:#4a2c17; --orange:#e67312; --orange-soft:#fdebd7; --cta:#bf570a; --cta-ink:#fff;
+  --good:#1e6b3a; --good-bg:#e2f2e6; --danger:#a61c1c; --danger-bg:#fbe7e7; --radius:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;line-height:1.6;font-size:15px}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 64px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--brown);font-weight:900;font-size:18px}
+.pill,.btn{border:1px solid var(--line);background:var(--surface);color:var(--brown);border-radius:999px;padding:7px 14px;min-height:38px;cursor:pointer;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.primary{background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:0 6px 24px rgba(74,44,23,.06);margin-bottom:16px}
+h1{margin:0 0 6px;font-size:24px;color:var(--brown)}
+.muted{color:var(--muted);font-size:13.5px}
+.ref-banner{padding:10px 12px;border-radius:10px;background:var(--orange-soft);border:1px solid var(--orange);font-size:13px;margin-bottom:14px;color:var(--brown)}
+.cat-chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.cat-chip{border:1px solid var(--line);background:var(--surface2);color:var(--brown);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
+.cat-chip.active{background:var(--brown);color:#fff;border-color:var(--brown)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.full{grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;min-height:40px}
+textarea{min-height:92px;resize:vertical}
+details{border:1px dashed var(--line);border-radius:10px;background:var(--surface2);padding:10px 12px;margin:14px 0}
+summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
+.consent-box{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:12px;margin:12px 0;display:flex;flex-direction:column;gap:8px}
+.check-row{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.check-row input{width:18px;height:18px;min-height:18px;margin-top:2px;flex:0 0 auto}
+.alert{padding:12px 14px;border-radius:10px;font-size:13.5px;margin-top:12px}
+.alert.ok{background:var(--good-bg);border:1px solid var(--good);color:var(--good)}
+.alert.err{background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger)}
+.receipt-no{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px dashed var(--good);padding:9px 12px;border-radius:8px;margin:8px 0;font-size:14px;color:var(--ink)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="rfq.html"><span id="exporterBrand">FriesGo Global</span> · <span data-i18n="hdrSub">Industrial Export Inquiry</span></a>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button type="button" class="pill" id="btnLangToggle">中文 / EN</button>
+    </div>
+  </header>
+
+  <div id="refBanner" class="ref-banner" hidden></div>
+
+  <div class="card">
+    <h1 data-i18n="title">Request a Quotation (RFQ)</h1>
+    <p class="muted" data-i18n="subtitle">Start with just your requirement, destination country, and one contact channel. Company details, quantities, destination port, and technical specs are optional and can be confirmed later with our export engineering desk.</p>
+
+    <div id="approvedCatalogWrap" hidden>
+      <div class="muted" style="font-weight:700;margin-bottom:4px" data-i18n="catHint">Verified Reference Categories (or describe any other industrial item below):</div>
+      <div class="cat-chips" id="catChips"></div>
+      <div id="catDetailBox" class="muted" style="font-size:12.5px;margin-bottom:10px" hidden></div>
+    </div>
+
+    <form id="rfqForm" novalidate>
+      <div class="form-grid">
+        <div class="full">
+          <label for="rfqDemand" data-i18n="lblDemand">Product or Project Requirement *</label>
+          <textarea id="rfqDemand" required maxlength="2000" placeholder="e.g. Looking for HDPE PE100 pipes DN200 PN16 for a water supply project, or gate valves / power cables / steel structure... (Specs can be unknown at this stage)"></textarea>
+        </div>
+        <div>
+          <label for="rfqCountry" data-i18n="lblCountry">Destination Country / Region *</label>
+          <input id="rfqCountry" type="text" required maxlength="80" placeholder="e.g. UAE / Saudi Arabia / Vietnam / Mexico">
+        </div>
+        <div>
+          <label for="rfqProductLine" data-i18n="lblProductLine">Product Category (Optional)</label>
+          <select id="rfqProductLine">
+            <option value="unspecified">Not sure / Other industrial product</option>
+            <option value="valves">Valves / Industrial Flow Control</option>
+            <option value="pe_pipes">PE / HDPE Pipes &amp; Fittings</option>
+            <option value="cables">Power &amp; Industrial Cables</option>
+            <option value="steel_structures">Steel Structures &amp; Fabrication</option>
+          </select>
+        </div>
+        <div>
+          <label for="rfqChannel" data-i18n="lblChannel">Preferred Contact Channel *</label>
+          <select id="rfqChannel">
+            <option value="email">Email</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="phone">Phone</option>
+            <option value="wechat">WeChat</option>
+            <option value="linkedin">LinkedIn</option>
+          </select>
+        </div>
+        <div>
+          <label for="rfqContactVal" data-i18n="lblContactVal">Email / WhatsApp / Phone *</label>
+          <input id="rfqContactVal" type="text" required maxlength="160" placeholder="procurement@yourcompany.com or +971 ...">
+        </div>
+      </div>
+
+      <!-- UX01 Progressive Disclosure: All detailed specs optional / allow unknown -->
+      <details id="optionalSpecsDrawer">
+        <summary data-i18n="optSummary">+ Optional Details (Company Name, Quantity, Port, Technical Specs — OK if Unknown)</summary>
+        <div class="form-grid" style="margin-top:10px">
+          <div>
+            <label for="rfqCompany" data-i18n="lblCompany">Company / Organization Name (Optional)</label>
+            <input id="rfqCompany" type="text" maxlength="120" placeholder="Leave blank if confidential or individual buyer">
+          </div>
+          <div>
+            <label for="rfqContactName" data-i18n="lblContactName">Your Name (Optional)</label>
+            <input id="rfqContactName" type="text" maxlength="100" placeholder="Optional">
+          </div>
+          <div>
+            <label for="rfqQty" data-i18n="lblQty">Estimated Quantity (Optional / Unknown OK)</label>
+            <input id="rfqQty" type="text" maxlength="100" placeholder="e.g. 5,000 meters or unknown">
+          </div>
+          <div>
+            <label for="rfqPort" data-i18n="lblPort">Destination Port / City (Optional / Unknown OK)</label>
+            <input id="rfqPort" type="text" maxlength="100" placeholder="e.g. Jebel Ali / Haiphong / unknown">
+          </div>
+          <div>
+            <label for="rfqStandard" data-i18n="lblStd">Standard / Pressure / Voltage (Optional)</label>
+            <input id="rfqStandard" type="text" maxlength="160" placeholder="e.g. ISO 4427 / API 600 / IEC 60502 / Need engineer confirmation">
+          </div>
+          <div>
+            <label for="rfqTimeline" data-i18n="lblTimeline">Target Delivery Window (Optional)</label>
+            <input id="rfqTimeline" type="text" maxlength="100" placeholder="e.g. Q3 / Urgent / Budgeting">
+          </div>
+        </div>
+      </details>
+
+      <div class="consent-box">
+        <label class="check-row">
+          <input type="checkbox" id="rfqPrivacyConsent">
+          <span data-i18n="lblPrivacy">[Required] I agree that FriesGo Global may use the contact information provided solely to respond to this product inquiry and prepare an official quotation.</span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="rfqMarketingOptIn">
+          <span data-i18n="lblMarketing">[Optional, unchecked by default] Send me occasional verified product catalog updates (opt out anytime).</span>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button type="submit" class="btn primary" id="btnSubmitRfq" data-i18n="btnSubmit">Submit Inquiry</button>
+        <button type="button" class="btn" id="btnResetRfq" data-i18n="btnReset">Clear</button>
+      </div>
+    </form>
+
+    <div id="rfqErrorBox" class="alert err" hidden></div>
+    <div id="rfqSuccessBox" class="alert ok" hidden></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var DEFAULT_API = "https://friesgo-api.ntigravity-project.workers.dev";
+  var DRAFT_KEY = "friesgo_public_rfq_draft_v1";
+  var lang = "en";
+  var currentIdemKey = "";
+  var qs = new URLSearchParams(location.search);
+  var refParam = (qs.get("ref") || "").trim();
+  var srcParam = (qs.get("src") || "website").trim();
+  var sigParam = (qs.get("sig") || "").trim();
+  var taskParam = (qs.get("task") || "").trim();
+
+  var I18N = {
+    en: {
+      hdrSub: "Industrial Export Inquiry",
+      title: "Request a Quotation (RFQ)",
+      subtitle: "Start with just your requirement, destination country, and one contact channel. Company details, quantities, destination port, and technical specs are optional and can be confirmed later with our export engineering desk.",
+      catHint: "Verified Reference Categories (or describe any other industrial item below):",
+      lblDemand: "Product or Project Requirement *",
+      lblCountry: "Destination Country / Region *",
+      lblProductLine: "Product Category (Optional)",
+      lblChannel: "Preferred Contact Channel *",
+      lblContactVal: "Email / WhatsApp / Phone *",
+      optSummary: "+ Optional Details (Company Name, Quantity, Port, Technical Specs — OK if Unknown)",
+      lblCompany: "Company / Organization Name (Optional)",
+      lblContactName: "Your Name (Optional)",
+      lblQty: "Estimated Quantity (Optional / Unknown OK)",
+      lblPort: "Destination Port / City (Optional / Unknown OK)",
+      lblStd: "Standard / Pressure / Voltage (Optional)",
+      lblTimeline: "Target Delivery Window (Optional)",
+      lblPrivacy: "[Required] I agree that FriesGo Global may use the contact information provided solely to respond to this product inquiry and prepare an official quotation.",
+      lblMarketing: "[Optional, unchecked by default] Send me occasional verified product catalog updates (opt out anytime).",
+      btnSubmit: "Submit Inquiry",
+      btnReset: "Clear"
+    },
+    zh: {
+      hdrSub: "工业品出口采购询价",
+      title: "快速提交产品或项目询价 (RFQ)",
+      subtitle: "首次询价只需填写产品/项目需求、目的国和一个可联系渠道即可提交；公司名称、数量、目的港及详细技术规格均可先留空或标注“待工程师确认”，正式报价前再逐步补齐。",
+      catHint: "已核验参考品类（亦可在下方自由描述其他工业品需求）：",
+      lblDemand: "产品或项目需求描述 *",
+      lblCountry: "目的国家 / 项目地区 *",
+      lblProductLine: "产品大类（选填）",
+      lblChannel: "首选联系渠道 *",
+      lblContactVal: "邮箱 / WhatsApp / 电话 / 微信 *",
+      optSummary: "+ 选填补充信息（公司名称、数量、目的港、技术标准 — 暂不清楚可留空）",
+      lblCompany: "公司 / 机构名称（选填）",
+      lblContactName: "联系人称呼（选填）",
+      lblQty: "预估采购数量（选填 / 可填未知）",
+      lblPort: "目的港 / 交付城市（选填 / 可填未知）",
+      lblStd: "执行标准 / 压力等级 / 电压规格（选填）",
+      lblTimeline: "预计交期或项目时间窗（选填）",
+      lblPrivacy: "【必选】我同意 FriesGo Global 仅为回复本次产品询价与提供正式报价之目的使用上述联系方式。",
+      lblMarketing: "【可选，默认不勾选】我同意接收经核验的产品目录更新（可随时退订）。",
+      btnSubmit: "提交询价 / Submit Inquiry",
+      btnReset: "清空"
+    }
+  };
+
+  function getApiBase() {
+    if (window.FG_CLOUD_API_OVERRIDE) return String(window.FG_CLOUD_API_OVERRIDE).replace(/\/+$/, "");
+    try {
+      var qsApi = qs.get("api");
+      if (qsApi && /^https?:\/\//i.test(qsApi)) return qsApi.replace(/\/+$/, "");
+      var saved = localStorage.getItem("friesgo_cloud_api_url_v1");
+      if (saved && /^https?:\/\//i.test(saved)) return saved.replace(/\/+$/, "");
+    } catch (_) {}
+    return DEFAULT_API;
+  }
+
+  function newIdemKey() {
+    return "rfq_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function applyLang() {
+    var d = I18N[lang];
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n");
+      if (d[k]) el.textContent = d[k];
+    });
+  }
+
+  function saveDraft() {
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        demand: document.getElementById("rfqDemand").value,
+        country: document.getElementById("rfqCountry").value,
+        productLine: document.getElementById("rfqProductLine").value,
+        channel: document.getElementById("rfqChannel").value,
+        contactVal: document.getElementById("rfqContactVal").value,
+        company: document.getElementById("rfqCompany").value,
+        contactName: document.getElementById("rfqContactName").value,
+        qty: document.getElementById("rfqQty").value,
+        port: document.getElementById("rfqPort").value,
+        std: document.getElementById("rfqStandard").value,
+        timeline: document.getElementById("rfqTimeline").value
+      }));
+    } catch (_) {}
+  }
+
+  function restoreDraft() {
+    try {
+      var raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (d.demand) document.getElementById("rfqDemand").value = d.demand;
+      if (d.country) document.getElementById("rfqCountry").value = d.country;
+      if (d.productLine) document.getElementById("rfqProductLine").value = d.productLine;
+      if (d.channel) document.getElementById("rfqChannel").value = d.channel;
+      if (d.contactVal) document.getElementById("rfqContactVal").value = d.contactVal;
+      if (d.company) document.getElementById("rfqCompany").value = d.company;
+      if (d.contactName) document.getElementById("rfqContactName").value = d.contactName;
+      if (d.qty) document.getElementById("rfqQty").value = d.qty;
+      if (d.port) document.getElementById("rfqPort").value = d.port;
+      if (d.std) document.getElementById("rfqStandard").value = d.std;
+      if (d.timeline) document.getElementById("rfqTimeline").value = d.timeline;
+    } catch (_) {}
+  }
+
+  async function loadPublicCatalog() {
+    try {
+      var u = getApiBase() + "/api/public/catalog" + (refParam ? ("?ref=" + encodeURIComponent(refParam)) : "");
+      var resp = await fetch(u);
+      var data = await resp.json();
+      if (!resp.ok || !data.ok) return;
+      if (data.exporter && data.exporter.brandName) {
+        document.getElementById("exporterBrand").textContent = data.exporter.brandName;
+      }
+      if (data.referral && data.referral.refValid) {
+        var rb = document.getElementById("refBanner");
+        rb.innerHTML =
+          "<b>Referred via:</b> " + esc(data.referral.displayTitle) + " (Ref: " + esc(data.referral.refCode) + ")<br>" +
+          "<small>" + esc(data.referral.officialDisclaimerEn) + "</small>";
+        rb.hidden = false;
+      }
+      if (Array.isArray(data.categories) && data.categories.length) {
+        var wrap = document.getElementById("approvedCatalogWrap");
+        var chips = document.getElementById("catChips");
+        var detail = document.getElementById("catDetailBox");
+        chips.innerHTML = "";
+        data.categories.forEach(function (cat) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "cat-chip";
+          b.textContent = (lang === "zh" ? cat.title_cn : cat.title_en) + (cat.verified_certs.length ? (" · " + cat.verified_certs.join("/")) : "");
+          b.addEventListener("click", function () {
+            document.getElementById("rfqProductLine").value = cat.category_key;
+            detail.textContent = (cat.moq_note ? ("MOQ/Note: " + cat.moq_note + " · ") : "") + "Status: " + cat.supply_status;
+            detail.hidden = false;
+          });
+          chips.appendChild(b);
+        });
+        wrap.hidden = false;
+      }
+    } catch (_) {}
+  }
+
+  document.getElementById("btnLangToggle").addEventListener("click", function () {
+    lang = lang === "en" ? "zh" : "en";
+    applyLang();
+  });
+
+  document.getElementById("rfqForm").addEventListener("input", function () {
+    currentIdemKey = newIdemKey();
+    saveDraft();
+  });
+
+  document.getElementById("btnResetRfq").addEventListener("click", function () {
+    document.getElementById("rfqForm").reset();
+    document.getElementById("rfqErrorBox").hidden = true;
+    document.getElementById("rfqSuccessBox").hidden = true;
+    currentIdemKey = newIdemKey();
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
+  });
+
+  document.getElementById("rfqForm").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    var errBox = document.getElementById("rfqErrorBox");
+    var okBox = document.getElementById("rfqSuccessBox");
+    errBox.hidden = true;
+    okBox.hidden = true;
+
+    if (!currentIdemKey) currentIdemKey = newIdemKey();
+    var stdVal = document.getElementById("rfqStandard").value.trim();
+    var payload = {
+      demandSummary: document.getElementById("rfqDemand").value.trim(),
+      country_en: document.getElementById("rfqCountry").value.trim(),
+      productLine: document.getElementById("rfqProductLine").value,
+      contactChannel: document.getElementById("rfqChannel").value,
+      contactValue: document.getElementById("rfqContactVal").value.trim(),
+      companyName: document.getElementById("rfqCompany").value.trim(),
+      contactName: document.getElementById("rfqContactName").value.trim(),
+      quantity: document.getElementById("rfqQty").value.trim() || "unknown",
+      destinationPort: document.getElementById("rfqPort").value.trim() || "unknown",
+      targetTimeline: document.getElementById("rfqTimeline").value.trim() || "unknown",
+      specs: stdVal ? { standard_or_spec: stdVal } : {},
+      ref: refParam,
+      sourcePlatform: srcParam,
+      sourceSignalId: sigParam,
+      sourceTaskId: taskParam,
+      privacyConsent: document.getElementById("rfqPrivacyConsent").checked,
+      marketingOptIn: document.getElementById("rfqMarketingOptIn").checked,
+      idem_key: currentIdemKey
+    };
+
+    var btn = document.getElementById("btnSubmitRfq");
+    btn.disabled = true;
+    try {
+      var resp = await fetch(getApiBase() + "/api/public/rfq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Idempotency-Key": currentIdemKey },
+        body: JSON.stringify(payload)
+      });
+      var data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        errBox.textContent = (data && data.error) || ("Submission failed (" + resp.status + "). Your inputs are preserved.");
+        errBox.hidden = false;
+        return;
+      }
+      var missingHint = Array.isArray(data.missingFieldsHint) && data.missingFieldsHint.length
+        ? "<p style='margin:6px 0 0;font-size:12.5px'>Optional details our engineer will confirm with you: " + esc(data.missingFieldsHint.join(", ")) + "</p>"
+        : "";
+      okBox.innerHTML =
+        "<b>✅ Inquiry Received" + (data.replayed ? " (Safe Idempotent Retry)" : "") + "</b>" +
+        "<div class='receipt-no'><b>Reference No.:</b> " + esc(data.inquiry_no) + " · Status: " + esc(data.status) + "</div>" +
+        "<p style='margin:4px 0 0'>" + esc(lang === "zh" ? data.nextStepCn : data.nextStepEn) + "</p>" +
+        missingHint;
+      okBox.hidden = false;
+      try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
+    } catch (e) {
+      errBox.textContent = "Network interrupted. Your form inputs are safely preserved — please click Submit again (protected against duplicates).";
+      errBox.hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  currentIdemKey = newIdemKey();
+  applyLang();
+  restoreDraft();
+  loadPublicCatalog();
+})();
+</script>
+</body>
+</html>

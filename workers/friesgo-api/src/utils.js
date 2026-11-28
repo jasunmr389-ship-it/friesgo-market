@@ -43,8 +43,8 @@ export function buildCorsHeaders(request, env) {
   const ok = reqOrigin && isOriginAllowed(reqOrigin, env);
   return {
     "Access-Control-Allow-Origin": ok ? reqOrigin : "null",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Bootstrap-Secret",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Bootstrap-Secret, X-FG-Org-Id, X-FG-Membership-Id, X-Idempotency-Key",
     "Access-Control-Max-Age": "600",
     "Vary": "Origin",
   };

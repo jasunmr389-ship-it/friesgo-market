@@ -563,6 +563,12 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <div class="sb-sub-title" id="sidebarSubTitle">当前栏目工具</div>
       <div id="sidebarSubList"></div>
     </div>
+
+    <div class="sb-sub-wrap" style="margin-top:auto">
+      <div class="sb-sub-title">对外入口与 V3 协作</div>
+      <a class="sub-tool-btn" href="rfq.html" target="_blank" rel="noopener">📄 买方产品询价页 (RFQ)</a>
+      <a class="sub-tool-btn" href="join.html" target="_blank" rel="noopener">🤝 合作与加入入口 (Join)</a>
+    </div>
   </aside>
 
   <div class="mobile-subbar" id="mobileSubBar" hidden></div>
@@ -583,6 +589,7 @@ footer img{height:38px;width:auto;object-fit:contain;display:block;background:tr
       <span class="src-ok" id="globalProdProfileHint" style="white-space:normal">自动同步搜客/洗名单/写信/报价品名</span>
       <button type="button" class="pill" id="btnPinCurrentTool" title="收藏/取消收藏当前工具到首页常用栏" style="min-height:30px;padding:2px 9px;font-size:12px" hidden>☆ 收藏工具</button>
       <button type="button" class="pill" id="btnOpenFeedback" title="遇到报错、卡顿、步骤繁琐或数据有误？点此反馈建议（自动脱敏不含客户明细）" style="min-height:30px;padding:2px 9px;font-size:12px">💬 反馈</button>
+      <button type="button" class="pill" id="btnOpenV3Hub" title="社媒需求发现（FB/IG/LI）、来源比较、今日行动待办与伙伴协作中心" style="min-height:30px;padding:2px 9px;font-size:12px">🤝 获客与伙伴</button>
       <button type="button" class="pill" id="btnCloudAuth" title="团队成员独立账号登录 / 云端公海同步与设备安全" style="min-height:30px;padding:2px 9px;font-size:12px">🔒 成员登录</button>
       <div class="v2-qsearch-wrap" id="globalQuickSearchWrap">
         <input type="search" id="globalQuickSearch" class="v2-qsearch-inp" placeholder="🔍 速达功能 / 国家 / 客户 (Ctrl+K)" autocomplete="off" aria-label="全局快捷搜索功能、国家或客户">
@@ -13715,5 +13722,7 @@ if(window.FG_STORE){
 })();
 </script>
 <script src="js/fg-cloud-ui.js"></script>
+<script src="js/fg-v3-client.js"></script>
+<script src="js/fg-v3-ui.js"></script>
 </body>
 </html>

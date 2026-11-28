@@ -10,6 +10,8 @@ import { handleFeedbackRoutes } from "./routes/feedback.js";
 import { handleGmapsRoutes } from "./routes/gmaps.js";
 import { handleLockRoutes } from "./routes/locks.js";
 import { handleMigrateRoutes } from "./routes/migrate.js";
+import { handlePublicIntakeRoutes } from "./routes/public_intake.js";
+import { handleV3WorkspaceRoutes } from "./routes/v3_workspace.js";
 import { buildCorsHeaders, isOriginAllowed, json, nowIso } from "./utils.js";
 
 export default {
@@ -47,7 +49,7 @@ export default {
       };
 
       if (hasDb) {
-        schemaProbe = await probeSchemaHealth(env.DB);
+        schemaProbe = await probeSchemaHealth(env.DB, env);
         try {
           const row = await env.DB.prepare("SELECT COUNT(*) AS cnt FROM employees").first();
           bootstrapped = Number((row && row.cnt) || 0) > 0;
@@ -68,7 +70,7 @@ export default {
         {
           ok: ready,
           service: "friesgo-api",
-          version: "v2.1-m2a",
+          version: schemaProbe.schemaVersion >= 4 ? "v3.0-slice1" : "v2.1-m2a",
           buildCommit: (env && env.BUILD_COMMIT) || "dev-local",
           schemaVersion: schemaProbe.schemaVersion,
           expectedSchemaVersion: schemaProbe.expectedSchemaVersion,
@@ -106,7 +108,9 @@ export default {
 
     try {
       const handlers = [
+        handlePublicIntakeRoutes,
         handleAuthRoutes,
+        handleV3WorkspaceRoutes,
         handleAdminRoutes,
         handleCompanyRoutes,
         handleLockRoutes,
