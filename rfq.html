@@ -3,50 +3,70 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>FriesGo Global · Industrial Product Inquiry (RFQ)</title>
 <link rel="icon" type="image/png" href="favicon.png?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
 <style>
 :root{
   --bg:#fdf8f1; --surface:#ffffff; --surface2:#f7ecdd; --ink:#2b1a10; --muted:#745f4d; --line:#e8d9c6;
   --brown:#4a2c17; --orange:#e67312; --orange-soft:#fdebd7; --cta:#bf570a; --cta-ink:#fff;
   --good:#1e6b3a; --good-bg:#e2f2e6; --danger:#a61c1c; --danger-bg:#fbe7e7; --radius:14px;
 }
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#19110a; --surface:#261a10; --surface2:#322316; --ink:#f5e9da; --muted:#c4a88d; --line:#4a3520;
+    --brown:#f0c9a0; --orange:#ff9a3d; --orange-soft:#4a2f16; --cta:#ff9a3d; --cta-ink:#241305;
+    --good:#8fd6a8; --good-bg:#1e3a28; --danger:#ff9a9a; --danger-bg:#4a1f1f;
+  }
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;line-height:1.6;font-size:15px}
-.wrap{max-width:860px;margin:0 auto;padding:20px 16px 64px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:18px}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--brown);font-weight:900;font-size:18px}
-.pill,.btn{border:1px solid var(--line);background:var(--surface);color:var(--brown);border-radius:999px;padding:7px 14px;min-height:38px;cursor:pointer;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+html,body{max-width:100%;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC",sans-serif;line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:18px 14px 64px;width:100%}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--brown);font-weight:900;font-size:17px;min-width:0}
+.brand img{width:36px;height:36px;border-radius:9px;object-fit:cover;flex:0 0 auto}
+.pill,.btn{border:1px solid var(--line);background:var(--surface);color:var(--brown);border-radius:999px;padding:7px 14px;min-height:40px;cursor:pointer;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .14s;max-width:100%}
+.pill:hover,.btn:hover{border-color:var(--orange)}
 .btn.primary{background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:0 6px 24px rgba(74,44,23,.06);margin-bottom:16px}
-h1{margin:0 0 6px;font-size:24px;color:var(--brown)}
+h1{margin:0 0 6px;font-size:clamp(20px,4vw,26px);color:var(--brown);line-height:1.25}
 .muted{color:var(--muted);font-size:13.5px}
-.ref-banner{padding:10px 12px;border-radius:10px;background:var(--orange-soft);border:1px solid var(--orange);font-size:13px;margin-bottom:14px;color:var(--brown)}
-.cat-chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
-.cat-chip{border:1px solid var(--line);background:var(--surface2);color:var(--brown);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
-.cat-chip.active{background:var(--brown);color:#fff;border-color:var(--brown)}
+.trust-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+@media(max-width:600px){.trust-strip{grid-template-columns:1fr}}
+.trust-item{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12.5px}
+.trust-item b{display:block;color:var(--brown);margin-bottom:2px}
+.ref-banner{padding:10px 12px;border-radius:10px;background:var(--orange-soft);border:1px solid var(--orange);font-size:13px;margin-bottom:14px;color:var(--brown);overflow-wrap:anywhere}
+.cat-chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.cat-chip{border:1px solid var(--line);background:var(--surface2);color:var(--brown);border-radius:999px;padding:6px 12px;min-height:36px;font-size:12.5px;font-weight:700;cursor:pointer}
+.cat-chip.active{background:var(--brown);color:var(--bg);border-color:var(--brown)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:640px){.form-grid{grid-template-columns:1fr}}
 .full{grid-column:1/-1}
 label{display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:4px}
-input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;min-height:40px}
-textarea{min-height:92px;resize:vertical}
+input,select,textarea{width:100%;max-width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;min-height:42px}
+textarea{min-height:94px;resize:vertical}
 details{border:1px dashed var(--line);border-radius:10px;background:var(--surface2);padding:10px 12px;margin:14px 0}
 summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
-.consent-box{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:12px;margin:12px 0;display:flex;flex-direction:column;gap:8px}
-.check-row{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
-.check-row input{width:18px;height:18px;min-height:18px;margin-top:2px;flex:0 0 auto}
-.alert{padding:12px 14px;border-radius:10px;font-size:13.5px;margin-top:12px}
+.consent-box{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:12px;margin:12px 0;display:flex;flex-direction:column;gap:9px}
+.check-row{display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.check-row input{width:19px;height:19px;min-height:19px;margin-top:2px;flex:0 0 auto}
+.alert{padding:12px 14px;border-radius:10px;font-size:13.5px;margin-top:12px;overflow-wrap:anywhere}
 .alert.ok{background:var(--good-bg);border:1px solid var(--good);color:var(--good)}
 .alert.err{background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger)}
-.receipt-no{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px dashed var(--good);padding:9px 12px;border-radius:8px;margin:8px 0;font-size:14px;color:var(--ink)}
+.receipt-no{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface);border:1px dashed var(--good);padding:9px 12px;border-radius:8px;margin:8px 0;font-size:13.5px;color:var(--ink);word-break:break-all}
+footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <a class="brand" href="rfq.html"><span id="exporterBrand">FriesGo Global</span> · <span data-i18n="hdrSub">Industrial Export Inquiry</span></a>
+    <a class="brand" href="rfq.html">
+      <img src="apple-touch-icon.png?v=2" alt="FriesGo Global" onerror="this.style.display='none'">
+      <span><span id="exporterBrand">FriesGo Global</span> · <span data-i18n="hdrSub">Industrial Export Inquiry</span></span>
+    </a>
     <div style="display:flex;gap:8px;align-items:center">
       <button type="button" class="pill" id="btnLangToggle">中文 / EN</button>
     </div>
@@ -58,8 +78,14 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
     <h1 data-i18n="title">Request a Quotation (RFQ)</h1>
     <p class="muted" data-i18n="subtitle">Start with just your requirement, destination country, and one contact channel. Company details, quantities, destination port, and technical specs are optional and can be confirmed later with our export engineering desk.</p>
 
-    <div id="approvedCatalogWrap" hidden>
-      <div class="muted" style="font-weight:700;margin-bottom:4px" data-i18n="catHint">Verified Reference Categories (or describe any other industrial item below):</div>
+    <div class="trust-strip" aria-label="Official Export Process">
+      <div class="trust-item"><b data-i18n="tr1Title">1. 30-Second Quick Intake</b><span data-i18n="tr1Desc">Incomplete drawings or specs are welcome — tell us your project goal first.</span></div>
+      <div class="trust-item"><b data-i18n="tr2Title">2. Engineering Confirmation</b><span data-i18n="tr2Desc">Our export desk verifies standards, compliance docs, and supply feasibility before quoting.</span></div>
+      <div class="trust-item"><b data-i18n="tr3Title">3. Official FriesGo Quote</b><span data-i18n="tr3Desc">All official quotations, contracts, and export shipments are managed solely by FriesGo Global.</span></div>
+    </div>
+
+    <div id="approvedCatalogWrap">
+      <div class="muted" style="font-weight:700;margin-bottom:4px" data-i18n="catHint">Quick Category Select (or describe any other industrial item below):</div>
       <div class="cat-chips" id="catChips"></div>
       <div id="catDetailBox" class="muted" style="font-size:12.5px;margin-bottom:10px" hidden></div>
     </div>
@@ -103,6 +129,9 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
       <!-- UX01 Progressive Disclosure: All detailed specs optional / allow unknown -->
       <details id="optionalSpecsDrawer">
         <summary data-i18n="optSummary">+ Optional Details (Company Name, Quantity, Port, Technical Specs — OK if Unknown)</summary>
+        <div style="margin-top:8px">
+          <button type="button" class="pill" id="btnMarkSpecsUnknown" style="min-height:34px;font-size:12px" data-i18n="btnUnknownSpecs">❓ Not sure on specs yet — request engineer confirmation</button>
+        </div>
         <div class="form-grid" style="margin-top:10px">
           <div>
             <label for="rfqCompany" data-i18n="lblCompany">Company / Organization Name (Optional)</label>
@@ -151,6 +180,11 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
     <div id="rfqErrorBox" class="alert err" hidden></div>
     <div id="rfqSuccessBox" class="alert ok" hidden></div>
   </div>
+
+  <footer>
+    <span>FriesGo Global · Official Industrial Export Desk</span>
+    <span data-i18n="footerNote">Direct inquiry handling · No third-party unauthorized payment collection</span>
+  </footer>
 </div>
 
 <script>
@@ -160,24 +194,40 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
   var DRAFT_KEY = "friesgo_public_rfq_draft_v1";
   var lang = "en";
   var currentIdemKey = "";
+  var approvedMap = Object.create(null);
   var qs = new URLSearchParams(location.search);
   var refParam = (qs.get("ref") || "").trim();
   var srcParam = (qs.get("src") || "website").trim();
   var sigParam = (qs.get("sig") || "").trim();
   var taskParam = (qs.get("task") || "").trim();
 
+  var DEFAULT_CATS = [
+    { category_key: "valves", title_en: "Valves", title_cn: "工业阀门", verified_certs: [], supply_status: "needs_confirmation", moq_note: "" },
+    { category_key: "pe_pipes", title_en: "PE / HDPE Pipes", title_cn: "PE / HDPE 管道", verified_certs: [], supply_status: "needs_confirmation", moq_note: "" },
+    { category_key: "cables", title_en: "Power Cables", title_cn: "电力电缆", verified_certs: [], supply_status: "needs_confirmation", moq_note: "" },
+    { category_key: "steel_structures", title_en: "Steel Structures", title_cn: "钢结构", verified_certs: [], supply_status: "needs_confirmation", moq_note: "" },
+    { category_key: "unspecified", title_en: "Other Industrial", title_cn: "其他工业品", verified_certs: [], supply_status: "needs_confirmation", moq_note: "" }
+  ];
+
   var I18N = {
     en: {
       hdrSub: "Industrial Export Inquiry",
       title: "Request a Quotation (RFQ)",
       subtitle: "Start with just your requirement, destination country, and one contact channel. Company details, quantities, destination port, and technical specs are optional and can be confirmed later with our export engineering desk.",
-      catHint: "Verified Reference Categories (or describe any other industrial item below):",
+      tr1Title: "1. 30-Second Quick Intake",
+      tr1Desc: "Incomplete drawings or specs are welcome — tell us your project goal first.",
+      tr2Title: "2. Engineering Confirmation",
+      tr2Desc: "Our export desk verifies standards, compliance docs, and supply feasibility before quoting.",
+      tr3Title: "3. Official FriesGo Quote",
+      tr3Desc: "All official quotations, contracts, and export shipments are managed solely by FriesGo Global.",
+      catHint: "Quick Category Select (or describe any other industrial item below):",
       lblDemand: "Product or Project Requirement *",
       lblCountry: "Destination Country / Region *",
       lblProductLine: "Product Category (Optional)",
       lblChannel: "Preferred Contact Channel *",
       lblContactVal: "Email / WhatsApp / Phone *",
       optSummary: "+ Optional Details (Company Name, Quantity, Port, Technical Specs — OK if Unknown)",
+      btnUnknownSpecs: "❓ Not sure on specs yet — request engineer confirmation",
       lblCompany: "Company / Organization Name (Optional)",
       lblContactName: "Your Name (Optional)",
       lblQty: "Estimated Quantity (Optional / Unknown OK)",
@@ -187,19 +237,27 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
       lblPrivacy: "[Required] I agree that FriesGo Global may use the contact information provided solely to respond to this product inquiry and prepare an official quotation.",
       lblMarketing: "[Optional, unchecked by default] Send me occasional verified product catalog updates (opt out anytime).",
       btnSubmit: "Submit Inquiry",
-      btnReset: "Clear"
+      btnReset: "Clear",
+      footerNote: "Direct inquiry handling · Official quotes & payments handled solely by FriesGo Global"
     },
     zh: {
       hdrSub: "工业品出口采购询价",
       title: "快速提交产品或项目询价 (RFQ)",
       subtitle: "首次询价只需填写产品/项目需求、目的国和一个可联系渠道即可提交；公司名称、数量、目的港及详细技术规格均可先留空或标注“待工程师确认”，正式报价前再逐步补齐。",
-      catHint: "已核验参考品类（亦可在下方自由描述其他工业品需求）：",
+      tr1Title: "1. 30 秒极简提交",
+      tr1Desc: "图纸或技术参数不全没关系，先告诉我们产品方向与目的国即可。",
+      tr2Title: "2. 出口工程核对",
+      tr2Desc: "出口支持团队核对执行标准、单证认证及供货可行性，不盲目承诺。",
+      tr3Title: "3. FriesGo 官方统一报价",
+      tr3Desc: "所有正式报价单、合同、指定账户收款与出运均由 FriesGo Global 官方统一负责。",
+      catHint: "快速选择参考品类（亦可在下方自由描述其他工业品需求）：",
       lblDemand: "产品或项目需求描述 *",
       lblCountry: "目的国家 / 项目地区 *",
       lblProductLine: "产品大类（选填）",
       lblChannel: "首选联系渠道 *",
       lblContactVal: "邮箱 / WhatsApp / 电话 / 微信 *",
       optSummary: "+ 选填补充信息（公司名称、数量、目的港、技术标准 — 暂不清楚可留空）",
+      btnUnknownSpecs: "❓ 暂不清楚详细技术规格 — 标记为“待工程师协助确认”",
       lblCompany: "公司 / 机构名称（选填）",
       lblContactName: "联系人称呼（选填）",
       lblQty: "预估采购数量（选填 / 可填未知）",
@@ -209,7 +267,8 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
       lblPrivacy: "【必选】我同意 FriesGo Global 仅为回复本次产品询价与提供正式报价之目的使用上述联系方式。",
       lblMarketing: "【可选，默认不勾选】我同意接收经核验的产品目录更新（可随时退订）。",
       btnSubmit: "提交询价 / Submit Inquiry",
-      btnReset: "清空"
+      btnReset: "清空",
+      footerNote: "官方出口团队直达受理 · 正式报价与收款均由 FriesGo Global 官方统一负责"
     }
   };
 
@@ -234,12 +293,52 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
     });
   }
 
+  function renderCategoryChips() {
+    var chips = document.getElementById("catChips");
+    var detail = document.getElementById("catDetailBox");
+    var curVal = document.getElementById("rfqProductLine").value;
+    chips.innerHTML = "";
+    var list = DEFAULT_CATS.map(function (c) {
+      return approvedMap[c.category_key] || c;
+    });
+    Object.keys(approvedMap).forEach(function (k) {
+      if (!list.some(function (x) { return x.category_key === k; })) list.push(approvedMap[k]);
+    });
+    list.forEach(function (cat) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "cat-chip" + (cat.category_key === curVal ? " active" : "");
+      var certs = Array.isArray(cat.verified_certs) && cat.verified_certs.length ? (" · " + cat.verified_certs.join("/")) : "";
+      b.textContent = (lang === "zh" ? cat.title_cn : cat.title_en) + certs;
+      b.addEventListener("click", function () {
+        var sel = document.getElementById("rfqProductLine");
+        if (!Array.from(sel.options).some(function (o) { return o.value === cat.category_key; })) {
+          var opt = document.createElement("option");
+          opt.value = cat.category_key;
+          opt.textContent = cat.title_en;
+          sel.appendChild(opt);
+        }
+        sel.value = cat.category_key;
+        renderCategoryChips();
+        if (approvedMap[cat.category_key]) {
+          detail.textContent = (cat.moq_note ? ("MOQ/Note: " + cat.moq_note + " · ") : "") + "Verified catalog status: " + cat.supply_status;
+          detail.hidden = false;
+        } else {
+          detail.hidden = true;
+        }
+        saveDraft();
+      });
+      chips.appendChild(b);
+    });
+  }
+
   function applyLang() {
     var d = I18N[lang];
     document.querySelectorAll("[data-i18n]").forEach(function (el) {
       var k = el.getAttribute("data-i18n");
       if (d[k]) el.textContent = d[k];
     });
+    renderCategoryChips();
   }
 
   function saveDraft() {
@@ -295,24 +394,11 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
           "<small>" + esc(data.referral.officialDisclaimerEn) + "</small>";
         rb.hidden = false;
       }
-      if (Array.isArray(data.categories) && data.categories.length) {
-        var wrap = document.getElementById("approvedCatalogWrap");
-        var chips = document.getElementById("catChips");
-        var detail = document.getElementById("catDetailBox");
-        chips.innerHTML = "";
+      if (Array.isArray(data.categories)) {
         data.categories.forEach(function (cat) {
-          var b = document.createElement("button");
-          b.type = "button";
-          b.className = "cat-chip";
-          b.textContent = (lang === "zh" ? cat.title_cn : cat.title_en) + (cat.verified_certs.length ? (" · " + cat.verified_certs.join("/")) : "");
-          b.addEventListener("click", function () {
-            document.getElementById("rfqProductLine").value = cat.category_key;
-            detail.textContent = (cat.moq_note ? ("MOQ/Note: " + cat.moq_note + " · ") : "") + "Status: " + cat.supply_status;
-            detail.hidden = false;
-          });
-          chips.appendChild(b);
+          approvedMap[cat.category_key] = cat;
         });
-        wrap.hidden = false;
+        renderCategoryChips();
       }
     } catch (_) {}
   }
@@ -320,6 +406,13 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
   document.getElementById("btnLangToggle").addEventListener("click", function () {
     lang = lang === "en" ? "zh" : "en";
     applyLang();
+  });
+
+  document.getElementById("btnMarkSpecsUnknown").addEventListener("click", function () {
+    document.getElementById("rfqQty").value = "unknown";
+    document.getElementById("rfqPort").value = "unknown";
+    document.getElementById("rfqStandard").value = "Need engineer confirmation";
+    saveDraft();
   });
 
   document.getElementById("rfqForm").addEventListener("input", function () {
@@ -332,6 +425,7 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
     document.getElementById("rfqErrorBox").hidden = true;
     document.getElementById("rfqSuccessBox").hidden = true;
     currentIdemKey = newIdemKey();
+    renderCategoryChips();
     try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
   });
 
@@ -385,9 +479,18 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
       okBox.innerHTML =
         "<b>✅ Inquiry Received" + (data.replayed ? " (Safe Idempotent Retry)" : "") + "</b>" +
         "<div class='receipt-no'><b>Reference No.:</b> " + esc(data.inquiry_no) + " · Status: " + esc(data.status) + "</div>" +
+        "<button type='button' class='pill' id='btnCopyRfqNo' style='margin:4px 0 8px'>📋 Copy Reference No.</button>" +
         "<p style='margin:4px 0 0'>" + esc(lang === "zh" ? data.nextStepCn : data.nextStepEn) + "</p>" +
         missingHint;
       okBox.hidden = false;
+      var copyBtn = document.getElementById("btnCopyRfqNo");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", function () {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(data.inquiry_no).then(function () { copyBtn.textContent = "✅ Copied"; });
+          }
+        });
+      }
       try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
     } catch (e) {
       errBox.textContent = "Network interrupted. Your form inputs are safely preserved — please click Submit again (protected against duplicates).";
@@ -398,8 +501,8 @@ summary{cursor:pointer;font-weight:800;color:var(--brown);font-size:13.5px}
   });
 
   currentIdemKey = newIdemKey();
-  applyLang();
   restoreDraft();
+  applyLang();
   loadPublicCatalog();
 })();
 </script>

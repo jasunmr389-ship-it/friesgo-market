@@ -1079,7 +1079,7 @@ async function main() {
 
   const chrome = await launchChromePage(`${baseUrl}/rfq.html?api=${encodeURIComponent(baseUrl)}&ref=DISABLED_TEST_REF`);
   try {
-    // 6.1 rfq.html: Zero recruitment words (REV10), minimal 3-field submit works smoothly
+    // 6.1 rfq.html: Zero recruitment words (REV10), minimal 3-field submit works smoothly + 360px mobile 0px overflow
     const rfqCheck = await chrome.evalJs(`(async () => {
       const bodyTxt = document.body.innerText;
       const hasRecruitText = /加盟|合伙人|招商|代理返佣|招聘/i.test(bodyTxt);
@@ -1095,15 +1095,27 @@ async function main() {
       return {
         hasRecruitText,
         refBannerHidden: document.getElementById("refBanner").hidden,
+        hasCopyRefBtn: Boolean(document.getElementById("btnCopyRfqNo")),
         successText: document.getElementById("rfqSuccessBox").innerText
       };
     })()`);
     assert.equal(rfqCheck.hasRecruitText, false, "REV10: rfq.html must contain zero partner/recruitment text");
     assert.equal(rfqCheck.refBannerHidden, true, "REV06: Invalid/disabled ref must stay hidden/neutral");
+    assert.equal(rfqCheck.hasCopyRefBtn, true, "rfq.html receipt must expose one-click copy button");
     assert.ok(rfqCheck.successText.includes("FG-RFQ-"), "Buyer RFQ must render FG-RFQ receipt");
 
-    // 6.2 join.html: 3-way form + one-time lookup secret + live status check
+    await chrome.send("Emulation.setDeviceMetricsOverride", { width: 360, height: 780, deviceScaleFactor: 2, mobile: true });
+    await sleep(150);
+    const rfqMobileOverflow = await chrome.evalJs("Math.max(0, document.documentElement.scrollWidth - window.innerWidth)");
+    assert.equal(rfqMobileOverflow, 0, "rfq.html must have 0px horizontal overflow at 360px mobile viewport");
+
+    // 6.2 join.html: 3-way form + one-time lookup secret + copy/check buttons + 360px mobile 0px overflow
     await chrome.navigate(`${baseUrl}/join.html?api=${encodeURIComponent(baseUrl)}`);
+    const joinMobileOverflow = await chrome.evalJs("Math.max(0, document.documentElement.scrollWidth - window.innerWidth)");
+    assert.equal(joinMobileOverflow, 0, "join.html must have 0px horizontal overflow at 360px mobile viewport");
+
+    await chrome.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+    await sleep(100);
     const joinCheck = await chrome.evalJs(`(async () => {
       const marketingDefault = document.getElementById("marketingOptIn").checked;
       document.getElementById("appName").value = "TEST Chrome Partner";
@@ -1115,23 +1127,25 @@ async function main() {
         if (!document.getElementById("joinSuccessBox").hidden) break;
       }
       const receipt = document.getElementById("joinSuccessBox").innerText;
-      document.getElementById("tabBtnStatus").click();
-      document.getElementById("btnCheckStatus").click();
+      const hasCopyReceiptBtn = Boolean(document.getElementById("btnCopyReceipt"));
+      document.getElementById("btnGoCheckStatus").click();
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 100));
         if (!document.getElementById("statusResultBox").hidden) break;
       }
       return {
         marketingDefault,
+        hasCopyReceiptBtn,
         receipt,
         statusOut: document.getElementById("statusResultBox").innerText
       };
     })()`);
     assert.equal(joinCheck.marketingDefault, false, "Marketing opt-in must default unchecked");
+    assert.equal(joinCheck.hasCopyReceiptBtn, true, "join.html must provide one-click copy receipt/secret button");
     assert.ok(joinCheck.receipt.includes("FG-APP-") && joinCheck.receipt.includes("fglk_"));
     assert.ok(joinCheck.statusOut.includes("FG-APP-"));
 
-    // 6.3 index.html: Real Chrome login + REV01 contextEpoch + AbortController stale-response discard + scoped draft isolation + V3 Hub render
+    // 6.3 index.html: Real Chrome login + REV01 contextEpoch stale-response discard + scoped drafts + ALL 6 V3 Hub tabs + 360px mobile 0px overflow
     await chrome.navigate(`${baseUrl}/index.html`);
     const liveTotpForChrome = await getAdminTotp();
     delayNextCompaniesMs = 450;
@@ -1147,34 +1161,77 @@ async function main() {
 
       const slowPromise = window.FG_V3.listCompanies();
       await new Promise((r) => setTimeout(r, 60));
-      // Switch to another org mid-flight -> MUST abort/discard slowPromise AND isolate drafts!
       window.FG_V3.switchContext({ org_id: "org_other_iso", org_type: "independent_trial", org_name: "Other Org", role: "independent_user", membership_id: "mem_other" });
       const slowRes = await slowPromise;
       const otherDraft = window.FG_V3.loadScopedDraft("signal");
 
-      // Switch back to main org & open V3 Growth Hub UI
+      // Switch back to main org & test all 6 operational tabs
       window.FG_V3.switchContext({ org_id: "org_friesgo_main", org_type: "company_main", org_name: "FriesGo Global", role: "super_admin", membership_id: "legacy_main" });
       const mainDraftRestored = window.FG_V3.loadScopedDraft("signal");
-      await window.FG_V3_UI.openHub("compare");
-      await new Promise((r) => setTimeout(r, 350));
-      const hubText = document.getElementById("v3GrowthHubBackdrop").innerText;
+
+      await window.FG_V3_UI.openHub("todos");
+      await new Promise((r) => setTimeout(r, 250));
+      const todosTxt = document.getElementById("v3Body").innerText;
+
+      window.FG_V3_UI.setTab("tasks");
+      await new Promise((r) => setTimeout(r, 250));
+      const tasksTxt = document.getElementById("v3Body").innerText;
+
+      window.FG_V3_UI.setTab("signals");
+      await new Promise((r) => setTimeout(r, 300));
+      const firstDraftBtn = document.querySelector("[data-gen-draft]");
+      if (firstDraftBtn) firstDraftBtn.click();
+      await new Promise((r) => setTimeout(r, 250));
+      const signalsTxt = document.getElementById("v3Body").innerText;
+
+      window.FG_V3_UI.setTab("compare");
+      await new Promise((r) => setTimeout(r, 250));
+      const compareTxt = document.getElementById("v3Body").innerText;
+
+      window.FG_V3_UI.setTab("projects");
+      await new Promise((r) => setTimeout(r, 250));
+      const projectsTxt = document.getElementById("v3Body").innerText;
+
+      window.FG_V3_UI.setTab("admin");
+      await new Promise((r) => setTimeout(r, 250));
+      const adminTxt = document.getElementById("v3Body").innerText;
+
       return {
         epochBefore,
         epochAfter: window.FG_V3.getContextEpoch(),
         slowRes,
         otherDraft,
         mainDraftRestored,
-        hubHasFbCompare: hubText.includes("facebook") && hubText.includes("manual_discovery")
+        todosOk: todosTxt.includes("复制微信脱敏卡"),
+        tasksOk: tasksTxt.includes("Facebook") && tasksTxt.includes("Instagram") && tasksTxt.includes("LinkedIn") && tasksTxt.includes("YouTube"),
+        signalsOk: signalsTxt.includes("可编辑回复草稿") && signalsTxt.includes("不计触达"),
+        compareOk: compareTxt.includes("facebook") && compareTxt.includes("manual_discovery") && compareTxt.includes("复制周复盘 Markdown"),
+        projectsOk: projectsTxt.includes("主管可见查重提示") && projectsTxt.includes("创建轻量工程"),
+        adminOk: adminTxt.includes("入驻申请审批与分离激活") && adminTxt.includes("核验产品目录与认证维护"),
       };
     })()`);
     assert.equal(epochCheck.slowRes.staleContext, true, "REV01: Stale in-flight response MUST be discarded on context switch");
     assert.equal(epochCheck.slowRes.code, "STALE_CONTEXT_DISCARDED");
     assert.equal(epochCheck.otherDraft, null, "ACQ04: Draft from Org Main MUST NOT leak into Other Org");
     assert.equal(epochCheck.mainDraftRestored.demand_summary, "MAIN_ORG_SECRET_DRAFT");
-    assert.equal(epochCheck.hubHasFbCompare, true, "V3 Growth Hub must render live FB source comparison table");
+    assert.equal(epochCheck.todosOk, true, "Tab 1 todos + WeChat card must render");
+    assert.equal(epochCheck.tasksOk, true, "Tab 2 FB/IG/LI/YT platform strip must render");
+    assert.equal(epochCheck.signalsOk, true, "Tab 3 editable draft drawer must render");
+    assert.equal(epochCheck.compareOk, true, "Tab 4 source comparison + Markdown export must render");
+    assert.equal(epochCheck.projectsOk, true, "Tab 5 projects + blind-dedupe manager hints must render");
+    assert.equal(epochCheck.adminOk, true, "Tab 6 applications inbox + catalog manager must render");
+
+    // Verify 360px mobile 0px horizontal overflow across all 6 Hub tabs!
+    await chrome.send("Emulation.setDeviceMetricsOverride", { width: 360, height: 780, deviceScaleFactor: 2, mobile: true });
+    for (const tabKey of ["todos", "tasks", "signals", "compare", "projects", "admin"]) {
+      await chrome.evalJs(`(async () => { window.FG_V3_UI.setTab(${JSON.stringify(tabKey)}); await new Promise((r) => setTimeout(r, 200)); })()`);
+      const ov = await chrome.evalJs("Math.max(0, document.documentElement.scrollWidth - window.innerWidth)");
+      assert.equal(ov, 0, `V3 Hub tab "${tabKey}" must have 0px horizontal overflow at 360px mobile viewport`);
+    }
+
     assert.equal(chrome.pageErrors.length, 0, "Zero uncaught Chrome pageErrors: " + chrome.pageErrors.join(" | "));
 
-    console.log("PASS BLOCK 6 (Real Headless Chrome): rfq.html, join.html, index.html V3 Hub, REV01 contextEpoch stale-response discard, ACQ04 scoped drafts & 0 pageErrors verified");
+    console.log("PASS BLOCK 6 (Real Headless Chrome Desktop + 360px Mobile): rfq.html, join.html, all 6 V3 Hub tabs, REV01 contextEpoch stale-response discard, ACQ04 scoped drafts, 0px mobile overflow & 0 pageErrors verified");
   } finally {
     await chrome.close();
     server.close();

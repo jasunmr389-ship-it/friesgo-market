@@ -3,30 +3,46 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>FriesGo Global · 合作与加入 / Join Us</title>
 <link rel="icon" type="image/png" href="favicon.png?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
 <style>
 :root{
   --bg:#fdf8f1; --surface:#ffffff; --surface2:#f7ecdd; --ink:#2b1a10; --muted:#745f4d; --line:#e8d9c6;
   --brown:#4a2c17; --orange:#e67312; --orange-soft:#fdebd7; --cta:#bf570a; --cta-ink:#fff;
   --good:#1e6b3a; --good-bg:#e2f2e6; --danger:#a61c1c; --danger-bg:#fbe7e7; --radius:14px;
 }
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#19110a; --surface:#261a10; --surface2:#322316; --ink:#f5e9da; --muted:#c4a88d; --line:#4a3520;
+    --brown:#f0c9a0; --orange:#ff9a3d; --orange-soft:#4a2f16; --cta:#ff9a3d; --cta-ink:#241305;
+    --good:#8fd6a8; --good-bg:#1e3a28; --danger:#ff9a9a; --danger-bg:#4a1f1f;
+  }
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;line-height:1.6;font-size:15px}
-.wrap{max-width:860px;margin:0 auto;padding:20px 16px 64px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:18px}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--brown);font-weight:900;font-size:18px}
+html,body{max-width:100%;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:18px 14px 64px;width:100%}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--brown);font-weight:900;font-size:17px;min-width:0}
+.brand img{width:36px;height:36px;border-radius:9px;object-fit:cover;flex:0 0 auto}
 .nav-links{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.btn,.pill{border:1px solid var(--line);background:var(--surface);color:var(--brown);border-radius:999px;padding:7px 14px;min-height:38px;cursor:pointer;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn,.pill{border:1px solid var(--line);background:var(--surface);color:var(--brown);border-radius:999px;padding:7px 14px;min-height:40px;cursor:pointer;font-weight:700;font-size:13.5px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .14s;max-width:100%}
+.btn:hover,.pill:hover{border-color:var(--orange)}
 .btn.primary,.pill.primary{background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
-.btn.active{background:var(--brown);color:#fff;border-color:var(--brown)}
+.btn.active{background:var(--brown);color:var(--bg);border-color:var(--brown)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:0 6px 24px rgba(74,44,23,.06);margin-bottom:16px}
-h1{margin:0 0 6px;font-size:24px;color:var(--brown)}
-h2{margin:0 0 8px;font-size:18px;color:var(--brown)}
+h1{margin:0 0 6px;font-size:clamp(20px,4vw,26px);color:var(--brown);line-height:1.25}
+h2{margin:0 0 8px;font-size:17px;color:var(--brown)}
 .muted{color:var(--muted);font-size:13.5px}
+.steps-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+@media(max-width:600px){.steps-bar{grid-template-columns:1fr}}
+.step-item{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12.5px}
+.step-item b{display:block;color:var(--brown);margin-bottom:2px}
 .tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
 @media(max-width:640px){.tabs{grid-template-columns:1fr}}
-.track-card{border:2px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);cursor:pointer;text-align:left;transition:all .14s}
+.track-card{border:2px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);cursor:pointer;text-align:left;transition:all .14s;width:100%}
 .track-card[aria-pressed="true"]{border-color:var(--orange);background:var(--orange-soft)}
 .track-card b{display:block;color:var(--brown);font-size:14.5px;margin-bottom:4px}
 .track-card span{font-size:12.5px;color:var(--muted);display:block;line-height:1.45}
@@ -34,23 +50,27 @@ h2{margin:0 0 8px;font-size:18px;color:var(--brown)}
 @media(max-width:640px){.form-grid{grid-template-columns:1fr}}
 .full{grid-column:1/-1}
 label{display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:4px}
-input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;min-height:40px}
-textarea{min-height:84px;resize:vertical}
-.consent-box{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:12px;margin:12px 0;display:flex;flex-direction:column;gap:8px}
-.check-row{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
-.check-row input{width:18px;height:18px;min-height:18px;margin-top:2px;flex:0 0 auto}
-.alert{padding:12px 14px;border-radius:10px;font-size:13.5px;margin-top:12px}
+input,select,textarea{width:100%;max-width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;min-height:42px}
+textarea{min-height:86px;resize:vertical}
+.consent-box{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:12px;margin:12px 0;display:flex;flex-direction:column;gap:9px}
+.check-row{display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.check-row input{width:19px;height:19px;min-height:19px;margin-top:2px;flex:0 0 auto}
+.alert{padding:12px 14px;border-radius:10px;font-size:13.5px;margin-top:12px;overflow-wrap:anywhere}
 .alert.ok{background:var(--good-bg);border:1px solid var(--good);color:var(--good)}
 .alert.err{background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger)}
-.secret-box{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fff;border:1px dashed var(--good);padding:10px 12px;border-radius:8px;margin:8px 0;word-break:break-all;font-size:13.5px;color:var(--ink)}
+.secret-box{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface);border:1px dashed var(--good);padding:10px 12px;border-radius:8px;margin:8px 0;word-break:break-all;font-size:13px;color:var(--ink)}
 .boundary-note{font-size:12.5px;background:var(--surface2);border-left:4px solid var(--orange);padding:10px 12px;border-radius:8px;color:var(--ink);margin-bottom:14px}
+footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <a class="brand" href="index.html">FriesGo Global · <span data-i18n="brandSub">合作与加入</span></a>
+    <a class="brand" href="index.html">
+      <img src="apple-touch-icon.png?v=2" alt="FriesGo Global" onerror="this.style.display='none'">
+      <span>FriesGo Global · <span data-i18n="brandSub">合作与加入</span></span>
+    </a>
     <div class="nav-links">
       <button type="button" class="pill" id="btnLangToggle">EN / 中文</button>
       <a class="pill" href="rfq.html" data-i18n="navRfq">买方产品询价 (RFQ)</a>
@@ -60,9 +80,16 @@ textarea{min-height:84px;resize:vertical}
 
   <div class="card">
     <h1 data-i18n="heroTitle">加入 FriesGo Global 国际工业品业务生态</h1>
-    <p class="muted" data-i18n="heroSub">本页面仅用于外贸合作伙伴申请、外贸工作台独立空间试用申请与内部销售岗位意向登记。如需产品询价请前往独立的买方询价页。</p>
+    <p class="muted" data-i18n="heroSub">本页面仅用于外贸合作伙伴申请、独立工具空间试用申请与内部销售岗位意向登记。海外买方产品询价请前往独立的买方询价页。</p>
+
+    <div class="steps-bar" aria-label="入驻流程">
+      <div class="step-item"><b data-i18n="step1Title">1. 提交申请与留存密钥</b><span data-i18n="step1Desc">无需预缴费用；提交后请保存申请编号与一次性展示的查询密钥。</span></div>
+      <div class="step-item"><b data-i18n="step2Title">2. 主管审核与规范培训</b><span data-i18n="step2Desc">1–3 个工作日核对合作方向，通过基础业务与合规考核。</span></div>
+      <div class="step-item"><b data-i18n="step3Title">3. 正式激活专属空间</b><span data-i18n="step3Desc">审批与激活分离，正式开通后方进入对应隔离数据空间开展业务。</span></div>
+    </div>
+
     <div class="boundary-note" data-i18n="boundaryNote">
-      合规与合作边界说明：公司统一负责产品技术支持、正式报价审批、合同签署、指定账户收款、交付及售后决策；合作伙伴在获准授权范围内开发与维护客户。具体佣金比例、保护期与商业政策以审核通过后双方确认的书面协议版本为准（本页不构成预设对外费率承诺）。
+      合规与合作边界说明：公司统一负责产品技术支持、正式报价审批、合同签署、指定账户收款、交付及售后决策；合作伙伴在获准授权范围内开发与维护客户。具体佣金比例、保护期与商业政策以审核通过后双方书面确认的协议版本为准（本页不构成预设对外费率承诺）。
     </div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
@@ -177,6 +204,11 @@ textarea{min-height:84px;resize:vertical}
       <div id="statusResultBox" class="alert" hidden></div>
     </div>
   </div>
+
+  <footer>
+    <span>FriesGo Global · Official Partner &amp; Workspace Intake</span>
+    <span><a href="rfq.html" style="color:inherit">Buyer Product RFQ</a> · <a href="index.html" style="color:inherit">Member Workspace</a></span>
+  </footer>
 </div>
 
 <script>
@@ -187,6 +219,7 @@ textarea{min-height:84px;resize:vertical}
   var currentLang = "zh";
   var currentTrack = "partner";
   var currentIdemKey = "";
+  var lastReceipt = null;
 
   var I18N = {
     zh: {
@@ -194,8 +227,14 @@ textarea{min-height:84px;resize:vertical}
       navRfq: "买方产品询价 (RFQ)",
       navWorkspace: "成员工作台",
       heroTitle: "加入 FriesGo Global 国际工业品业务生态",
-      heroSub: "本页面仅用于外贸合作伙伴申请、外贸工作台独立空间试用申请与内部销售岗位意向登记。如需产品询价请前往独立的买方询价页。",
-      boundaryNote: "合规与合作边界说明：公司统一负责产品技术支持、正式报价审批、合同签署、指定账户收款、交付及售后决策；合作伙伴在获准授权范围内开发与维护客户。具体佣金比例、保护期与商业政策以审核通过后双方确认的书面协议版本为准（本页不构成预设对外费率承诺）。",
+      heroSub: "本页面仅用于外贸合作伙伴申请、独立工具空间试用申请与内部销售岗位意向登记。海外买方产品询价请前往独立的买方询价页。",
+      step1Title: "1. 提交申请与留存密钥",
+      step1Desc: "无需预缴费用；提交后请保存申请编号与一次性展示的查询密钥。",
+      step2Title: "2. 主管审核与规范培训",
+      step2Desc: "1–3 个工作日核对合作方向，通过基础业务与合规考核。",
+      step3Title: "3. 正式激活专属空间",
+      step3Desc: "审批与激活分离，正式开通后方进入对应隔离数据空间开展业务。",
+      boundaryNote: "合规与合作边界说明：公司统一负责产品技术支持、正式报价审批、合同签署、指定账户收款、交付及售后决策；合作伙伴在获准授权范围内开发与维护客户。具体佣金比例、保护期与商业政策以审核通过后双方书面确认的协议版本为准（本页不构成预设对外费率承诺）。",
       tabApply: "提交申请 / Apply",
       tabStatus: "查询申请进度 / Check Status",
       tPartnerTitle: "🤝 外贸合作伙伴（优先）",
@@ -228,6 +267,12 @@ textarea{min-height:84px;resize:vertical}
       navWorkspace: "Member Workspace",
       heroTitle: "Join the FriesGo Global Industrial Export Network",
       heroSub: "This page is exclusively for Overseas Trade Partners, Independent Workspace Tool Trials, and Internal Sales Careers. Buyers requesting product quotations should use the dedicated RFQ page.",
+      step1Title: "1. Apply & Save Key",
+      step1Desc: "No upfront fee. Save your Application No. and one-time Lookup Secret right after submission.",
+      step2Title: "2. Review & Onboarding",
+      step2Desc: "Our desk reviews applications within 1–3 business days and confirms compliance guidelines.",
+      step3Title: "3. Space Activation",
+      step3Desc: "Approval and activation are separated; your isolated workspace opens only after activation.",
       boundaryNote: "Commercial Boundary: FriesGo Global centrally manages product technical support, official quotation approval, contracts, designated payment collection, delivery, and after-sales decisions. Partners develop and support clients within authorized scopes. Exact commission terms and protection periods are finalized only in signed onboarding agreements.",
       tabApply: "Submit Application",
       tabStatus: "Check Application Status",
@@ -329,25 +374,20 @@ textarea{min-height:84px;resize:vertical}
     });
   }
 
+  function switchTab(tab) {
+    var isApply = tab === "apply";
+    document.getElementById("tabBtnApply").classList.toggle("active", isApply);
+    document.getElementById("tabBtnStatus").classList.toggle("active", !isApply);
+    document.getElementById("viewApply").hidden = !isApply;
+    document.getElementById("viewStatus").hidden = isApply;
+  }
+
   document.getElementById("btnLangToggle").addEventListener("click", function () {
     currentLang = currentLang === "zh" ? "en" : "zh";
     applyLang();
   });
-
-  document.getElementById("tabBtnApply").addEventListener("click", function () {
-    document.getElementById("tabBtnApply").classList.add("active");
-    document.getElementById("tabBtnStatus").classList.remove("active");
-    document.getElementById("viewApply").hidden = false;
-    document.getElementById("viewStatus").hidden = true;
-  });
-
-  document.getElementById("tabBtnStatus").addEventListener("click", function () {
-    document.getElementById("tabBtnStatus").classList.add("active");
-    document.getElementById("tabBtnApply").classList.remove("active");
-    document.getElementById("viewApply").hidden = true;
-    document.getElementById("viewStatus").hidden = false;
-  });
-
+  document.getElementById("tabBtnApply").addEventListener("click", function () { switchTab("apply"); });
+  document.getElementById("tabBtnStatus").addEventListener("click", function () { switchTab("status"); });
   document.querySelectorAll(".track-card").forEach(function (btn) {
     btn.addEventListener("click", function () { selectTrack(btn.getAttribute("data-track")); });
   });
@@ -402,17 +442,39 @@ textarea{min-height:84px;resize:vertical}
         errBox.hidden = false;
         return;
       }
+      lastReceipt = { application_no: data.application_no, lookup_secret: data.lookup_secret || "" };
       var secretBlock = data.lookup_secret
-        ? "<div class='secret-box'><b>查询密钥 / Lookup Secret (仅本次明文展示，可反复用于查询)：</b><br>" + esc(data.lookup_secret) + "</div>"
+        ? "<div class='secret-box'><b>查询密钥 / Lookup Secret (仅本次明文展示，保存后可反复查进度)：</b><br>" + esc(data.lookup_secret) + "</div>"
         : "<p>" + esc(data.lookupSecretNotice || "") + "</p>";
       okBox.innerHTML =
         "<b>✅ 申请已收到" + (data.replayed ? "（幂等重试安全返回，未重复建单）" : "") + "</b>" +
         "<div class='secret-box'><b>申请编号 / Application No.：</b> " + esc(data.application_no) + "</div>" +
         secretBlock +
+        "<div style='display:flex;gap:8px;flex-wrap:wrap;margin:8px 0'>" +
+        "  <button type='button' class='pill' id='btnCopyReceipt'>📋 一键复制编号与查询密钥</button>" +
+        "  <button type='button' class='pill' id='btnGoCheckStatus'>🔎 立即核验进度</button>" +
+        "</div>" +
         "<p style='margin:6px 0 0'>" + esc(data.nextStep || "") + "</p>";
       okBox.hidden = false;
       document.getElementById("stAppNo").value = data.application_no || "";
       if (data.lookup_secret) document.getElementById("stSecret").value = data.lookup_secret;
+
+      var btnCopy = document.getElementById("btnCopyReceipt");
+      if (btnCopy) {
+        btnCopy.addEventListener("click", function () {
+          var txt = "FriesGo Global Application Receipt\nApplication No: " + lastReceipt.application_no + (lastReceipt.lookup_secret ? ("\nLookup Secret: " + lastReceipt.lookup_secret) : "");
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(function () { btnCopy.textContent = "✅ 已复制到剪贴板"; });
+          }
+        });
+      }
+      var btnGo = document.getElementById("btnGoCheckStatus");
+      if (btnGo) {
+        btnGo.addEventListener("click", function () {
+          switchTab("status");
+          document.getElementById("btnCheckStatus").click();
+        });
+      }
       try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
     } catch (e) {
       errBox.textContent = "网络请求中断，您的表单输入已完整保留，请直接再次点击「提交申请」（系统自动幂等防重）。";
