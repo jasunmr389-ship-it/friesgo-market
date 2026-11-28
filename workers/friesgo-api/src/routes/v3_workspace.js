@@ -336,6 +336,201 @@ function summarizeEffortRows(rows) {
 }
 
 /**
+ * I01: Authoritative CAS + Conditionally-Gated Ledger Writer for discovery_tasks & discovery_task_efforts.
+ * - Statement 1 atomically claims `effort_version = currentVer -> currentVer + 1` and stamps `last_effort_op_id = opId`.
+ * - Statements 2..K insert ledger rows via `INSERT ... SELECT ... WHERE EXISTS (... last_effort_op_id = opId AND effort_version = nextVer)`.
+ * - If ANY concurrent writer committed between our SELECT and our DB.batch(), Statement 1 yields `changes = 0` AND Statements 2..K insert 0 rows!
+ * - Relative operations without explicit `expectedVersion` automatically retry up to `maxRetries` times with a fresh DB read & re-validation;
+ *   explicit `expectedVersion` mismatches or stale absolute overwrites return `409 TASK_EFFORT_CONFLICT` with zero partial writes.
+ */
+async function commitTaskEffortCas(db, { orgId, taskId, actorId, expectedVersion = null, maxRetries = 6, computePlan }) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const task = await db
+      .prepare("SELECT * FROM discovery_tasks WHERE id = ? AND org_id = ?")
+      .bind(taskId, orgId)
+      .first();
+    if (!task) {
+      return { ok: false, status: 404, code: "TASK_NOT_FOUND", error: "发现任务不存在" };
+    }
+    const currentVer = Number(task.effort_version || 1);
+    if (expectedVersion !== null && expectedVersion !== currentVer) {
+      return {
+        ok: false,
+        status: 409,
+        code: "TASK_EFFORT_CONFLICT",
+        current_version: currentVer,
+        error: "该任务投入版本已变更，请刷新最新汇总后重试",
+      };
+    }
+
+    const prevEffRes = await db
+      .prepare("SELECT * FROM discovery_task_efforts WHERE org_id = ? AND task_id = ? ORDER BY occurred_at ASC, created_at ASC")
+      .bind(orgId, taskId)
+      .all();
+    const prevEffs = prevEffRes.results || [];
+
+    const plan = computePlan(task, prevEffs);
+    if (!plan || !plan.ok) {
+      return plan || { ok: false, status: 400, code: "INVALID_EFFORT_PLAN", error: "无效的任务投入变更" };
+    }
+
+    const now = plan.now || nowIso();
+    const effortInserts = Array.isArray(plan.effortInserts) ? plan.effortInserts : [];
+
+    // Reconcile cumulative totals strictly from authoritative ledger rows + planned inserts
+    const simulated = [
+      ...prevEffs,
+      ...effortInserts.map((x) => ({
+        hours_delta_tenths: x.hours_delta_tenths,
+        spend_delta_minor: x.spend_delta_minor,
+        spend_currency: x.spend_currency,
+      })),
+    ];
+    const nextSummary = summarizeEffortRows(simulated);
+    if (nextSummary.hoursTenths < 0) {
+      return { ok: false, status: 400, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: "更正后任务累计工时不能为负数" };
+    }
+    for (const [cur, amtBig] of nextSummary.spendByCurBig.entries()) {
+      if (amtBig < 0n) {
+        return { ok: false, status: 400, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: `更正后任务 ${cur} 累计费用不能为负数` };
+      }
+    }
+
+    const meta = plan.taskMeta || {};
+    const setClauses = [];
+    const setBinds = [];
+    if (meta.title !== undefined) {
+      setClauses.push("title = ?");
+      setBinds.push(meta.title);
+    }
+    if (meta.country_scope !== undefined) {
+      setClauses.push("country_scope = ?");
+      setBinds.push(meta.country_scope);
+    }
+    if (meta.product_keywords !== undefined) {
+      setClauses.push("product_keywords = ?");
+      setBinds.push(meta.product_keywords);
+    }
+    if (meta.status !== undefined) {
+      setClauses.push("status = ?");
+      setBinds.push(meta.status);
+    }
+    setClauses.push(
+      "hours_logged_tenths = ?",
+      "actual_spend_minor = ?",
+      "spend_currency = ?",
+      "effort_version = ?",
+      "last_effort_op_id = ?",
+      "updated_at = ?"
+    );
+    const opId = randomId("effop");
+    const nextVer = currentVer + 1;
+    setBinds.push(
+      nextSummary.hoursTenths,
+      nextSummary.actualSpendMinor,
+      nextSummary.spendCurrency || "",
+      nextVer,
+      opId,
+      now,
+      taskId,
+      orgId,
+      currentVer
+    );
+
+    const nextTitle = meta.title !== undefined ? meta.title : task.title;
+    const nextCountry = meta.country_scope !== undefined ? meta.country_scope : task.country_scope;
+    const nextProdKw = meta.product_keywords !== undefined ? meta.product_keywords : task.product_keywords;
+    const nextStatus = meta.status !== undefined ? meta.status : task.status;
+
+    const stmts = [
+      // Statement 1: Authoritative CAS gate on discovery_tasks (touches ONLY explicitly requested metadata + effort columns!)
+      db
+        .prepare(
+          `UPDATE discovery_tasks
+           SET ${setClauses.join(", ")}
+           WHERE id = ? AND org_id = ? AND effort_version = ?`
+        )
+        .bind(...setBinds),
+    ];
+
+    // Statements 2..K: Conditionally-gated ledger inserts — execute ONLY when Statement 1 won CAS with (opId, nextVer)!
+    for (const row of effortInserts) {
+      stmts.push(
+        db
+          .prepare(
+            `INSERT INTO discovery_task_efforts (
+               id, org_id, task_id, occurred_at, hours_delta_tenths, spend_delta_minor, spend_currency,
+               entry_type, note, created_by, created_at
+             )
+             SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+             WHERE EXISTS (
+               SELECT 1 FROM discovery_tasks
+               WHERE id = ? AND org_id = ? AND last_effort_op_id = ? AND effort_version = ?
+             )`
+          )
+          .bind(
+            row.id,
+            orgId,
+            taskId,
+            row.occurred_at,
+            row.hours_delta_tenths,
+            row.spend_delta_minor,
+            row.spend_currency,
+            row.entry_type,
+            row.note,
+            actorId,
+            now,
+            taskId,
+            orgId,
+            opId,
+            nextVer
+          )
+      );
+    }
+
+    const batchRes = await executeAtomicBatch(db, stmts);
+    const casChanges = Number((batchRes && batchRes[0] && batchRes[0].meta && batchRes[0].meta.changes) || 0);
+    if (casChanges === 1) {
+      return {
+        ok: true,
+        effortVersion: nextVer,
+        opId,
+        effortInserts,
+        reconciled: nextSummary,
+        taskMeta: {
+          title: nextTitle,
+          country_scope: nextCountry,
+          product_keywords: nextProdKw,
+          status: nextStatus,
+        },
+        attemptsUsed: attempt + 1,
+      };
+    }
+
+    // CAS lost (casChanges === 0 -> 0 ledger rows inserted): fail fast when caller supplied expectedVersion or retries exhausted
+    if (expectedVersion !== null || attempt >= maxRetries) {
+      const latest = await db
+        .prepare("SELECT effort_version FROM discovery_tasks WHERE id = ? AND org_id = ?")
+        .bind(taskId, orgId)
+        .first();
+      return {
+        ok: false,
+        status: 409,
+        code: "TASK_EFFORT_CONFLICT",
+        current_version: Number((latest && latest.effort_version) || currentVer),
+        error: "该任务投入存在并发更新冲突，请刷新最新汇总后重试",
+      };
+    }
+  }
+  return {
+    ok: false,
+    status: 409,
+    code: "TASK_EFFORT_CONFLICT",
+    error: "该任务投入存在并发更新冲突，请稍后重试",
+  };
+}
+
+/**
  * N04: Strict half-open date window parser (bare YYYY-MM-DD interpreted in UTC+8 by default so same-day to=YYYY-MM-DD includes entire day).
  */
 function parseDateWindow(fromRaw, toRaw, tzOffsetRaw) {
@@ -1241,6 +1436,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
           hours_logged_tenths: hoursTenths,
           actual_spend_minor: spendParsed.minor,
           spend_currency: spendParsed.currency,
+          effort_version: 1,
           created_at: createdAt,
           initial_effort_id: initialEffortId,
         },
@@ -1250,7 +1446,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     );
   }
 
-  // N03: Dedicated timestamped effort/spend ledger routes per discovery task
+  // N03 / I01: Dedicated timestamped effort/spend ledger routes per discovery task (CAS concurrency protected)
   const taskEffortsMatch = path.match(/^\/api\/v3\/acq\/tasks\/([^/]+)\/efforts$/);
   if (taskEffortsMatch && method === "GET") {
     const taskId = decodeURIComponent(taskEffortsMatch[1]);
@@ -1266,6 +1462,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       {
         ok: true,
         task_id: taskId,
+        effort_version: Number(task.effort_version || 1),
         efforts,
         reconciled: {
           entry_count: summary.entryCount,
@@ -1287,8 +1484,6 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       return json({ ok: false, code: "FORBIDDEN_DISCOVERY_TASK", error: "无权登记任务投入明细" }, 403, cors);
     }
     const taskId = decodeURIComponent(taskEffortsMatch[1]);
-    const existing = await env.DB.prepare("SELECT * FROM discovery_tasks WHERE id = ? AND org_id = ?").bind(taskId, ctx.orgId).first();
-    if (!existing) return json({ ok: false, code: "TASK_NOT_FOUND", error: "发现任务不存在" }, 404, cors);
     const body = await parseJsonBody(request, 8192);
 
     const entryType = String(body.entry_type || "log").trim().toLowerCase();
@@ -1296,6 +1491,17 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       return json({ ok: false, code: "INVALID_ENTRY_TYPE", error: "entry_type 仅支持 log（新增投入）或 adjustment（历史更正）" }, 400, cors);
     }
     const allowNeg = entryType === "adjustment";
+
+    let expectedVersion = null;
+    if (body.expected_version !== undefined && body.expected_version !== null && body.expected_version !== "") {
+      try {
+        const vBig = parseExactSafeIntBigInt(body.expected_version, "expected_version", { allowNegative: false });
+        if (vBig <= 0n) throw new Error("expected_version must be >= 1");
+        expectedVersion = Number(vBig);
+      } catch {
+        return json({ ok: false, code: "INVALID_VERSION", error: "expected_version 须为正整数" }, 400, cors);
+      }
+    }
 
     let hoursDelta = 0;
     if (body.hours_delta_tenths !== undefined && body.hours_delta_tenths !== null && body.hours_delta_tenths !== "") {
@@ -1335,84 +1541,59 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       return json({ ok: false, code: occ.code, error: occ.error }, 400, cors);
     }
 
-    // Reconcile against existing ledger rows to guarantee cumulative hours >= 0 and per-currency cumulative spend >= 0
-    const prevEffRes = await env.DB
-      .prepare("SELECT * FROM discovery_task_efforts WHERE org_id = ? AND task_id = ?")
-      .bind(ctx.orgId, taskId)
-      .all();
-    const prevEffs = prevEffRes.results || [];
-    const newRow = {
-      id: randomId("eff"),
-      org_id: ctx.orgId,
-      task_id: taskId,
-      occurred_at: occ.iso,
-      hours_delta_tenths: hoursDelta,
-      spend_delta_minor: spendDelta,
-      spend_currency: spendCurrency,
-      entry_type: entryType,
-      note: String(body.note || "").trim().slice(0, 240),
-      created_by: auth.actor.id,
-      created_at: now,
-    };
-    const nextSummary = summarizeEffortRows([...prevEffs, newRow]);
-    if (nextSummary.hoursTenths < 0) {
-      return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: "更正后任务累计工时不能为负数" }, 400, cors);
-    }
-    for (const [cur, amtBig] of nextSummary.spendByCurBig.entries()) {
-      if (amtBig < 0n) {
-        return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: `更正后任务 ${cur} 累计费用不能为负数` }, 400, cors);
-      }
+    const noteClean = String(body.note || "").trim().slice(0, 240);
+    const casRes = await commitTaskEffortCas(env.DB, {
+      orgId: ctx.orgId,
+      taskId,
+      actorId: auth.actor.id,
+      expectedVersion,
+      maxRetries: expectedVersion !== null ? 0 : 6,
+      computePlan: () => ({
+        ok: true,
+        now: nowIso(),
+        effortInserts: [
+          {
+            id: randomId("eff"),
+            org_id: ctx.orgId,
+            task_id: taskId,
+            occurred_at: occ.iso,
+            hours_delta_tenths: hoursDelta,
+            spend_delta_minor: spendDelta,
+            spend_currency: spendCurrency,
+            entry_type: entryType,
+            note: noteClean,
+            created_by: auth.actor.id,
+          },
+        ],
+      }),
+    });
+
+    if (!casRes.ok) {
+      return json(
+        {
+          ok: false,
+          code: casRes.code,
+          error: casRes.error,
+          ...(casRes.current_version !== undefined ? { current_version: casRes.current_version } : {}),
+        },
+        casRes.status || 400,
+        cors
+      );
     }
 
-    const stmts = [
-      env.DB
-        .prepare(
-          `INSERT INTO discovery_task_efforts (
-             id, org_id, task_id, occurred_at, hours_delta_tenths, spend_delta_minor, spend_currency,
-             entry_type, note, created_by, created_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .bind(
-          newRow.id,
-          newRow.org_id,
-          newRow.task_id,
-          newRow.occurred_at,
-          newRow.hours_delta_tenths,
-          newRow.spend_delta_minor,
-          newRow.spend_currency,
-          newRow.entry_type,
-          newRow.note,
-          newRow.created_by,
-          newRow.created_at
-        ),
-      env.DB
-        .prepare(
-          `UPDATE discovery_tasks
-           SET hours_logged_tenths = ?, actual_spend_minor = ?, spend_currency = ?, updated_at = ?
-           WHERE id = ? AND org_id = ?`
-        )
-        .bind(
-          nextSummary.hoursTenths,
-          nextSummary.actualSpendMinor,
-          nextSummary.spendCurrency || "",
-          now,
-          taskId,
-          ctx.orgId
-        ),
-    ];
-    await executeAtomicBatch(env.DB, stmts);
-
+    const committedRow = casRes.effortInserts[0];
     return json(
       {
         ok: true,
-        effort: newRow,
+        effort_version: casRes.effortVersion,
+        effort: { ...committedRow, created_at: now },
         reconciled: {
-          hours_logged_tenths: nextSummary.hoursTenths,
-          actual_spend_minor: nextSummary.actualSpendMinor,
-          spend_currency: nextSummary.spendCurrency,
-          spend_by_currency: nextSummary.spendByCurrency,
-          spend_display: nextSummary.spendDisplay,
-          spend_status: nextSummary.spendStatus,
+          hours_logged_tenths: casRes.reconciled.hoursTenths,
+          actual_spend_minor: casRes.reconciled.actualSpendMinor,
+          spend_currency: casRes.reconciled.spendCurrency,
+          spend_by_currency: casRes.reconciled.spendByCurrency,
+          spend_display: casRes.reconciled.spendDisplay,
+          spend_status: casRes.reconciled.spendStatus,
         },
       },
       201,
@@ -1426,8 +1607,6 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       return json({ ok: false, code: "FORBIDDEN_DISCOVERY_TASK", error: "无权修改发现任务" }, 403, cors);
     }
     const taskId = decodeURIComponent(taskPatchMatch[1]);
-    const existing = await env.DB.prepare("SELECT * FROM discovery_tasks WHERE id = ? AND org_id = ?").bind(taskId, ctx.orgId).first();
-    if (!existing) return json({ ok: false, code: "TASK_NOT_FOUND", error: "发现任务不存在" }, 404, cors);
     const body = await parseJsonBody(request, 8192);
 
     const now = nowIso();
@@ -1436,161 +1615,219 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       return json({ ok: false, code: occ.code, error: occ.error }, 400, cors);
     }
 
-    const nextTitle = body.title !== undefined && String(body.title || "").trim() ? String(body.title).trim().slice(0, 160) : existing.title;
-    const nextCountry = body.country_scope !== undefined ? String(body.country_scope || "ANY").trim().slice(0, 80) : existing.country_scope;
-    const nextProdKw = body.product_keywords !== undefined ? String(body.product_keywords || "").trim().slice(0, 300) : existing.product_keywords;
-    const nextStatus = ["active", "paused", "completed", "archived"].includes(body.status) ? body.status : existing.status;
-
-    const oldHours = Number(existing.hours_logged_tenths || 0);
-    let hoursChanged = false;
-    let hoursDelta = 0;
-    let nextHours = oldHours;
-    if (body.add_hours_tenths !== undefined && body.add_hours_tenths !== null && body.add_hours_tenths !== "") {
+    let expectedVersion = null;
+    if (body.expected_version !== undefined && body.expected_version !== null && body.expected_version !== "") {
       try {
-        hoursDelta = Number(parseExactSafeIntBigInt(body.add_hours_tenths, "add_hours_tenths", { allowNegative: false }));
+        const vBig = parseExactSafeIntBigInt(body.expected_version, "expected_version", { allowNegative: false });
+        if (vBig <= 0n) throw new Error("expected_version must be >= 1");
+        expectedVersion = Number(vBig);
+      } catch {
+        return json({ ok: false, code: "INVALID_VERSION", error: "expected_version 须为正整数" }, 400, cors);
+      }
+    }
+
+    const hasAddHours = body.add_hours_tenths !== undefined && body.add_hours_tenths !== null && body.add_hours_tenths !== "";
+    const hasAbsHours = body.hours_logged_tenths !== undefined && body.hours_logged_tenths !== null && body.hours_logged_tenths !== "";
+    const spendProvided = body.actual_spend_minor !== undefined || body.spend_currency !== undefined;
+    const effortRequested = hasAddHours || hasAbsHours || spendProvided;
+
+    // Pre-validate numeric inputs before DB access
+    let parsedAddHours = 0;
+    let parsedAbsHours = null;
+    if (hasAddHours) {
+      try {
+        parsedAddHours = Number(parseExactSafeIntBigInt(body.add_hours_tenths, "add_hours_tenths", { allowNegative: false }));
       } catch {
         return json({ ok: false, code: "INVALID_HOURS", error: "追加工时 add_hours_tenths 须为非负整数" }, 400, cors);
       }
-      if (hoursDelta !== 0) {
-        hoursChanged = true;
-        nextHours = oldHours + hoursDelta;
-      }
-    } else if (body.hours_logged_tenths !== undefined && body.hours_logged_tenths !== null && body.hours_logged_tenths !== "") {
+    } else if (hasAbsHours) {
       try {
-        nextHours = Number(parseExactSafeIntBigInt(body.hours_logged_tenths, "hours_logged_tenths", { allowNegative: false }));
+        parsedAbsHours = Number(parseExactSafeIntBigInt(body.hours_logged_tenths, "hours_logged_tenths", { allowNegative: false }));
       } catch {
         return json({ ok: false, code: "INVALID_HOURS", error: "工时 hours_logged_tenths 须为非负整数" }, 400, cors);
       }
-      hoursDelta = nextHours - oldHours;
-      hoursChanged = hoursDelta !== 0;
     }
 
-    const spendProvided = body.actual_spend_minor !== undefined || body.spend_currency !== undefined;
-    let spendParsed = { ok: true, minor: existing.actual_spend_minor, currency: existing.spend_currency || "" };
-    if (spendProvided) {
-      const rawSpend = body.actual_spend_minor === undefined ? existing.actual_spend_minor : body.actual_spend_minor;
-      spendParsed = parseTaskSpendStrict(rawSpend, body.spend_currency, existing.spend_currency || "");
-      if (!spendParsed.ok) {
-        return json({ ok: false, code: spendParsed.code, error: spendParsed.error }, 400, cors);
+    // N03/I01: Metadata-only PATCH (title/status/country_scope/product_keywords, NO hours/spend fields)
+    // NEVER touches hours_logged_tenths, actual_spend_minor, spend_currency, or effort_version, so it never clobbers concurrent effort writes!
+    if (!effortRequested) {
+      const existing = await env.DB.prepare("SELECT * FROM discovery_tasks WHERE id = ? AND org_id = ?").bind(taskId, ctx.orgId).first();
+      if (!existing) return json({ ok: false, code: "TASK_NOT_FOUND", error: "发现任务不存在" }, 404, cors);
+      if (expectedVersion !== null && expectedVersion !== Number(existing.effort_version || 1)) {
+        return json(
+          { ok: false, code: "TASK_EFFORT_CONFLICT", current_version: Number(existing.effort_version || 1), error: "任务版本已变更，请刷新后重试" },
+          409,
+          cors
+        );
       }
-    }
+      const nextTitle = body.title !== undefined && String(body.title || "").trim() ? String(body.title).trim().slice(0, 160) : existing.title;
+      const nextCountry = body.country_scope !== undefined ? String(body.country_scope || "ANY").trim().slice(0, 80) : existing.country_scope;
+      const nextProdKw = body.product_keywords !== undefined ? String(body.product_keywords || "").trim().slice(0, 300) : existing.product_keywords;
+      const nextStatus = ["active", "paused", "completed", "archived"].includes(body.status) ? body.status : existing.status;
 
-    // N03: Metadata-only edits (title/status/country_scope/product_keywords) MUST NOT create ledger rows or move historical effort into updated_at!
-    const oldSpendMinor = existing.actual_spend_minor === null || existing.actual_spend_minor === undefined ? null : Number(existing.actual_spend_minor);
-    const oldSpendCur = String(existing.spend_currency || "").toUpperCase();
-    const newSpendMinor = spendParsed.minor;
-    const newSpendCur = String(spendParsed.currency || "").toUpperCase();
-    const spendChanged = spendProvided && (newSpendMinor !== oldSpendMinor || newSpendCur !== oldSpendCur);
-
-    const effortInserts = [];
-    if (hoursChanged || spendChanged) {
-      if (spendChanged && oldSpendMinor !== null && oldSpendCur && oldSpendCur !== "MULTI" && oldSpendCur !== newSpendCur) {
-        // Currency switched -> reverse old currency and record new currency atomically
-        effortInserts.push({
-          id: randomId("eff"),
-          hoursDelta: 0,
-          spendDelta: -oldSpendMinor,
-          spendCurrency: oldSpendCur,
-          entryType: "adjustment",
-          note: String(body.note || `币种更正冲销 ${oldSpendCur}`).slice(0, 240),
-        });
-        effortInserts.push({
-          id: randomId("eff"),
-          hoursDelta,
-          spendDelta: newSpendMinor,
-          spendCurrency: newSpendMinor !== null ? newSpendCur : "",
-          entryType: hoursDelta < 0 ? "adjustment" : "log",
-          note: String(body.note || "任务投入更新").slice(0, 240),
-        });
-      } else {
-        let spendDelta = null;
-        let spendCurForRow = "";
-        if (spendChanged) {
-          if (newSpendMinor === null && oldSpendMinor !== null && oldSpendCur && oldSpendCur !== "MULTI") {
-            spendDelta = -oldSpendMinor;
-            spendCurForRow = oldSpendCur;
-          } else if (newSpendMinor !== null) {
-            const baseMinor = oldSpendCur === newSpendCur && oldSpendMinor !== null ? oldSpendMinor : 0;
-            spendDelta = newSpendMinor - baseMinor;
-            spendCurForRow = newSpendCur;
-          }
-        }
-        const isAdj = hoursDelta < 0 || (spendDelta !== null && spendDelta < 0);
-        effortInserts.push({
-          id: randomId("eff"),
-          hoursDelta,
-          spendDelta,
-          spendCurrency: spendCurForRow,
-          entryType: isAdj ? "adjustment" : "log",
-          note: String(body.note || (isAdj ? "任务投入更正" : "任务投入追加")).slice(0, 240),
-        });
-      }
-    }
-
-    // Reconcile final task summary from ledger whenever effort rows exist or are being inserted
-    let finalHours = nextHours;
-    let finalSpendMinor = spendParsed.minor;
-    let finalSpendCur = spendParsed.currency;
-    if (effortInserts.length > 0) {
-      const prevEffRes = await env.DB
-        .prepare("SELECT * FROM discovery_task_efforts WHERE org_id = ? AND task_id = ?")
-        .bind(ctx.orgId, taskId)
-        .all();
-      const simulated = [
-        ...(prevEffRes.results || []),
-        ...effortInserts.map((x) => ({
-          hours_delta_tenths: x.hoursDelta,
-          spend_delta_minor: x.spendDelta,
-          spend_currency: x.spendCurrency,
-        })),
-      ];
-      const rec = summarizeEffortRows(simulated);
-      if (rec.hoursTenths < 0) {
-        return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: "更正后累计工时不能为负数" }, 400, cors);
-      }
-      for (const [cur, amtBig] of rec.spendByCurBig.entries()) {
-        if (amtBig < 0n) {
-          return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: `更正后累计 ${cur} 费用不能为负数` }, 400, cors);
-        }
-      }
-      finalHours = rec.hoursTenths;
-      finalSpendMinor = rec.actualSpendMinor;
-      finalSpendCur = rec.spendCurrency || "";
-    }
-
-    const stmts = effortInserts.map((x) =>
-      env.DB
-        .prepare(
-          `INSERT INTO discovery_task_efforts (
-             id, org_id, task_id, occurred_at, hours_delta_tenths, spend_delta_minor, spend_currency,
-             entry_type, note, created_by, created_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .bind(x.id, ctx.orgId, taskId, occ.iso, x.hoursDelta, x.spendDelta, x.spendCurrency, x.entryType, x.note, auth.actor.id, now)
-    );
-    stmts.push(
-      env.DB
+      await env.DB
         .prepare(
           `UPDATE discovery_tasks
-           SET title = ?, country_scope = ?, product_keywords = ?, hours_logged_tenths = ?, actual_spend_minor = ?, spend_currency = ?, status = ?, updated_at = ?
+           SET title = ?, country_scope = ?, product_keywords = ?, status = ?, updated_at = ?
            WHERE id = ? AND org_id = ?`
         )
-        .bind(nextTitle, nextCountry, nextProdKw, finalHours, finalSpendMinor, finalSpendCur, nextStatus, now, taskId, ctx.orgId)
-    );
-    await executeAtomicBatch(env.DB, stmts);
+        .bind(nextTitle, nextCountry, nextProdKw, nextStatus, now, taskId, ctx.orgId)
+        .run();
+
+      return json(
+        {
+          ok: true,
+          id: taskId,
+          title: nextTitle,
+          country_scope: nextCountry,
+          product_keywords: nextProdKw,
+          hours_logged_tenths: Number(existing.hours_logged_tenths || 0),
+          actual_spend_minor: existing.actual_spend_minor,
+          spend_currency: existing.spend_currency || "",
+          effort_version: Number(existing.effort_version || 1),
+          status: nextStatus,
+          effort_entries_added: 0,
+        },
+        200,
+        cors
+      );
+    }
+
+    // I01: Effort-mutating PATCH shares the exact same authoritative CAS + conditional-INSERT writer as POST /efforts!
+    // Relative add_hours_tenths (without absolute hours/spend) may retry on CAS unless caller passed explicit expected_version;
+    // absolute hours_logged_tenths / actual_spend_minor uses maxRetries = 0 so stale overwrites return 409 TASK_EFFORT_CONFLICT instead of clobbering concurrent writes!
+    const isAbsoluteMutation = hasAbsHours || spendProvided;
+    const casRes = await commitTaskEffortCas(env.DB, {
+      orgId: ctx.orgId,
+      taskId,
+      actorId: auth.actor.id,
+      expectedVersion,
+      maxRetries: isAbsoluteMutation || expectedVersion !== null ? 0 : 6,
+      computePlan: (existing, prevEffs) => {
+        const nextTitle = body.title !== undefined && String(body.title || "").trim() ? String(body.title).trim().slice(0, 160) : existing.title;
+        const nextCountry = body.country_scope !== undefined ? String(body.country_scope || "ANY").trim().slice(0, 80) : existing.country_scope;
+        const nextProdKw = body.product_keywords !== undefined ? String(body.product_keywords || "").trim().slice(0, 300) : existing.product_keywords;
+        const nextStatus = ["active", "paused", "completed", "archived"].includes(body.status) ? body.status : existing.status;
+
+        const prevSummary = summarizeEffortRows(prevEffs);
+        const oldHours = prevEffs.length > 0 ? prevSummary.hoursTenths : Number(existing.hours_logged_tenths || 0);
+        let hoursDelta = 0;
+        let hoursChanged = false;
+        if (hasAddHours) {
+          hoursDelta = parsedAddHours;
+          hoursChanged = hoursDelta !== 0;
+        } else if (hasAbsHours) {
+          hoursDelta = parsedAbsHours - oldHours;
+          hoursChanged = hoursDelta !== 0;
+        }
+
+        let spendParsed = {
+          ok: true,
+          minor: prevEffs.length > 0 ? prevSummary.actualSpendMinor : existing.actual_spend_minor,
+          currency: prevEffs.length > 0 ? (prevSummary.spendCurrency || "") : (existing.spend_currency || ""),
+        };
+        if (spendProvided) {
+          const rawSpend = body.actual_spend_minor === undefined ? spendParsed.minor : body.actual_spend_minor;
+          spendParsed = parseTaskSpendStrict(rawSpend, body.spend_currency, spendParsed.currency || "");
+          if (!spendParsed.ok) {
+            return { ok: false, status: 400, code: spendParsed.code, error: spendParsed.error };
+          }
+        }
+
+        const oldSpendMinor = prevEffs.length > 0 ? prevSummary.actualSpendMinor : (existing.actual_spend_minor === null || existing.actual_spend_minor === undefined ? null : Number(existing.actual_spend_minor));
+        const oldSpendCur = String(prevEffs.length > 0 ? (prevSummary.spendCurrency || "") : (existing.spend_currency || "")).toUpperCase();
+        const newSpendMinor = spendParsed.minor;
+        const newSpendCur = String(spendParsed.currency || "").toUpperCase();
+        const spendChanged = spendProvided && (newSpendMinor !== oldSpendMinor || newSpendCur !== oldSpendCur);
+
+        const effortInserts = [];
+        if (hoursChanged || spendChanged) {
+          if (spendChanged && oldSpendMinor !== null && oldSpendCur && oldSpendCur !== "MULTI" && oldSpendCur !== newSpendCur) {
+            effortInserts.push({
+              id: randomId("eff"),
+              occurred_at: occ.iso,
+              hours_delta_tenths: 0,
+              spend_delta_minor: -oldSpendMinor,
+              spend_currency: oldSpendCur,
+              entry_type: "adjustment",
+              note: String(body.note || `币种更正冲销 ${oldSpendCur}`).slice(0, 240),
+            });
+            effortInserts.push({
+              id: randomId("eff"),
+              occurred_at: occ.iso,
+              hours_delta_tenths: hoursDelta,
+              spend_delta_minor: newSpendMinor,
+              spend_currency: newSpendMinor !== null ? newSpendCur : "",
+              entry_type: hoursDelta < 0 ? "adjustment" : "log",
+              note: String(body.note || "任务投入更新").slice(0, 240),
+            });
+          } else {
+            let spendDelta = null;
+            let spendCurForRow = "";
+            if (spendChanged) {
+              if (newSpendMinor === null && oldSpendMinor !== null && oldSpendCur && oldSpendCur !== "MULTI") {
+                spendDelta = -oldSpendMinor;
+                spendCurForRow = oldSpendCur;
+              } else if (newSpendMinor !== null) {
+                const baseMinor = oldSpendCur === newSpendCur && oldSpendMinor !== null ? oldSpendMinor : 0;
+                spendDelta = newSpendMinor - baseMinor;
+                spendCurForRow = newSpendCur;
+              }
+            }
+            const isAdj = hoursDelta < 0 || (spendDelta !== null && spendDelta < 0);
+            effortInserts.push({
+              id: randomId("eff"),
+              occurred_at: occ.iso,
+              hours_delta_tenths: hoursDelta,
+              spend_delta_minor: spendDelta,
+              spend_currency: spendCurForRow,
+              entry_type: isAdj ? "adjustment" : "log",
+              note: String(body.note || (isAdj ? "任务投入更正" : "任务投入追加")).slice(0, 240),
+            });
+          }
+        }
+
+        const taskMeta = {};
+        if (body.title !== undefined && String(body.title || "").trim()) taskMeta.title = nextTitle;
+        if (body.country_scope !== undefined) taskMeta.country_scope = nextCountry;
+        if (body.product_keywords !== undefined) taskMeta.product_keywords = nextProdKw;
+        if (["active", "paused", "completed", "archived"].includes(body.status)) taskMeta.status = nextStatus;
+
+        return {
+          ok: true,
+          now: nowIso(),
+          effortInserts,
+          taskMeta,
+        };
+      },
+    });
+
+    if (!casRes.ok) {
+      return json(
+        {
+          ok: false,
+          code: casRes.code,
+          error: casRes.error,
+          ...(casRes.current_version !== undefined ? { current_version: casRes.current_version } : {}),
+        },
+        casRes.status || 400,
+        cors
+      );
+    }
 
     return json(
       {
         ok: true,
         id: taskId,
-        title: nextTitle,
-        country_scope: nextCountry,
-        product_keywords: nextProdKw,
-        hours_logged_tenths: finalHours,
-        actual_spend_minor: finalSpendMinor,
-        spend_currency: finalSpendCur,
-        status: nextStatus,
-        effort_entries_added: effortInserts.length,
+        title: casRes.taskMeta.title,
+        country_scope: casRes.taskMeta.country_scope,
+        product_keywords: casRes.taskMeta.product_keywords,
+        hours_logged_tenths: casRes.reconciled.hoursTenths,
+        actual_spend_minor: casRes.reconciled.actualSpendMinor,
+        spend_currency: casRes.reconciled.spendCurrency || "",
+        effort_version: casRes.effortVersion,
+        status: casRes.taskMeta.status,
+        effort_entries_added: casRes.effortInserts.length,
       },
       200,
       cors

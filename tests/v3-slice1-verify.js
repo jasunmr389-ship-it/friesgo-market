@@ -1940,6 +1940,243 @@ async function main() {
     assert.equal(sharedProdOct.period_hours_tenths, 40);
     assert.equal(sharedProdNov, undefined, "N03-D: Oct shared task must NOT leak into Nov window");
 
+    // --- I01: Barrier-Synchronized Concurrent Effort & PATCH CAS Consistency Matrix ---
+    {
+      let barrierExpected = 0;
+      let barrierWaiters = [];
+      let failNextBatchLastStmt = false;
+      let txChain = Promise.resolve();
+
+      const setReadBarrier = (n) => {
+        barrierExpected = n;
+        barrierWaiters = [];
+      };
+      const maybeHitBarrier = async (sql) => {
+        if (barrierExpected > 0 && /FROM\s+discovery_task_efforts\s+WHERE/i.test(sql)) {
+          await new Promise((resolve) => {
+            barrierWaiters.push(resolve);
+            if (barrierWaiters.length >= barrierExpected) {
+              barrierExpected = 0;
+              const ws = barrierWaiters;
+              barrierWaiters = [];
+              setImmediate(() => ws.forEach((fn) => fn()));
+            }
+          });
+        }
+      };
+      const wrapI01Stmt = (sql, params = []) => ({
+        bind: (...args) => wrapI01Stmt(sql, args),
+        async first() {
+          const r = db.raw.prepare(sql).get(...params);
+          return r === undefined ? null : { ...r };
+        },
+        async all() {
+          await maybeHitBarrier(sql);
+          const rows = db.raw.prepare(sql).all(...params);
+          return { results: rows.map((r) => ({ ...r })), success: true };
+        },
+        async run() {
+          const info = db.raw.prepare(sql).run(...params);
+          return { success: true, meta: { changes: Number(info.changes || 0), last_row_id: Number(info.lastInsertRowid || 0) } };
+        },
+      });
+      const i01Db = {
+        raw: db.raw,
+        prepare: (sql) => wrapI01Stmt(sql, []),
+        batch(stmts) {
+          const runTx = async () => {
+            const failNow = failNextBatchLastStmt;
+            failNextBatchLastStmt = false;
+            db.raw.exec("BEGIN IMMEDIATE");
+            try {
+              const out = [];
+              for (let i = 0; i < stmts.length; i++) {
+                if (failNow && i === stmts.length - 1) throw new Error("SIMULATED_I01_BATCH_ABORT");
+                out.push(await stmts[i].run());
+              }
+              db.raw.exec("COMMIT");
+              return out;
+            } catch (err) {
+              try { db.raw.exec("ROLLBACK"); } catch {}
+              throw err;
+            }
+          };
+          const p = txChain.then(runTx, runTx);
+          txChain = p.catch(() => {});
+          return p;
+        },
+      };
+      const i01Env = makeEnv(i01Db);
+      const inspectTaskTotals = (tid) => {
+        const tRow = db.raw.prepare("SELECT title, hours_logged_tenths, actual_spend_minor, spend_currency, effort_version FROM discovery_tasks WHERE id = ?").get(tid);
+        const lHrs = Number(db.raw.prepare("SELECT COALESCE(SUM(hours_delta_tenths), 0) AS s FROM discovery_task_efforts WHERE task_id = ?").get(tid).s);
+        const lSpendRows = db.raw.prepare("SELECT spend_currency, COALESCE(SUM(spend_delta_minor), 0) AS s FROM discovery_task_efforts WHERE task_id = ? AND spend_delta_minor IS NOT NULL GROUP BY spend_currency").all(tid);
+        const lSpend = Object.fromEntries(lSpendRows.map((r) => [r.spend_currency, Number(r.s)]));
+        return { task: tRow, ledgerHours: lHrs, ledgerSpend: lSpend };
+      };
+
+      // I01-1: Concurrent same-currency additions (+10h / +10 USD cents twice from 100) -> BOTH 201, ledger===summary===120!
+      const tSame = (await callApi(worker, i01Env, "POST", "/api/v3/acq/tasks", {
+        token: adminToken, orgId: "org_friesgo_main",
+        body: { platform: "facebook", acquisition_mode: "manual_discovery", title: "TEST I01 Same-Cur Concurrent", country_scope: "Malaysia", hours_logged_tenths: 100, actual_spend_minor: 100, spend_currency: "USD", occurred_at: "2026-08-01" },
+      })).data.task.id;
+      setReadBarrier(2);
+      const [s1, s2] = await Promise.all([
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tSame}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-02", hours_delta_tenths: 10, spend_delta_minor: 10, spend_currency: "USD", entry_type: "log" } }),
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tSame}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-03", hours_delta_tenths: 10, spend_delta_minor: 10, spend_currency: "USD", entry_type: "log" } }),
+      ]);
+      assert.deepEqual([s1.status, s2.status], [201, 201], "I01-1: Concurrent additive logs must both succeed via CAS retry");
+      const stSame = inspectTaskTotals(tSame);
+      assert.equal(stSame.ledgerHours, 120);
+      assert.equal(stSame.task.hours_logged_tenths, 120);
+      assert.equal(stSame.ledgerSpend.USD, 120);
+      assert.equal(stSame.task.actual_spend_minor, 120);
+      assert.equal(stSame.task.effort_version, 3);
+
+      // I01-2: Concurrent mixed-currency additions (+10h USD 100 & +5h JPY 200 from 100h USD 100) -> BOTH 201, 115h & MULTI (JPY 200 + USD 200)
+      const tCross = (await callApi(worker, i01Env, "POST", "/api/v3/acq/tasks", {
+        token: adminToken, orgId: "org_friesgo_main",
+        body: { platform: "instagram", acquisition_mode: "manual_discovery", title: "TEST I01 Cross-Cur Concurrent", country_scope: "Malaysia", hours_logged_tenths: 100, actual_spend_minor: 100, spend_currency: "USD", occurred_at: "2026-08-01" },
+      })).data.task.id;
+      setReadBarrier(2);
+      const [m1, m2] = await Promise.all([
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tCross}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-02", hours_delta_tenths: 10, spend_delta_minor: 100, spend_currency: "USD", entry_type: "log" } }),
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tCross}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-03", hours_delta_tenths: 5, spend_delta_minor: 200, spend_currency: "JPY", entry_type: "log" } }),
+      ]);
+      assert.deepEqual([m1.status, m2.status], [201, 201]);
+      const stCross = inspectTaskTotals(tCross);
+      assert.equal(stCross.ledgerHours, 115);
+      assert.equal(stCross.task.hours_logged_tenths, 115);
+      assert.equal(stCross.ledgerSpend.USD, 200);
+      assert.equal(stCross.ledgerSpend.JPY, 200);
+      assert.equal(stCross.task.spend_currency, "MULTI");
+      assert.equal(stCross.task.actual_spend_minor, null);
+
+      // I01-3: Concurrent over-adjustments (-80h / -80 USD twice from 100) -> [201, 400], ledger===summary===20 (NEVER negative!)
+      const tAdj = (await callApi(worker, i01Env, "POST", "/api/v3/acq/tasks", {
+        token: adminToken, orgId: "org_friesgo_main",
+        body: { platform: "linkedin", acquisition_mode: "manual_discovery", title: "TEST I01 Over-Adjust Race", country_scope: "Indonesia", hours_logged_tenths: 100, actual_spend_minor: 100, spend_currency: "USD", occurred_at: "2026-08-01" },
+      })).data.task.id;
+      setReadBarrier(2);
+      const [a1, a2] = await Promise.all([
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tAdj}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-01", hours_delta_tenths: -80, spend_delta_minor: -80, spend_currency: "USD", entry_type: "adjustment" } }),
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tAdj}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-01", hours_delta_tenths: -80, spend_delta_minor: -80, spend_currency: "USD", entry_type: "adjustment" } }),
+      ]);
+      assert.deepEqual([a1.status, a2.status].sort(), [201, 400], "I01-3: Concurrent over-adjustments must allow at most 1 and reject the second 400");
+      const rejectedAdj = a1.status === 400 ? a1 : a2;
+      assert.equal(rejectedAdj.data.code, "NEGATIVE_CUMULATIVE_NOT_ALLOWED");
+      const stAdj = inspectTaskTotals(tAdj);
+      assert.equal(stAdj.ledgerHours, 20);
+      assert.equal(stAdj.task.hours_logged_tenths, 20);
+      assert.equal(stAdj.ledgerSpend.USD, 20);
+      assert.equal(stAdj.task.actual_spend_minor, 20);
+
+      // I01-4: Concurrent POST /efforts (+10h) vs absolute PATCH (hours_logged_tenths: 150) -> stale PATCH gets 409 TASK_EFFORT_CONFLICT, retry succeeds & reconciles!
+      const tPatchRace = (await callApi(worker, i01Env, "POST", "/api/v3/acq/tasks", {
+        token: adminToken, orgId: "org_friesgo_main",
+        body: { platform: "facebook", acquisition_mode: "manual_discovery", title: "TEST I01 Effort vs Absolute PATCH", country_scope: "Indonesia", hours_logged_tenths: 100, actual_spend_minor: 100, spend_currency: "USD", occurred_at: "2026-08-01" },
+      })).data.task.id;
+      setReadBarrier(2);
+      const [pEff, pAbs] = await Promise.all([
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tPatchRace}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-02", hours_delta_tenths: 10, entry_type: "log" } }),
+        callApi(worker, i01Env, "PATCH", `/api/v3/acq/tasks/${tPatchRace}`, { token: adminToken, orgId: "org_friesgo_main", body: { hours_logged_tenths: 150, occurred_at: "2026-08-03" } }),
+      ]);
+      assert.equal(pEff.status, 201);
+      assert.equal(pAbs.status, 409, "I01-4: Stale absolute PATCH must return 409 TASK_EFFORT_CONFLICT instead of clobbering concurrent effort");
+      assert.equal(pAbs.data.code, "TASK_EFFORT_CONFLICT");
+      assert.equal(pAbs.data.current_version, 2);
+      const stBeforeRetry = inspectTaskTotals(tPatchRace);
+      assert.equal(stBeforeRetry.ledgerHours, 110);
+      assert.equal(stBeforeRetry.task.hours_logged_tenths, 110);
+      // Retry PATCH with fresh expected_version=2 -> succeeds 200 and reconciles to 150!
+      const pRetry = await callApi(worker, i01Env, "PATCH", `/api/v3/acq/tasks/${tPatchRace}`, {
+        token: adminToken, orgId: "org_friesgo_main",
+        body: { hours_logged_tenths: 150, expected_version: pAbs.data.current_version, occurred_at: "2026-08-03" },
+      });
+      assert.equal(pRetry.status, 200);
+      assert.equal(pRetry.data.effort_version, 3);
+      const stAfterRetry = inspectTaskTotals(tPatchRace);
+      assert.equal(stAfterRetry.ledgerHours, 150);
+      assert.equal(stAfterRetry.task.hours_logged_tenths, 150);
+
+      // I01-5: Explicit expected_version conflict + retry + concurrent relative add_hours_tenths + metadata-only PATCH
+      const tOpt = (await callApi(worker, i01Env, "POST", "/api/v3/acq/tasks", {
+        token: adminToken, orgId: "org_friesgo_main",
+        body: { platform: "instagram", acquisition_mode: "manual_discovery", title: "TEST I01 Optimistic Lock & Metadata", country_scope: "Indonesia", hours_logged_tenths: 100, occurred_at: "2026-08-01" },
+      })).data.task.id;
+      setReadBarrier(2);
+      const [o1, o2] = await Promise.all([
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tOpt}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { expected_version: 1, occurred_at: "2026-08-02", hours_delta_tenths: 15, entry_type: "log" } }),
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tOpt}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { expected_version: 1, occurred_at: "2026-08-02", hours_delta_tenths: 25, entry_type: "log" } }),
+      ]);
+      assert.deepEqual([o1.status, o2.status].sort(), [201, 409]);
+      const oConflict = o1.status === 409 ? o1 : o2;
+      const oWinDelta = o1.status === 201 ? 15 : 25;
+      const oRetryDelta = o1.status === 201 ? 25 : 15;
+      const oRetry = await callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tOpt}/efforts`, {
+        token: adminToken, orgId: "org_friesgo_main",
+        body: { expected_version: oConflict.data.current_version, occurred_at: "2026-08-02", hours_delta_tenths: oRetryDelta, entry_type: "log" },
+      });
+      assert.equal(oRetry.status, 201);
+      assert.equal(inspectTaskTotals(tOpt).ledgerHours, 100 + oWinDelta + oRetryDelta);
+
+      // Concurrent relative PATCH (add_hours_tenths) + POST /efforts + metadata-only PATCH (title)
+      setReadBarrier(2);
+      const [relP, relE, metaP] = await Promise.all([
+        callApi(worker, i01Env, "PATCH", `/api/v3/acq/tasks/${tOpt}`, { token: adminToken, orgId: "org_friesgo_main", body: { add_hours_tenths: 10, occurred_at: "2026-08-03" } }),
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tOpt}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-03", hours_delta_tenths: 20, entry_type: "log" } }),
+        callApi(worker, i01Env, "PATCH", `/api/v3/acq/tasks/${tOpt}`, { token: adminToken, orgId: "org_friesgo_main", body: { title: "TEST I01 Renamed Concurrently" } }),
+      ]);
+      assert.equal(relP.status, 200);
+      assert.equal(relE.status, 201);
+      assert.equal(metaP.status, 200);
+      const stRel = inspectTaskTotals(tOpt);
+      assert.equal(stRel.ledgerHours, 170);
+      assert.equal(stRel.task.hours_logged_tenths, 170);
+      assert.equal(stRel.task.title, "TEST I01 Renamed Concurrently");
+
+      // I01-6: Different tasks concurrent (zero cross-task conflict) + Mid-batch failure rollback (zero partial row/summary)
+      const [tDiff1, tDiff2] = [
+        (await callApi(worker, i01Env, "POST", "/api/v3/acq/tasks", { token: adminToken, orgId: "org_friesgo_main", body: { platform: "facebook", acquisition_mode: "manual_discovery", title: "TEST I01 Diff Task 1", country_scope: "Oman", hours_logged_tenths: 20, occurred_at: "2026-08-01" } })).data.task.id,
+        (await callApi(worker, i01Env, "POST", "/api/v3/acq/tasks", { token: adminToken, orgId: "org_friesgo_main", body: { platform: "facebook", acquisition_mode: "manual_discovery", title: "TEST I01 Diff Task 2", country_scope: "Oman", hours_logged_tenths: 30, occurred_at: "2026-08-01" } })).data.task.id,
+      ];
+      setReadBarrier(2);
+      const [d1, d2] = await Promise.all([
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tDiff1}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-02", hours_delta_tenths: 5, entry_type: "log" } }),
+        callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tDiff2}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-02", hours_delta_tenths: 7, entry_type: "log" } }),
+      ]);
+      assert.deepEqual([d1.status, d2.status], [201, 201]);
+      assert.equal(inspectTaskTotals(tDiff1).ledgerHours, 25);
+      assert.equal(inspectTaskTotals(tDiff2).ledgerHours, 37);
+
+      // Mid-batch failure on tDiff1 -> full rollback (hours stay 25, version stays 2, 0 orphan ledger rows)
+      const verBeforeFail = inspectTaskTotals(tDiff1).task.effort_version;
+      const cntBeforeFail = Number(db.raw.prepare("SELECT COUNT(*) AS c FROM discovery_task_efforts WHERE task_id = ?").get(tDiff1).c);
+      failNextBatchLastStmt = true;
+      let abortStatus = 500;
+      try {
+        abortStatus = (await callApi(worker, i01Env, "POST", `/api/v3/acq/tasks/${tDiff1}/efforts`, { token: adminToken, orgId: "org_friesgo_main", body: { occurred_at: "2026-08-04", hours_delta_tenths: 99, entry_type: "log" } })).status;
+      } catch {
+        abortStatus = 500;
+      }
+      assert.ok(abortStatus >= 500);
+      const stAfterAbort = inspectTaskTotals(tDiff1);
+      assert.equal(stAfterAbort.ledgerHours, 25);
+      assert.equal(stAfterAbort.task.hours_logged_tenths, 25);
+      assert.equal(stAfterAbort.task.effort_version, verBeforeFail);
+      assert.equal(Number(db.raw.prepare("SELECT COUNT(*) AS c FROM discovery_task_efforts WHERE task_id = ?").get(tDiff1).c), cntBeforeFail);
+
+      // Verify period source-comparison API reconciles Malaysia concurrent tasks (Aug 1-3): FB 12.0h / USD 1.20 & IG 11.5h / JPY 200 + USD 2.00
+      const cmpMy = await callApi(worker, i01Env, "GET", "/api/v3/acq/source-comparison?from=2026-08-01&to=2026-08-03&country=Malaysia", { token: adminToken, orgId: "org_friesgo_main" });
+      assert.equal(cmpMy.status, 200);
+      const myFb = cmpMy.data.groups.find((g) => g.source_platform === "facebook" && g.acquisition_mode === "manual_discovery");
+      const myIg = cmpMy.data.groups.find((g) => g.source_platform === "instagram" && g.acquisition_mode === "manual_discovery");
+      assert.equal(myFb.hours_logged_tenths, 120);
+      assert.equal(myFb.spend_display, "USD 1.20");
+      assert.equal(myIg.hours_logged_tenths, 115);
+      assert.equal(myIg.spend_display, "JPY 200 + USD 2.00");
+    }
+
     // --- N08 API Contract Check: Full HTTPS deepLinkUrl inside wechatSafeCard ---
     const todosApi = await callApi(worker, env, "GET", "/api/v3/dispatch/my-todos?scope=all", {
       token: adminToken,
@@ -1957,7 +2194,7 @@ async function main() {
       "N08: wechatSafeCard must embed the full clickable deepLinkUrl"
     );
 
-    console.log("PASS BLOCK 7 (N01/N02/N03-PeriodLedger/N04/N08-API): CI gate, USD+JPY multi-currency isolation, period occurred_at ledger (title-edit immunity, multi-month + adjustment reconciliation, zero vs unrecorded, cross-product shared), UTC+8 half-open date window & HTTPS WeChat deep-link verified");
+    console.log("PASS BLOCK 7 (N01/N02/N03-PeriodLedger/I01-CAS/N04/N08-API): CI gate, USD+JPY multi-currency isolation, period occurred_at ledger, barrier-synchronized I01 CAS concurrency/conflict/retry/rollback, UTC+8 half-open date window & HTTPS WeChat deep-link verified");
   }
 
   // =========================================================================
@@ -2343,6 +2580,15 @@ async function main() {
       const cmpW3Txt = document.getElementById("v3Body").innerText;
       const cmpW3Md = String(window.__FG_V3_LAST_COMPARE_MD__ || "");
 
+      // I01-UI & Export Check: Concurrent Malaysia tasks (2026-08-01..2026-08-03) -> FB 12.0h / USD 1.20 & IG 11.5h / JPY 200 + USD 2.00
+      document.getElementById("v3CmpCountry").value = "Malaysia";
+      document.getElementById("v3CmpFrom").value = "2026-08-01";
+      document.getElementById("v3CmpTo").value = "2026-08-03";
+      document.getElementById("v3BtnRunCmp").click();
+      await new Promise((r) => setTimeout(r, 350));
+      const cmpMyTxt = document.getElementById("v3Body").innerText;
+      const cmpMyMd = String(window.__FG_V3_LAST_COMPARE_MD__ || "");
+
       // Reset compare filters so 360px mobile overflow tests full unfiltered table
       document.getElementById("v3CmpCountry").value = "";
       document.getElementById("v3CmpFrom").value = "";
@@ -2366,10 +2612,13 @@ async function main() {
         mainDraftRestored,
         hasTaskCurrencySelect,
         hasDateRangeInputs,
+        tasksTxt,
         cmpW2Txt,
         cmpW2Md,
         cmpW3Txt,
         cmpW3Md,
+        cmpMyTxt,
+        cmpMyMd,
         todosOk: todosTxt.includes("复制微信脱敏卡"),
         tasksOk: tasksTxt.includes("Facebook") && tasksTxt.includes("Instagram") && tasksTxt.includes("LinkedIn") && tasksTxt.includes("YouTube"),
         signalsOk: signalsTxt.includes("可编辑回复草稿") && signalsTxt.includes("不计触达"),
@@ -2397,6 +2646,13 @@ async function main() {
     assert.ok(epochCheck.cmpW3Txt.includes("5.0") && epochCheck.cmpW3Txt.includes("JPY 200"), "N03-UI W3: Must display period 5.0h and JPY 200");
     assert.ok(!epochCheck.cmpW3Md.includes("| 13.0 | USD 20.00 |"), "N03-Export W3: Nov 28 export must NOT repeat Nov 1-27 period effort");
     assert.ok(epochCheck.cmpW3Md.includes("| 5.0 | JPY 200 | 28.0h / JPY 200 + USD 70.00 |"), "N03-Export W3: Nov 28 Markdown export must match exact period 5.0h / JPY 200");
+    // I01-UI & Export reconciliation assertions for concurrent Malaysia tasks (Tab 2 Tasks === Tab 4 Compare === Exported Markdown!)
+    assert.ok(epochCheck.tasksTxt.includes("12.0h") && epochCheck.tasksTxt.includes("USD 1.20"), "I01-UI Tab2: Same-cur concurrent task must show reconciled 12.0h & USD 1.20");
+    assert.ok(epochCheck.tasksTxt.includes("11.5h") && epochCheck.tasksTxt.includes("JPY 200 + USD 2.00"), "I01-UI Tab2: Cross-cur concurrent task must show reconciled 11.5h & JPY 200 + USD 2.00");
+    assert.ok(epochCheck.cmpMyTxt.includes("12.0") && epochCheck.cmpMyTxt.includes("USD 1.20"), "I01-UI Tab4: Compare table must reconcile 12.0h & USD 1.20");
+    assert.ok(epochCheck.cmpMyTxt.includes("11.5") && epochCheck.cmpMyTxt.includes("JPY 200 + USD 2.00"), "I01-UI Tab4: Compare table must reconcile 11.5h & JPY 200 + USD 2.00");
+    assert.ok(epochCheck.cmpMyMd.includes("| 12.0 | USD 1.20 | 12.0h / USD 1.20 |"), "I01-Export: Markdown must match reconciled concurrent FB task");
+    assert.ok(epochCheck.cmpMyMd.includes("| 11.5 | JPY 200 + USD 2.00 | 11.5h / JPY 200 + USD 2.00 |"), "I01-Export: Markdown must match reconciled concurrent IG task");
     assert.equal(epochCheck.projectsOk, true, "Tab 5 projects + blind-dedupe manager hints must render");
     assert.equal(epochCheck.adminOk, true, "Tab 6 applications inbox + catalog manager must render");
 
