@@ -186,6 +186,22 @@ CREATE TABLE IF NOT EXISTS discovery_tasks (
 );
 CREATE INDEX IF NOT EXISTS idx_disc_tasks_org ON discovery_tasks(org_id, platform, status, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS discovery_task_efforts (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  occurred_at TEXT NOT NULL,
+  hours_delta_tenths INTEGER NOT NULL DEFAULT 0,
+  spend_delta_minor INTEGER,
+  spend_currency TEXT NOT NULL DEFAULT '',
+  entry_type TEXT NOT NULL DEFAULT 'log' CHECK(entry_type IN ('initial','log','adjustment')),
+  note TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_disc_efforts_org_occ ON discovery_task_efforts(org_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_disc_efforts_task ON discovery_task_efforts(org_id, task_id, occurred_at DESC);
+
 CREATE TABLE IF NOT EXISTS demand_signals (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,

@@ -242,6 +242,100 @@ function parseTaskSpendStrict(actualSpendRaw, currencyRaw, fallbackCurrency = ""
 }
 
 /**
+ * N03: Parse occurred_at for timestamped discovery task effort/spend ledger entries.
+ * Bare YYYY-MM-DD defaults to 12:00 UTC+8 (04:00:00.000Z) so it unambiguously lands inside that UTC+8 calendar day.
+ */
+function parseEffortOccurredAt(raw, fallbackIso) {
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    return { ok: true, iso: fallbackIso };
+  }
+  const s = String(raw).trim();
+  const bare = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (bare) {
+    const y = Number(bare[1]);
+    const m = Number(bare[2]);
+    const d = Number(bare[3]);
+    const chk = new Date(Date.UTC(y, m - 1, d));
+    if (chk.getUTCFullYear() !== y || chk.getUTCMonth() !== m - 1 || chk.getUTCDate() !== d) {
+      return { ok: false, code: "INVALID_OCCURRED_AT", error: `投入发生日期无效：${s}` };
+    }
+    return { ok: true, iso: new Date(Date.UTC(y, m - 1, d, 4, 0, 0)).toISOString() };
+  }
+  const ms = Date.parse(s);
+  if (!Number.isFinite(ms)) {
+    return { ok: false, code: "INVALID_OCCURRED_AT", error: `投入发生时间 occurred_at 格式无效：${s}` };
+  }
+  return { ok: true, iso: new Date(ms).toISOString() };
+}
+
+/**
+ * N02/N03: Summarize a per-currency BigInt minor map into deterministic API fields without ever summing mixed currencies.
+ */
+function summarizeSpendMap(spendMapBig) {
+  const spendByCurrency = {};
+  const currencyCodes = [];
+  if (spendMapBig && spendMapBig.size > 0) {
+    for (const [code, minorBig] of Array.from(spendMapBig.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+      currencyCodes.push(code);
+      let decimals = 2;
+      let formatted = `${code} ${minorBig.toString()}`;
+      try {
+        const spec = getCurrencySpec(code);
+        decimals = spec.decimals;
+        formatted = `${spec.code} ${formatMinor(minorBig, spec.code)}`;
+      } catch {}
+      spendByCurrency[code] = {
+        minor: Number(minorBig),
+        decimals,
+        formatted,
+      };
+    }
+  }
+  let spendStatus = "unknown_not_recorded";
+  let actualSpendMinor = null;
+  let spendCurrency = null;
+  let spendDisplay = "未记录";
+  if (currencyCodes.length === 1) {
+    spendStatus = "recorded";
+    spendCurrency = currencyCodes[0];
+    actualSpendMinor = spendByCurrency[spendCurrency].minor;
+    spendDisplay = spendByCurrency[spendCurrency].formatted;
+  } else if (currencyCodes.length > 1) {
+    spendStatus = "multi_currency_separate";
+    spendCurrency = "MULTI";
+    actualSpendMinor = null;
+    spendDisplay = currencyCodes.map((c) => spendByCurrency[c].formatted).join(" + ");
+  }
+  return { spendByCurrency, spendStatus, actualSpendMinor, spendCurrency, spendDisplay };
+}
+
+/**
+ * N03: Reconcile hours and per-currency spend across a list of discovery_task_efforts ledger rows.
+ */
+function summarizeEffortRows(rows) {
+  let hoursTenths = 0;
+  const spendByCurBig = new Map();
+  let spendRecordedCount = 0;
+  for (const r of rows || []) {
+    hoursTenths += Number(r.hours_delta_tenths || 0);
+    if (r.spend_delta_minor !== null && r.spend_delta_minor !== undefined) {
+      const curCode = String(r.spend_currency || "UNSPECIFIED").trim().toUpperCase() || "UNSPECIFIED";
+      const deltaBig = BigInt(Math.trunc(Number(r.spend_delta_minor) || 0));
+      spendRecordedCount += 1;
+      spendByCurBig.set(curCode, (spendByCurBig.get(curCode) || 0n) + deltaBig);
+    }
+  }
+  const summary = summarizeSpendMap(spendByCurBig);
+  return {
+    entryCount: (rows || []).length,
+    hoursTenths,
+    spendRecordedCount,
+    spendByCurBig,
+    ...summary,
+  };
+}
+
+/**
  * N04: Strict half-open date window parser (bare YYYY-MM-DD interpreted in UTC+8 by default so same-day to=YYYY-MM-DD includes entire day).
  */
 function parseDateWindow(fromRaw, toRaw, tzOffsetRaw) {
@@ -992,14 +1086,44 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
   }
 
   // =========================================================================
-  // 6. Social Demand Discovery Tasks (ACQ01-03: FB/IG/LI first round, YouTube future)
+  // 6. Social Demand Discovery Tasks & Timestamped Effort/Spend Ledger (ACQ01-03 / N02 / N03)
   // =========================================================================
   if (path === "/api/v3/acq/tasks" && method === "GET") {
-    const res = await env.DB
-      .prepare("SELECT * FROM discovery_tasks WHERE org_id = ? ORDER BY updated_at DESC LIMIT 100")
-      .bind(ctx.orgId)
-      .all();
-    return json({ ok: true, tasks: res.results || [] }, 200, cors);
+    const [res, effRes] = await Promise.all([
+      env.DB.prepare("SELECT * FROM discovery_tasks WHERE org_id = ? ORDER BY updated_at DESC LIMIT 100").bind(ctx.orgId).all(),
+      env.DB.prepare("SELECT * FROM discovery_task_efforts WHERE org_id = ? ORDER BY occurred_at ASC, created_at ASC").bind(ctx.orgId).all(),
+    ]);
+    const effByTask = new Map();
+    for (const e of effRes.results || []) {
+      if (!effByTask.has(e.task_id)) effByTask.set(e.task_id, []);
+      effByTask.get(e.task_id).push(e);
+    }
+    const tasks = (res.results || []).map((t) => {
+      const rows = effByTask.get(t.id) || [];
+      if (rows.length > 0) {
+        const s = summarizeEffortRows(rows);
+        return {
+          ...t,
+          effort_entries_count: s.entryCount,
+          spend_by_currency: s.spendByCurrency,
+          spend_display: s.spendDisplay,
+          spend_status: s.spendStatus,
+        };
+      }
+      const fallbackMap = new Map();
+      if (t.actual_spend_minor !== null && t.actual_spend_minor !== undefined && t.spend_currency) {
+        fallbackMap.set(String(t.spend_currency).toUpperCase(), BigInt(Math.trunc(Number(t.actual_spend_minor) || 0)));
+      }
+      const fs = summarizeSpendMap(fallbackMap);
+      return {
+        ...t,
+        effort_entries_count: 0,
+        spend_by_currency: fs.spendByCurrency,
+        spend_display: fs.spendDisplay,
+        spend_status: fs.spendStatus,
+      };
+    });
+    return json({ ok: true, tasks }, 200, cors);
   }
 
   if (path === "/api/v3/acq/tasks" && method === "POST") {
@@ -1032,40 +1156,76 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     }
 
     const now = nowIso();
+    const occ = parseEffortOccurredAt(body.occurred_at, now);
+    if (!occ.ok) {
+      return json({ ok: false, code: occ.code, error: occ.error }, 400, cors);
+    }
+    const createdAt = occ.iso;
     const id = randomId("tsk");
+    const productKeywords = String(body.product_keywords || body.product_line || "").trim().slice(0, 300);
 
-    await env.DB
-      .prepare(
-        `INSERT INTO discovery_tasks (
-           id, org_id, platform, acquisition_mode, title, target_buyer_roles, product_keywords,
-           intent_keywords, exclude_keywords, language, country_scope, owner_employee_id,
-           review_window_days, candidate_cap, hours_logged_tenths, actual_spend_minor, spend_currency,
-           status, created_by, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`
-      )
-      .bind(
-        id,
-        ctx.orgId,
-        platform,
-        acqMode,
-        title.slice(0, 160),
-        String(body.target_buyer_roles || "").slice(0, 200),
-        String(body.product_keywords || "").slice(0, 300),
-        String(body.intent_keywords || "").slice(0, 300),
-        String(body.exclude_keywords || "").slice(0, 300),
-        String(body.language || "").slice(0, 40),
-        String(body.country_scope || "ANY").slice(0, 80),
-        String(body.owner_employee_id || auth.actor.id).trim(),
-        Math.max(1, Math.min(90, Number(body.review_window_days || 14) || 14)),
-        Math.max(1, Math.min(1000, Number(body.candidate_cap || 50) || 50)),
-        hoursTenths,
-        spendParsed.minor,
-        spendParsed.currency,
-        auth.actor.id,
-        now,
-        now
-      )
-      .run();
+    const stmts = [
+      env.DB
+        .prepare(
+          `INSERT INTO discovery_tasks (
+             id, org_id, platform, acquisition_mode, title, target_buyer_roles, product_keywords,
+             intent_keywords, exclude_keywords, language, country_scope, owner_employee_id,
+             review_window_days, candidate_cap, hours_logged_tenths, actual_spend_minor, spend_currency,
+             status, created_by, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`
+        )
+        .bind(
+          id,
+          ctx.orgId,
+          platform,
+          acqMode,
+          title.slice(0, 160),
+          String(body.target_buyer_roles || "").slice(0, 200),
+          productKeywords,
+          String(body.intent_keywords || "").slice(0, 300),
+          String(body.exclude_keywords || "").slice(0, 300),
+          String(body.language || "").slice(0, 40),
+          String(body.country_scope || "ANY").slice(0, 80),
+          String(body.owner_employee_id || auth.actor.id).trim(),
+          Math.max(1, Math.min(90, Number(body.review_window_days || 14) || 14)),
+          Math.max(1, Math.min(1000, Number(body.candidate_cap || 50) || 50)),
+          hoursTenths,
+          spendParsed.minor,
+          spendParsed.currency,
+          auth.actor.id,
+          createdAt,
+          now
+        ),
+    ];
+
+    // N03: Record timestamped initial effort/spend entry in discovery_task_efforts whenever initial effort or spend (including explicit 0 spend with currency) is supplied
+    let initialEffortId = null;
+    if (hoursTenths > 0 || spendParsed.minor !== null) {
+      initialEffortId = randomId("eff");
+      stmts.push(
+        env.DB
+          .prepare(
+            `INSERT INTO discovery_task_efforts (
+               id, org_id, task_id, occurred_at, hours_delta_tenths, spend_delta_minor, spend_currency,
+               entry_type, note, created_by, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, 'initial', ?, ?, ?)`
+          )
+          .bind(
+            initialEffortId,
+            ctx.orgId,
+            id,
+            occ.iso,
+            hoursTenths,
+            spendParsed.minor,
+            spendParsed.minor !== null ? spendParsed.currency : "",
+            String(body.effort_note || "初始建单投入").slice(0, 240),
+            auth.actor.id,
+            now
+          )
+      );
+    }
+
+    await executeAtomicBatch(env.DB, stmts);
 
     return json(
       {
@@ -1077,9 +1237,182 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
           acquisition_mode: acqMode,
           title,
           country_scope: String(body.country_scope || "ANY"),
+          product_keywords: productKeywords,
           hours_logged_tenths: hoursTenths,
           actual_spend_minor: spendParsed.minor,
           spend_currency: spendParsed.currency,
+          created_at: createdAt,
+          initial_effort_id: initialEffortId,
+        },
+      },
+      201,
+      cors
+    );
+  }
+
+  // N03: Dedicated timestamped effort/spend ledger routes per discovery task
+  const taskEffortsMatch = path.match(/^\/api\/v3\/acq\/tasks\/([^/]+)\/efforts$/);
+  if (taskEffortsMatch && method === "GET") {
+    const taskId = decodeURIComponent(taskEffortsMatch[1]);
+    const task = await env.DB.prepare("SELECT * FROM discovery_tasks WHERE id = ? AND org_id = ?").bind(taskId, ctx.orgId).first();
+    if (!task) return json({ ok: false, code: "TASK_NOT_FOUND", error: "发现任务不存在" }, 404, cors);
+    const effRes = await env.DB
+      .prepare("SELECT * FROM discovery_task_efforts WHERE org_id = ? AND task_id = ? ORDER BY occurred_at ASC, created_at ASC")
+      .bind(ctx.orgId, taskId)
+      .all();
+    const efforts = effRes.results || [];
+    const summary = summarizeEffortRows(efforts);
+    return json(
+      {
+        ok: true,
+        task_id: taskId,
+        efforts,
+        reconciled: {
+          entry_count: summary.entryCount,
+          hours_logged_tenths: summary.hoursTenths,
+          actual_spend_minor: summary.actualSpendMinor,
+          spend_currency: summary.spendCurrency,
+          spend_by_currency: summary.spendByCurrency,
+          spend_display: summary.spendDisplay,
+          spend_status: summary.spendStatus,
+        },
+      },
+      200,
+      cors
+    );
+  }
+
+  if (taskEffortsMatch && method === "POST") {
+    if (isPartnerRole(ctx)) {
+      return json({ ok: false, code: "FORBIDDEN_DISCOVERY_TASK", error: "无权登记任务投入明细" }, 403, cors);
+    }
+    const taskId = decodeURIComponent(taskEffortsMatch[1]);
+    const existing = await env.DB.prepare("SELECT * FROM discovery_tasks WHERE id = ? AND org_id = ?").bind(taskId, ctx.orgId).first();
+    if (!existing) return json({ ok: false, code: "TASK_NOT_FOUND", error: "发现任务不存在" }, 404, cors);
+    const body = await parseJsonBody(request, 8192);
+
+    const entryType = String(body.entry_type || "log").trim().toLowerCase();
+    if (!["log", "adjustment"].includes(entryType)) {
+      return json({ ok: false, code: "INVALID_ENTRY_TYPE", error: "entry_type 仅支持 log（新增投入）或 adjustment（历史更正）" }, 400, cors);
+    }
+    const allowNeg = entryType === "adjustment";
+
+    let hoursDelta = 0;
+    if (body.hours_delta_tenths !== undefined && body.hours_delta_tenths !== null && body.hours_delta_tenths !== "") {
+      try {
+        hoursDelta = Number(parseExactSafeIntBigInt(body.hours_delta_tenths, "hours_delta_tenths", { allowNegative: allowNeg }));
+      } catch (err) {
+        return json({ ok: false, code: "INVALID_HOURS", error: `工时变动 hours_delta_tenths 无效：${err.message}` }, 400, cors);
+      }
+    }
+
+    let spendDelta = null;
+    let spendCurrency = "";
+    if (body.spend_delta_minor !== undefined && body.spend_delta_minor !== null && body.spend_delta_minor !== "") {
+      try {
+        spendDelta = Number(parseExactSafeIntBigInt(body.spend_delta_minor, "spend_delta_minor", { allowNegative: allowNeg }));
+      } catch (err) {
+        return json({ ok: false, code: "INVALID_SPEND_AMOUNT", error: `费用变动 spend_delta_minor 无效：${err.message}` }, 400, cors);
+      }
+      const rawCur = String(body.spend_currency || "").trim().toUpperCase();
+      if (!rawCur) {
+        return json({ ok: false, code: "SPEND_CURRENCY_REQUIRED", error: "登记费用明细时必须明确币种 spend_currency" }, 400, cors);
+      }
+      try {
+        spendCurrency = getCurrencySpec(rawCur).code;
+      } catch {
+        return json({ ok: false, code: "INVALID_SPEND_CURRENCY", error: `不支持的币种 ${rawCur}` }, 400, cors);
+      }
+    }
+
+    if (hoursDelta === 0 && spendDelta === null) {
+      return json({ ok: false, code: "EMPTY_EFFORT_ENTRY", error: "请至少填写工时变动或费用投入（含显式 0 费用确认）" }, 400, cors);
+    }
+
+    const now = nowIso();
+    const occ = parseEffortOccurredAt(body.occurred_at, now);
+    if (!occ.ok) {
+      return json({ ok: false, code: occ.code, error: occ.error }, 400, cors);
+    }
+
+    // Reconcile against existing ledger rows to guarantee cumulative hours >= 0 and per-currency cumulative spend >= 0
+    const prevEffRes = await env.DB
+      .prepare("SELECT * FROM discovery_task_efforts WHERE org_id = ? AND task_id = ?")
+      .bind(ctx.orgId, taskId)
+      .all();
+    const prevEffs = prevEffRes.results || [];
+    const newRow = {
+      id: randomId("eff"),
+      org_id: ctx.orgId,
+      task_id: taskId,
+      occurred_at: occ.iso,
+      hours_delta_tenths: hoursDelta,
+      spend_delta_minor: spendDelta,
+      spend_currency: spendCurrency,
+      entry_type: entryType,
+      note: String(body.note || "").trim().slice(0, 240),
+      created_by: auth.actor.id,
+      created_at: now,
+    };
+    const nextSummary = summarizeEffortRows([...prevEffs, newRow]);
+    if (nextSummary.hoursTenths < 0) {
+      return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: "更正后任务累计工时不能为负数" }, 400, cors);
+    }
+    for (const [cur, amtBig] of nextSummary.spendByCurBig.entries()) {
+      if (amtBig < 0n) {
+        return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: `更正后任务 ${cur} 累计费用不能为负数` }, 400, cors);
+      }
+    }
+
+    const stmts = [
+      env.DB
+        .prepare(
+          `INSERT INTO discovery_task_efforts (
+             id, org_id, task_id, occurred_at, hours_delta_tenths, spend_delta_minor, spend_currency,
+             entry_type, note, created_by, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          newRow.id,
+          newRow.org_id,
+          newRow.task_id,
+          newRow.occurred_at,
+          newRow.hours_delta_tenths,
+          newRow.spend_delta_minor,
+          newRow.spend_currency,
+          newRow.entry_type,
+          newRow.note,
+          newRow.created_by,
+          newRow.created_at
+        ),
+      env.DB
+        .prepare(
+          `UPDATE discovery_tasks
+           SET hours_logged_tenths = ?, actual_spend_minor = ?, spend_currency = ?, updated_at = ?
+           WHERE id = ? AND org_id = ?`
+        )
+        .bind(
+          nextSummary.hoursTenths,
+          nextSummary.actualSpendMinor,
+          nextSummary.spendCurrency || "",
+          now,
+          taskId,
+          ctx.orgId
+        ),
+    ];
+    await executeAtomicBatch(env.DB, stmts);
+
+    return json(
+      {
+        ok: true,
+        effort: newRow,
+        reconciled: {
+          hours_logged_tenths: nextSummary.hoursTenths,
+          actual_spend_minor: nextSummary.actualSpendMinor,
+          spend_currency: nextSummary.spendCurrency,
+          spend_by_currency: nextSummary.spendByCurrency,
+          spend_display: nextSummary.spendDisplay,
+          spend_status: nextSummary.spendStatus,
         },
       },
       201,
@@ -1097,12 +1430,30 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     if (!existing) return json({ ok: false, code: "TASK_NOT_FOUND", error: "发现任务不存在" }, 404, cors);
     const body = await parseJsonBody(request, 8192);
 
-    let nextHours = Number(existing.hours_logged_tenths || 0);
+    const now = nowIso();
+    const occ = parseEffortOccurredAt(body.occurred_at, now);
+    if (!occ.ok) {
+      return json({ ok: false, code: occ.code, error: occ.error }, 400, cors);
+    }
+
+    const nextTitle = body.title !== undefined && String(body.title || "").trim() ? String(body.title).trim().slice(0, 160) : existing.title;
+    const nextCountry = body.country_scope !== undefined ? String(body.country_scope || "ANY").trim().slice(0, 80) : existing.country_scope;
+    const nextProdKw = body.product_keywords !== undefined ? String(body.product_keywords || "").trim().slice(0, 300) : existing.product_keywords;
+    const nextStatus = ["active", "paused", "completed", "archived"].includes(body.status) ? body.status : existing.status;
+
+    const oldHours = Number(existing.hours_logged_tenths || 0);
+    let hoursChanged = false;
+    let hoursDelta = 0;
+    let nextHours = oldHours;
     if (body.add_hours_tenths !== undefined && body.add_hours_tenths !== null && body.add_hours_tenths !== "") {
       try {
-        nextHours += Number(parseExactSafeIntBigInt(body.add_hours_tenths, "add_hours_tenths", { allowNegative: false }));
+        hoursDelta = Number(parseExactSafeIntBigInt(body.add_hours_tenths, "add_hours_tenths", { allowNegative: false }));
       } catch {
         return json({ ok: false, code: "INVALID_HOURS", error: "追加工时 add_hours_tenths 须为非负整数" }, 400, cors);
+      }
+      if (hoursDelta !== 0) {
+        hoursChanged = true;
+        nextHours = oldHours + hoursDelta;
       }
     } else if (body.hours_logged_tenths !== undefined && body.hours_logged_tenths !== null && body.hours_logged_tenths !== "") {
       try {
@@ -1110,31 +1461,136 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       } catch {
         return json({ ok: false, code: "INVALID_HOURS", error: "工时 hours_logged_tenths 须为非负整数" }, 400, cors);
       }
+      hoursDelta = nextHours - oldHours;
+      hoursChanged = hoursDelta !== 0;
     }
 
-    const rawSpend = body.actual_spend_minor === undefined ? existing.actual_spend_minor : body.actual_spend_minor;
-    const spendParsed = parseTaskSpendStrict(rawSpend, body.spend_currency, existing.spend_currency || "");
-    if (!spendParsed.ok) {
-      return json({ ok: false, code: spendParsed.code, error: spendParsed.error }, 400, cors);
+    const spendProvided = body.actual_spend_minor !== undefined || body.spend_currency !== undefined;
+    let spendParsed = { ok: true, minor: existing.actual_spend_minor, currency: existing.spend_currency || "" };
+    if (spendProvided) {
+      const rawSpend = body.actual_spend_minor === undefined ? existing.actual_spend_minor : body.actual_spend_minor;
+      spendParsed = parseTaskSpendStrict(rawSpend, body.spend_currency, existing.spend_currency || "");
+      if (!spendParsed.ok) {
+        return json({ ok: false, code: spendParsed.code, error: spendParsed.error }, 400, cors);
+      }
     }
 
-    const nextStatus = ["active", "paused", "completed", "archived"].includes(body.status) ? body.status : existing.status;
-    await env.DB
-      .prepare(
-        `UPDATE discovery_tasks
-         SET hours_logged_tenths = ?, actual_spend_minor = ?, spend_currency = ?, status = ?, updated_at = ?
-         WHERE id = ? AND org_id = ?`
-      )
-      .bind(nextHours, spendParsed.minor, spendParsed.currency, nextStatus, nowIso(), taskId, ctx.orgId)
-      .run();
+    // N03: Metadata-only edits (title/status/country_scope/product_keywords) MUST NOT create ledger rows or move historical effort into updated_at!
+    const oldSpendMinor = existing.actual_spend_minor === null || existing.actual_spend_minor === undefined ? null : Number(existing.actual_spend_minor);
+    const oldSpendCur = String(existing.spend_currency || "").toUpperCase();
+    const newSpendMinor = spendParsed.minor;
+    const newSpendCur = String(spendParsed.currency || "").toUpperCase();
+    const spendChanged = spendProvided && (newSpendMinor !== oldSpendMinor || newSpendCur !== oldSpendCur);
+
+    const effortInserts = [];
+    if (hoursChanged || spendChanged) {
+      if (spendChanged && oldSpendMinor !== null && oldSpendCur && oldSpendCur !== "MULTI" && oldSpendCur !== newSpendCur) {
+        // Currency switched -> reverse old currency and record new currency atomically
+        effortInserts.push({
+          id: randomId("eff"),
+          hoursDelta: 0,
+          spendDelta: -oldSpendMinor,
+          spendCurrency: oldSpendCur,
+          entryType: "adjustment",
+          note: String(body.note || `币种更正冲销 ${oldSpendCur}`).slice(0, 240),
+        });
+        effortInserts.push({
+          id: randomId("eff"),
+          hoursDelta,
+          spendDelta: newSpendMinor,
+          spendCurrency: newSpendMinor !== null ? newSpendCur : "",
+          entryType: hoursDelta < 0 ? "adjustment" : "log",
+          note: String(body.note || "任务投入更新").slice(0, 240),
+        });
+      } else {
+        let spendDelta = null;
+        let spendCurForRow = "";
+        if (spendChanged) {
+          if (newSpendMinor === null && oldSpendMinor !== null && oldSpendCur && oldSpendCur !== "MULTI") {
+            spendDelta = -oldSpendMinor;
+            spendCurForRow = oldSpendCur;
+          } else if (newSpendMinor !== null) {
+            const baseMinor = oldSpendCur === newSpendCur && oldSpendMinor !== null ? oldSpendMinor : 0;
+            spendDelta = newSpendMinor - baseMinor;
+            spendCurForRow = newSpendCur;
+          }
+        }
+        const isAdj = hoursDelta < 0 || (spendDelta !== null && spendDelta < 0);
+        effortInserts.push({
+          id: randomId("eff"),
+          hoursDelta,
+          spendDelta,
+          spendCurrency: spendCurForRow,
+          entryType: isAdj ? "adjustment" : "log",
+          note: String(body.note || (isAdj ? "任务投入更正" : "任务投入追加")).slice(0, 240),
+        });
+      }
+    }
+
+    // Reconcile final task summary from ledger whenever effort rows exist or are being inserted
+    let finalHours = nextHours;
+    let finalSpendMinor = spendParsed.minor;
+    let finalSpendCur = spendParsed.currency;
+    if (effortInserts.length > 0) {
+      const prevEffRes = await env.DB
+        .prepare("SELECT * FROM discovery_task_efforts WHERE org_id = ? AND task_id = ?")
+        .bind(ctx.orgId, taskId)
+        .all();
+      const simulated = [
+        ...(prevEffRes.results || []),
+        ...effortInserts.map((x) => ({
+          hours_delta_tenths: x.hoursDelta,
+          spend_delta_minor: x.spendDelta,
+          spend_currency: x.spendCurrency,
+        })),
+      ];
+      const rec = summarizeEffortRows(simulated);
+      if (rec.hoursTenths < 0) {
+        return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: "更正后累计工时不能为负数" }, 400, cors);
+      }
+      for (const [cur, amtBig] of rec.spendByCurBig.entries()) {
+        if (amtBig < 0n) {
+          return json({ ok: false, code: "NEGATIVE_CUMULATIVE_NOT_ALLOWED", error: `更正后累计 ${cur} 费用不能为负数` }, 400, cors);
+        }
+      }
+      finalHours = rec.hoursTenths;
+      finalSpendMinor = rec.actualSpendMinor;
+      finalSpendCur = rec.spendCurrency || "";
+    }
+
+    const stmts = effortInserts.map((x) =>
+      env.DB
+        .prepare(
+          `INSERT INTO discovery_task_efforts (
+             id, org_id, task_id, occurred_at, hours_delta_tenths, spend_delta_minor, spend_currency,
+             entry_type, note, created_by, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(x.id, ctx.orgId, taskId, occ.iso, x.hoursDelta, x.spendDelta, x.spendCurrency, x.entryType, x.note, auth.actor.id, now)
+    );
+    stmts.push(
+      env.DB
+        .prepare(
+          `UPDATE discovery_tasks
+           SET title = ?, country_scope = ?, product_keywords = ?, hours_logged_tenths = ?, actual_spend_minor = ?, spend_currency = ?, status = ?, updated_at = ?
+           WHERE id = ? AND org_id = ?`
+        )
+        .bind(nextTitle, nextCountry, nextProdKw, finalHours, finalSpendMinor, finalSpendCur, nextStatus, now, taskId, ctx.orgId)
+    );
+    await executeAtomicBatch(env.DB, stmts);
+
     return json(
       {
         ok: true,
         id: taskId,
-        hours_logged_tenths: nextHours,
-        actual_spend_minor: spendParsed.minor,
-        spend_currency: spendParsed.currency,
+        title: nextTitle,
+        country_scope: nextCountry,
+        product_keywords: nextProdKw,
+        hours_logged_tenths: finalHours,
+        actual_spend_minor: finalSpendMinor,
+        spend_currency: finalSpendCur,
         status: nextStatus,
+        effort_entries_added: effortInserts.length,
       },
       200,
       cors
@@ -1838,7 +2294,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
 
   // =========================================================================
   // 8. ACQ10 / N02 / N03 / N04 Source Comparison with Honest Denominators,
-  //    Per-Currency Spend Breakdown, Matching Task Scope/Window & Zero-Yield Tasks
+  //    Period-Accurate Effort/Spend Ledger (occurred_at), Per-Currency Isolation & Zero-Yield Tasks
   // =========================================================================
   if (path === "/api/v3/acq/source-comparison" && method === "GET") {
     if (isPartnerRole(ctx)) {
@@ -1854,44 +2310,77 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     if (!win.ok) {
       return json({ ok: false, code: win.code || "INVALID_DATE_RANGE", error: win.error }, 400, cors);
     }
+    const hasDateFilter = Boolean(fromDate || toDate);
 
-    const sigRes = await env.DB
-      .prepare(
-        `SELECT s.*, i.id AS inq_id, i.status AS inq_status, i.linked_quote_id AS inq_quote_id
-         FROM demand_signals s
-         LEFT JOIN inquiries i ON i.id = s.linked_inquiry_id AND i.org_id = s.org_id
-         WHERE s.org_id = ?`
-      )
-      .bind(ctx.orgId)
-      .all();
+    const [sigRes, taskRes, effRes] = await Promise.all([
+      env.DB
+        .prepare(
+          `SELECT s.*, i.id AS inq_id, i.status AS inq_status, i.linked_quote_id AS inq_quote_id
+           FROM demand_signals s
+           LEFT JOIN inquiries i ON i.id = s.linked_inquiry_id AND i.org_id = s.org_id
+           WHERE s.org_id = ?`
+        )
+        .bind(ctx.orgId)
+        .all(),
+      env.DB
+        .prepare(
+          `SELECT id, platform, acquisition_mode, title, country_scope, product_keywords,
+                  hours_logged_tenths, actual_spend_minor, spend_currency, status, created_at, updated_at
+           FROM discovery_tasks
+           WHERE org_id = ?`
+        )
+        .bind(ctx.orgId)
+        .all(),
+      env.DB
+        .prepare(
+          `SELECT id, task_id, occurred_at, hours_delta_tenths, spend_delta_minor, spend_currency, entry_type, note
+           FROM discovery_task_efforts
+           WHERE org_id = ?
+           ORDER BY occurred_at ASC, created_at ASC`
+        )
+        .bind(ctx.orgId)
+        .all(),
+    ]);
 
-    const taskRes = await env.DB
-      .prepare(
-        `SELECT id, platform, acquisition_mode, title, country_scope, product_keywords,
-                hours_logged_tenths, actual_spend_minor, spend_currency, status, created_at, updated_at
-         FROM discovery_tasks
-         WHERE org_id = ?`
-      )
-      .bind(ctx.orgId)
-      .all();
+    const effortsByTask = new Map();
+    for (const e of effRes.results || []) {
+      if (!effortsByTask.has(e.task_id)) effortsByTask.set(e.task_id, []);
+      effortsByTask.get(e.task_id).push(e);
+    }
 
-    // Helper: check if a task matches productFilter when specified
-    const productMatchesTask = (t) => {
-      if (!productFilter) return true;
-      const hay = `${t.product_keywords || ""} ${t.title || ""}`.toLowerCase();
-      if (!hay.trim()) return false;
-      if (hay.includes(productFilter)) return true;
+    // N03: Classify task against countryFilter AND productFilter (distinguishing direct_match, shared_unallocated, and excluded)
+    const classifyTaskProduct = (t) => {
+      if (!productFilter) return "direct_match";
+      const rawKw = String(t.product_keywords || "").trim().toLowerCase();
+      if (!rawKw || rawKw === "any" || rawKw === "all" || rawKw === "general") {
+        // Generic cross-product task with no product restriction -> shared_unallocated (never silently allocated to a single product!)
+        const titleLower = String(t.title || "").toLowerCase();
+        const aliases = {
+          valves: ["valve", "valves", "阀门"],
+          pe_pipe: ["pe_pipe", "pe_pipes", "pe pipe", "hdpe", "pe100", "pipe", "管道"],
+          pe_pipes: ["pe_pipe", "pe_pipes", "pe pipe", "hdpe", "pe100", "pipe", "管道"],
+          cable: ["cable", "cables", "xlpe", "wire", "电缆"],
+          cables: ["cable", "cables", "xlpe", "wire", "电缆"],
+          steel_structure: ["steel", "steel_structure", "h-beam", "钢结构"],
+        };
+        const terms = aliases[productFilter] || [productFilter];
+        if (terms.some((term) => titleLower.includes(term))) return "direct_match";
+        return "shared_unallocated";
+      }
+      const hay = `${rawKw} ${String(t.title || "").toLowerCase()}`;
+      if (hay.includes(productFilter)) return "direct_match";
       const aliases = {
         valves: ["valve", "valves", "阀门"],
-        pe_pipe: ["pe_pipe", "pe pipe", "hdpe", "pe100", "pipe", "管道"],
+        pe_pipe: ["pe_pipe", "pe_pipes", "pe pipe", "hdpe", "pe100", "pipe", "管道"],
+        pe_pipes: ["pe_pipe", "pe_pipes", "pe pipe", "hdpe", "pe100", "pipe", "管道"],
         cable: ["cable", "cables", "xlpe", "wire", "电缆"],
+        cables: ["cable", "cables", "xlpe", "wire", "电缆"],
         steel_structure: ["steel", "steel_structure", "h-beam", "钢结构"],
       };
       const terms = aliases[productFilter] || [productFilter];
-      return terms.some((term) => hay.includes(term));
+      return terms.some((term) => hay.includes(term)) ? "direct_match" : "excluded";
     };
 
-    // Helper: classify task country scope against countryFilter
     const classifyTaskCountry = (t) => {
       if (!countryFilter) return "direct_match";
       const rawScope = String(t.country_scope || "ANY").trim().toLowerCase();
@@ -1907,39 +2396,137 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
 
     const taskAgg = new Map();
     const sharedUnallocatedTasks = [];
+    const unallocatedLegacyCumulativeTasks = [];
 
     for (const t of taskRes.results || []) {
-      // N03/N04: apply the SAME date window and product/country scope to tasks!
-      const inDateWin = win.matches(t.created_at) || win.matches(t.updated_at);
-      if (!inDateWin) continue;
-      if (!productMatchesTask(t)) continue;
+      const countryClass = classifyTaskCountry(t);
+      const productClass = classifyTaskProduct(t);
+      if (countryClass === "excluded" || productClass === "excluded") continue;
 
-      const countryMatch = classifyTaskCountry(t);
-      if (countryMatch === "excluded") continue;
-      if (countryMatch === "shared_unallocated") {
-        const spendObj =
-          t.actual_spend_minor !== null && t.actual_spend_minor !== undefined && t.spend_currency
-            ? {
-                minor: Number(t.actual_spend_minor),
-                currency: String(t.spend_currency).toUpperCase(),
-                formatted: (() => {
-                  try {
-                    return formatMinor(t.actual_spend_minor, t.spend_currency);
-                  } catch {
-                    return `${t.spend_currency} ${t.actual_spend_minor}`;
-                  }
-                })(),
-              }
-            : null;
+      const isShared = countryClass === "shared_unallocated" || productClass === "shared_unallocated";
+      const sharedReason =
+        countryClass === "shared_unallocated" && productClass === "shared_unallocated"
+          ? "shared_country_and_product"
+          : countryClass === "shared_unallocated"
+          ? "shared_country_any"
+          : "shared_product_any";
+
+      const allEffs = effortsByTask.get(t.id) || [];
+      const hasLedger = allEffs.length > 0;
+      const createdInWin = win.matches(t.created_at);
+
+      // N03: Handle legacy unledgered task rows safely (never fabricate a date window for unledgered cumulative totals!)
+      if (!hasLedger) {
+        const legacyHours = Number(t.hours_logged_tenths || 0);
+        const hasLegacySpend = t.actual_spend_minor !== null && t.actual_spend_minor !== undefined;
+        const hasLegacyValues = legacyHours > 0 || hasLegacySpend;
+
+        if (hasLegacyValues && hasDateFilter) {
+          const legacyMap = new Map();
+          if (hasLegacySpend && t.spend_currency) {
+            legacyMap.set(String(t.spend_currency).toUpperCase(), BigInt(Math.trunc(Number(t.actual_spend_minor) || 0)));
+          }
+          const legSum = summarizeSpendMap(legacyMap);
+          unallocatedLegacyCumulativeTasks.push({
+            id: t.id,
+            platform: t.platform,
+            acquisition_mode: t.acquisition_mode,
+            title: t.title,
+            country_scope: t.country_scope || "ANY",
+            cumulative_hours_tenths: legacyHours,
+            cumulative_spend_by_currency: legSum.spendByCurrency,
+            cumulative_spend_display: legSum.spendDisplay,
+            reason: "legacy_cumulative_without_period_ledger",
+          });
+          continue;
+        }
+        // Pure zero-effort task created in window, OR all-time view of legacy task
+        if (!createdInWin && hasDateFilter) continue;
+
+        const legMap = new Map();
+        if (hasLegacySpend && t.spend_currency) {
+          legMap.set(String(t.spend_currency).toUpperCase(), BigInt(Math.trunc(Number(t.actual_spend_minor) || 0)));
+        }
+        const legSum = summarizeSpendMap(legMap);
+
+        if (isShared) {
+          sharedUnallocatedTasks.push({
+            id: t.id,
+            platform: t.platform,
+            acquisition_mode: t.acquisition_mode,
+            title: t.title,
+            country_scope: t.country_scope || "ANY",
+            product_keywords: t.product_keywords || "ANY",
+            effort_scope: "shared_unallocated",
+            shared_reason: sharedReason,
+            hours_logged_tenths: legacyHours,
+            period_hours_tenths: legacyHours,
+            spend_by_currency: legSum.spendByCurrency,
+            spend_display: legSum.spendDisplay,
+            spend_status: legSum.spendStatus,
+            spend: legSum.spendCurrency && legSum.spendCurrency !== "MULTI" ? legSum.spendByCurrency[legSum.spendCurrency] : null,
+            cumulative_hours_tenths: legacyHours,
+            cumulative_spend_display: legSum.spendDisplay,
+          });
+          continue;
+        }
+
+        const key = `${t.platform}::${t.acquisition_mode}`;
+        if (!taskAgg.has(key)) {
+          taskAgg.set(key, {
+            platform: t.platform,
+            acquisition_mode: t.acquisition_mode,
+            task_count: 0,
+            hours_logged_tenths: 0,
+            spend_by_currency_big: new Map(),
+            cum_hours_tenths: 0,
+            cum_spend_by_currency_big: new Map(),
+            earliest_at: t.created_at || null,
+            latest_at: t.created_at || null,
+          });
+        }
+        const g = taskAgg.get(key);
+        g.task_count += 1;
+        g.hours_logged_tenths += legacyHours;
+        g.cum_hours_tenths += legacyHours;
+        for (const [c, mBig] of legMap.entries()) {
+          g.spend_by_currency_big.set(c, (g.spend_by_currency_big.get(c) || 0n) + mBig);
+          g.cum_spend_by_currency_big.set(c, (g.cum_spend_by_currency_big.get(c) || 0n) + mBig);
+        }
+        if (t.created_at && (!g.earliest_at || t.created_at < g.earliest_at)) g.earliest_at = t.created_at;
+        if (t.created_at && (!g.latest_at || t.created_at > g.latest_at)) g.latest_at = t.created_at;
+        continue;
+      }
+
+      // Ledgered task: STRICTLY filter effort/spend entries by win.matches(e.occurred_at) — NEVER use updated_at!
+      const periodEffs = allEffs.filter((e) => win.matches(e.occurred_at));
+      if (periodEffs.length === 0 && !createdInWin) {
+        // Task had neither creation nor any effort/spend entry inside the observation window -> excluded cleanly!
+        continue;
+      }
+
+      const periodSum = summarizeEffortRows(periodEffs);
+      const cumSum = summarizeEffortRows(allEffs);
+
+      if (isShared) {
         sharedUnallocatedTasks.push({
           id: t.id,
           platform: t.platform,
           acquisition_mode: t.acquisition_mode,
           title: t.title,
           country_scope: t.country_scope || "ANY",
-          hours_logged_tenths: Number(t.hours_logged_tenths || 0),
-          spend: spendObj,
+          product_keywords: t.product_keywords || "ANY",
           effort_scope: "shared_unallocated",
+          shared_reason: sharedReason,
+          hours_logged_tenths: periodSum.hoursTenths,
+          period_hours_tenths: periodSum.hoursTenths,
+          spend_by_currency: periodSum.spendByCurrency,
+          spend_display: periodSum.spendDisplay,
+          spend_status: periodSum.spendStatus,
+          spend: periodSum.spendCurrency && periodSum.spendCurrency !== "MULTI" ? periodSum.spendByCurrency[periodSum.spendCurrency] : null,
+          cumulative_hours_tenths: cumSum.hoursTenths,
+          cumulative_spend_by_currency: cumSum.spendByCurrency,
+          cumulative_spend_display: cumSum.spendDisplay,
         });
         continue;
       }
@@ -1951,25 +2538,27 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
           acquisition_mode: t.acquisition_mode,
           task_count: 0,
           hours_logged_tenths: 0,
-          spend_recorded_count: 0,
           spend_by_currency_big: new Map(),
-          earliest_at: t.created_at || null,
-          latest_at: t.updated_at || t.created_at || null,
+          cum_hours_tenths: 0,
+          cum_spend_by_currency_big: new Map(),
+          earliest_at: null,
+          latest_at: null,
         });
       }
       const g = taskAgg.get(key);
       g.task_count += 1;
-      g.hours_logged_tenths += Number(t.hours_logged_tenths || 0);
-      if (t.created_at && (!g.earliest_at || t.created_at < g.earliest_at)) g.earliest_at = t.created_at;
-      const tLatest = t.updated_at || t.created_at;
-      if (tLatest && (!g.latest_at || tLatest > g.latest_at)) g.latest_at = tLatest;
-
-      // N02: Strictly aggregate spend per currency — NEVER sum USD cents + JPY yen together!
-      if (t.actual_spend_minor !== null && t.actual_spend_minor !== undefined) {
-        const curCode = String(t.spend_currency || "UNSPECIFIED").trim().toUpperCase() || "UNSPECIFIED";
-        const minorBig = BigInt(Math.trunc(Number(t.actual_spend_minor) || 0));
-        g.spend_recorded_count += 1;
-        g.spend_by_currency_big.set(curCode, (g.spend_by_currency_big.get(curCode) || 0n) + minorBig);
+      g.hours_logged_tenths += periodSum.hoursTenths;
+      g.cum_hours_tenths += cumSum.hoursTenths;
+      for (const [c, mBig] of periodSum.spendByCurBig.entries()) {
+        g.spend_by_currency_big.set(c, (g.spend_by_currency_big.get(c) || 0n) + mBig);
+      }
+      for (const [c, mBig] of cumSum.spendByCurBig.entries()) {
+        g.cum_spend_by_currency_big.set(c, (g.cum_spend_by_currency_big.get(c) || 0n) + mBig);
+      }
+      const timestamps = periodEffs.map((e) => e.occurred_at).concat(createdInWin && t.created_at ? [t.created_at] : []);
+      for (const ts of timestamps) {
+        if (!g.earliest_at || ts < g.earliest_at) g.earliest_at = ts;
+        if (!g.latest_at || ts > g.latest_at) g.latest_at = ts;
       }
     }
 
@@ -2030,7 +2619,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       }
     }
 
-    // N03: Seed zero-yield discovery tasks (0 signals, >0 hours or spend) into buckets so wasted effort is NEVER hidden!
+    // N03: Seed zero-yield discovery tasks (0 signals in window, task created or effort logged in window) so wasted effort is NEVER hidden!
     for (const [key, t] of taskAgg.entries()) {
       const targetMap = t.platform === "youtube" ? futureCandidatesBuckets : round1Buckets;
       if (!targetMap.has(key)) {
@@ -2046,41 +2635,8 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
         const replyRatePct =
           b.manual_outreach_count > 0 ? Math.round((b.replied_count / b.manual_outreach_count) * 10000) / 100 : null;
 
-        const spendByCurrency = {};
-        const currencyCodes = [];
-        if (t && t.spend_by_currency_big.size > 0) {
-          for (const [code, minorBig] of Array.from(t.spend_by_currency_big.entries()).sort((a, c) => a[0].localeCompare(c[0]))) {
-            currencyCodes.push(code);
-            let decimals = 2;
-            let formatted = `${code} ${minorBig.toString()}`;
-            try {
-              const spec = getCurrencySpec(code);
-              decimals = spec.decimals;
-              formatted = `${spec.code} ${formatMinor(minorBig, spec.code)}`;
-            } catch {}
-            spendByCurrency[code] = {
-              minor: Number(minorBig),
-              decimals,
-              formatted,
-            };
-          }
-        }
-
-        let spendStatus = "unknown_not_recorded";
-        let actualSpendMinor = null;
-        let spendCurrency = null;
-        let spendDisplay = "未记录";
-        if (currencyCodes.length === 1) {
-          spendStatus = "recorded";
-          spendCurrency = currencyCodes[0];
-          actualSpendMinor = spendByCurrency[spendCurrency].minor;
-          spendDisplay = spendByCurrency[spendCurrency].formatted;
-        } else if (currencyCodes.length > 1) {
-          spendStatus = "multi_currency_separate";
-          spendCurrency = "MULTI";
-          actualSpendMinor = null; // Explicitly null so no caller mixes USD cents + JPY yen!
-          spendDisplay = currencyCodes.map((c) => spendByCurrency[c].formatted).join(" + ");
-        }
+        const periodSpend = summarizeSpendMap(t ? t.spend_by_currency_big : null);
+        const cumSpend = t ? summarizeSpendMap(t.cum_spend_by_currency_big) : null;
 
         return {
           source_platform: b.source_platform,
@@ -2098,12 +2654,21 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
           reply_rate_pct: replyRatePct,
           inquiries_count: b.inquiry_ids.size,
           quoted_count: b.quoted_inquiry_ids.size,
+          effort_period_basis: "ledger_occurred_at",
           hours_logged_tenths: t ? t.hours_logged_tenths : null,
-          actual_spend_minor: actualSpendMinor,
-          spend_currency: spendCurrency,
-          spend_by_currency: spendByCurrency,
-          spend_display: spendDisplay,
-          spend_status: spendStatus,
+          actual_spend_minor: periodSpend.actualSpendMinor,
+          spend_currency: periodSpend.spendCurrency,
+          spend_by_currency: periodSpend.spendByCurrency,
+          spend_display: periodSpend.spendDisplay,
+          spend_status: periodSpend.spendStatus,
+          cumulative_reference: t
+            ? {
+                hours_logged_tenths: t.cum_hours_tenths,
+                spend_by_currency: cumSpend.spendByCurrency,
+                spend_display: cumSpend.spendDisplay,
+                spend_status: cumSpend.spendStatus,
+              }
+            : null,
           zero_yield_task: b.checked_candidates === 0 && Boolean(t),
           sample_window: { earliest_at: b.earliest_at, latest_at: b.latest_at },
           small_sample_warning: b.checked_candidates < 20,
@@ -2128,14 +2693,16 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
           country: countryFilter || null,
           product_line: productFilter || null,
         },
+        effortAccountingMode: "period_ledger_occurred_at",
         groups: finalizeBuckets(round1Buckets),
         futureCandidates: finalizeBuckets(futureCandidatesBuckets),
         sharedUnallocatedTasks,
+        unallocatedLegacyCumulativeTasks,
         denominatorDefinitions: {
           verified_valid_rate_pct: "verified_valid / verified_completed (pending_verify excluded from denominator and listed separately)",
           reply_rate_pct: "replied_count / manual_outreach_count (drafts & copies strictly excluded from manual_outreach_count)",
-          spend_by_currency: "strictly grouped per ISO currency; different currencies are NEVER summed together; empty/null means unknown_not_recorded",
-          tasks_scope: "discovery_tasks filtered by the same observationWindow/country/product_line; zero-yield tasks are always displayed",
+          spend_by_currency: "strictly grouped per ISO currency; different currencies are NEVER summed together; empty/null means unknown_not_recorded; explicit 0 with currency means recorded zero spend",
+          tasks_scope: "period hours/spend aggregated strictly from discovery_task_efforts.occurred_at inside observationWindow (never from task updated_at); metadata-only edits never shift historical effort; zero-yield tasks and cross-country/product shared tasks are separated transparently",
         },
       },
       200,

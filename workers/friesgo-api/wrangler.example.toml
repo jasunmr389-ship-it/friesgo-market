@@ -13,11 +13,30 @@ LOCK_TTL_SECONDS = "600"
 SESSION_TTL_DAYS = "30"
 GMAPS_TEAM_MONTHLY_CAP = "950"
 GMAPS_EMP_MONTHLY_CAP = "250"
+V3_SLICE1_ENABLED = "0"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "friesgo-pool-prod"
 database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# Dedicated V3.0 Slice-1 Staging Environment (isolated Worker + isolated D1 database)
+[env.staging]
+name = "friesgo-api-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+ALLOWED_ORIGINS = "https://jasunmr389-ship-it.github.io,http://127.0.0.1,http://localhost"
+LOCK_TTL_SECONDS = "600"
+SESSION_TTL_DAYS = "30"
+GMAPS_TEAM_MONTHLY_CAP = "950"
+GMAPS_EMP_MONTHLY_CAP = "250"
+V3_SLICE1_ENABLED = "1"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "friesgo-pool-staging"
+database_id = "REPLACE_WITH_STAGING_D1_DATABASE_ID"
 
 # Mandatory Worker Secrets (set via `npx wrangler secret put <NAME>`):
 # - AUTH_PEPPER         (32+ byte random hex string for PBKDF2 pre-pepper)
@@ -25,3 +44,4 @@ database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 # - BOOTSTRAP_SECRET    (one-time secret to create first super_admin, delete immediately after bootstrap!)
 # Optional Worker Secrets:
 # - GOOGLE_MAPS_API_KEY (Google Places API (New) key for employee-authenticated proxy)
+# - TURNSTILE_SECRET_KEY (Cloudflare Turnstile secret for /api/public/* intake protection)

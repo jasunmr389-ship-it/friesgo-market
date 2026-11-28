@@ -522,18 +522,19 @@
     } else {
       tasks.forEach(function (t) {
         var hrs = (Number(t.hours_logged_tenths || 0) / 10).toFixed(1);
-        var spendTxt = formatSpendMinor(t.actual_spend_minor, t.spend_currency);
+        var spendTxt = (t.spend_display && t.spend_status !== "unknown_not_recorded") ? t.spend_display : formatSpendMinor(t.actual_spend_minor, t.spend_currency);
         html +=
           '<div class="v3-card">' +
           '  <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
           '    <b>[' + esc(t.platform.toUpperCase()) + ' · ' + esc(t.acquisition_mode) + '] ' + esc(t.title) + '</b>' +
           '    <span class="v3-badge">' + esc(t.status) + '</span>' +
           '  </div>' +
-          '  <div style="font-size:12px;color:var(--muted);margin-top:4px">国家范围：' + esc(t.country_scope) + ' · 累计工时：<b>' + hrs + 'h</b> · 实际支出：' + esc(spendTxt) + ' · 复盘窗：' + Number(t.review_window_days || 14) + ' 天</div>' +
+          '  <div style="font-size:12px;color:var(--muted);margin-top:4px">国家范围：' + esc(t.country_scope) + ' · 累计工时：<b>' + hrs + 'h</b> · 累计费用：' + esc(spendTxt) + ' · 投入流水：' + Number(t.effort_entries_count || 0) + ' 笔 · 复盘窗：' + Number(t.review_window_days || 14) + ' 天</div>' +
           (!isPartner
             ? '  <div class="v3-acts">' +
-              '    <button type="button" class="pill" data-add-hr="' + esc(t.id) + '" data-tenths="5">⏱️ +0.5h 工时</button>' +
-              '    <button type="button" class="pill" data-add-hr="' + esc(t.id) + '" data-tenths="10">⏱️ +1.0h 工时</button>' +
+              '    <button type="button" class="pill" data-add-hr="' + esc(t.id) + '" data-tenths="5">⏱️ 今日 +0.5h</button>' +
+              '    <button type="button" class="pill" data-add-hr="' + esc(t.id) + '" data-tenths="10">⏱️ 今日 +1.0h</button>' +
+              '    <button type="button" class="pill" data-log-effort="' + esc(t.id) + '">📝 按日登记投入/更正</button>' +
               '    <button type="button" class="pill" data-toggle-task="' + esc(t.id) + '" data-next-st="' + (t.status === "active" ? "paused" : "active") + '">' + (t.status === "active" ? "⏸️ 暂停" : "▶️ 恢复") + '</button>' +
               '  </div>'
             : "") +
@@ -567,8 +568,33 @@
     body.querySelectorAll("[data-add-hr]").forEach(function (b) {
       b.addEventListener("click", async function () {
         var tenths = Number(b.getAttribute("data-tenths") || 5);
-        var r = await global.FG_V3.patchTask(b.getAttribute("data-add-hr"), { add_hours_tenths: tenths });
-        toast(r.ok ? ("已累加 " + (tenths / 10).toFixed(1) + "h 人工工时") : ("更新失败：" + (r.error || r.code)));
+        var r = await global.FG_V3.addTaskEffort(b.getAttribute("data-add-hr"), { hours_delta_tenths: tenths, entry_type: "log", note: "快捷工时登记" });
+        toast(r.ok ? ("已登记今日 +" + (tenths / 10).toFixed(1) + "h 工时明细") : ("登记失败：" + (r.error || r.code)));
+        if (r.ok) renderCurrentTab();
+      });
+    });
+    body.querySelectorAll("[data-log-effort]").forEach(function (b) {
+      b.addEventListener("click", async function () {
+        var tid = b.getAttribute("data-log-effort");
+        var occDate = global.prompt("请输入投入发生日期（YYYY-MM-DD，留空为今天）：", "") || "";
+        var hrsStr = global.prompt("本次工时变动（小时，历史更正可填负数，如 1.5 或 -0.5，无变动填 0）：", "0");
+        if (hrsStr === null) return;
+        var spendStr = global.prompt("本次费用变动（主货币单位，如 25.50，无费用请留空）：", "");
+        if (spendStr === null) return;
+        var curCode = spendStr.trim() ? (global.prompt("请输入币种（USD/CNY/EUR/GBP/JPY/AED/SAR）：", "USD") || "USD").trim().toUpperCase() : "";
+        var hoursDelta = Math.round(Number(hrsStr || 0) * 10);
+        var dec = Object.prototype.hasOwnProperty.call(CURRENCY_DECIMALS, curCode) ? CURRENCY_DECIMALS[curCode] : 2;
+        var spendDelta = spendStr.trim() ? Math.round(Number(spendStr) * Math.pow(10, dec)) : null;
+        var isAdj = hoursDelta < 0 || (spendDelta !== null && spendDelta < 0);
+        var r = await global.FG_V3.addTaskEffort(tid, {
+          occurred_at: occDate.trim() || undefined,
+          hours_delta_tenths: hoursDelta,
+          spend_delta_minor: spendDelta,
+          spend_currency: spendDelta !== null ? curCode : "",
+          entry_type: isAdj ? "adjustment" : "log",
+          note: isAdj ? "人工历史更正" : "按日投入登记",
+        });
+        toast(r.ok ? "投入流水已记账并对账更新" : ("记账失败：" + (r.error || r.code)));
         if (r.ok) renderCurrentTab();
       });
     });
@@ -795,11 +821,13 @@
     var rows = res.groups || [];
     var futureRows = res.futureCandidates || [];
     var sharedTasks = res.sharedUnallocatedTasks || [];
+    var legacyTasks = res.unallocatedLegacyCumulativeTasks || [];
     var win = res.observationWindow || null;
+    var hasDateWin = Boolean(win && (win.from || win.to));
 
     var html =
       '<div class="v2-guard-bar lv-yellow" style="margin-bottom:10px">' +
-      '  <b>同口径分母约束 (ACQ10)：</b>核实有效率 = 已核实有效 / 已完成核实（待核实单列）；回复率 = 有效回复 / 人工实发（草稿与复制严禁计入）；不同币种费用分列展示严禁混加，未记录费用显示「未知」；零产出任务如实展示；YouTube 不计入首轮汇总。' +
+      '  <b>同口径分母与期间投入约束 (ACQ10 / N02 / N03)：</b>核实有效率 = 已核实有效 / 已完成核实（待核实单列）；回复率 = 有效回复 / 人工实发（草稿与复制严禁计入）；当期工时与费用严格按 <code>occurred_at</code> 投入流水归集（改标题/状态不迁移历史投入），不同币种分列严禁混加；零产出任务与跨国/跨品类共享任务均单独明示；YouTube 不计入首轮汇总。' +
       '</div>' +
       '<div class="v3-filter-bar">' +
       '  <input id="v3CmpCountry" value="' + esc(cmpFilters.country) + '" placeholder="按国家筛选（如 UAE）">' +
@@ -810,22 +838,31 @@
       '  <button type="button" class="pill" id="v3BtnCopyCmpMd">📋 复制周复盘 Markdown 表</button>' +
       '</div>';
 
-    if (win && (win.from || win.to)) {
-      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">生效观测窗（UTC+' + (Number(win.tz_offset_minutes || 480) / 60) + '）：' +
+    if (hasDateWin) {
+      html += '<div id="v3CmpWinBanner" style="font-size:12px;color:var(--muted);margin-bottom:8px">生效观测窗（UTC+' + (Number(win.tz_offset_minutes || 480) / 60) + '，按发生时间 occurred_at 归集当期投入）：' +
         esc(win.from || "不限") + ' ~ ' + esc(win.to || "不限") +
         '（UTC: ' + esc(win.start_iso_utc || "—") + ' → ' + esc(win.end_iso_utc || "—") + (win.end_exclusive ? " 不含右端" : "") + '）</div>';
+    }
+
+    function formatCumRef(g) {
+      if (!g || !g.cumulative_reference) return "";
+      var cr = g.cumulative_reference;
+      var ch = (Number(cr.hours_logged_tenths || 0) / 10).toFixed(1) + "h";
+      var cs = (cr.spend_display && cr.spend_status !== "unknown_not_recorded") ? cr.spend_display : "未记录";
+      return ch + " / " + cs;
     }
 
     function renderGroupTable(list, title) {
       if (!list.length) return '<div class="v3-card"><b>' + esc(title) + '</b><p class="muted" style="margin:6px 0 0">暂无样本数据。</p></div>';
       var t = '<div class="v3-card"><b>' + esc(title) + '</b><div class="v3-table-wrap" style="margin-top:8px"><table><thead><tr>' +
-        '<th>平台 / 获客方式</th><th>已查候选</th><th>待核实</th><th>核实有效/已核实(率)</th><th>草稿/复制</th><th>人工实发</th><th>有效回复(率)</th><th>询盘/已报价</th><th>工时(h)</th><th>实际费用(分币种)</th>' +
+        '<th>平台 / 获客方式</th><th>已查候选</th><th>待核实</th><th>核实有效/已核实(率)</th><th>草稿/复制</th><th>人工实发</th><th>有效回复(率)</th><th>询盘/已报价</th><th>当期工时(h)</th><th>当期费用(按发生时间/分币种)</th>' +
         '</tr></thead><tbody>';
       list.forEach(function (g) {
         var vRate = g.verified_valid_rate_pct === null ? "—" : (g.verified_valid_rate_pct + "%");
         var rRate = g.reply_rate_pct === null ? "—" : (g.reply_rate_pct + "%");
         var hrs = g.hours_logged_tenths === null ? "未知" : (g.hours_logged_tenths / 10).toFixed(1);
         var spend = formatGroupSpend(g);
+        var cumLine = hasDateWin && g.cumulative_reference ? ('<br><small class="muted">累计参考：' + esc(formatCumRef(g)) + '</small>') : "";
         t +=
           '<tr>' +
           '<td><b>' + esc(g.source_platform) + '</b><br><small>' + esc(g.acquisition_mode) +
@@ -839,7 +876,7 @@
           '<td>' + g.replied_count + ' (' + rRate + ')</td>' +
           '<td>' + g.inquiries_count + ' / ' + g.quoted_count + '</td>' +
           '<td>' + hrs + '</td>' +
-          '<td>' + esc(spend) + '</td>' +
+          '<td>' + esc(spend) + cumLine + '</td>' +
           '</tr>';
       });
       t += '</tbody></table></div></div>';
@@ -851,27 +888,37 @@
       html += renderGroupTable(futureRows, "后续候选平台单列（YouTube — 不计入首轮完成率）");
     }
     if (sharedTasks.length) {
-      html += '<div class="v3-card"><b>跨国共享未分摊任务（country_scope=ANY，按国家筛选时单独列示不混入单国工时/费用）</b>' +
+      html += '<div class="v3-card" id="v3SharedTasksCard"><b>跨国家/跨品类共享未分摊任务（不静默混入单国/单品类投入）</b>' +
         sharedTasks.map(function (stItem) {
+          var pHrs = (Number(stItem.period_hours_tenths !== undefined ? stItem.period_hours_tenths : (stItem.hours_logged_tenths || 0)) / 10).toFixed(1);
+          var pSpend = (stItem.spend_display && stItem.spend_status !== "unknown_not_recorded")
+            ? stItem.spend_display
+            : (stItem.spend && stItem.spend.formatted ? stItem.spend.formatted : "未记录");
+          var cHrs = (Number(stItem.cumulative_hours_tenths || 0) / 10).toFixed(1);
+          var cSpend = stItem.cumulative_spend_display || "未记录";
           return '<div style="font-size:12px;color:var(--muted);margin-top:4px">[' + esc(stItem.platform.toUpperCase()) + '] ' + esc(stItem.title) +
-            ' · 工时 ' + (Number(stItem.hours_logged_tenths || 0) / 10).toFixed(1) + 'h' +
-            (stItem.spend ? (' · 费用 ' + esc(stItem.spend.formatted)) : '') + '</div>';
+            ' · <span class="v3-badge">未分摊:' + esc(stItem.shared_reason || "shared_unallocated") + '</span>' +
+            ' · 当期 ' + pHrs + 'h / ' + esc(pSpend) +
+            (hasDateWin ? ('（累计参考 ' + cHrs + 'h / ' + esc(cSpend) + '）') : '') + '</div>';
+        }).join("") + '</div>';
+    }
+    if (legacyTasks.length) {
+      html += '<div class="v3-card" id="v3LegacyUnallocCard"><b>历史无分期流水任务（未计入当期投入，仅作累计参考）</b>' +
+        legacyTasks.map(function (lt) {
+          return '<div style="font-size:12px;color:var(--muted);margin-top:4px">[' + esc(lt.platform.toUpperCase()) + '] ' + esc(lt.title) +
+            ' · 历史累计参考 ' + (Number(lt.cumulative_hours_tenths || 0) / 10).toFixed(1) + 'h / ' + esc(lt.cumulative_spend_display || "未记录") + '</div>';
         }).join("") + '</div>';
     }
     body.innerHTML = html;
 
-    body.querySelector("#v3BtnRunCmp").addEventListener("click", function () {
-      cmpFilters.country = body.querySelector("#v3CmpCountry").value.trim();
-      cmpFilters.product_line = body.querySelector("#v3CmpProd").value.trim();
-      cmpFilters.from = body.querySelector("#v3CmpFrom").value.trim();
-      cmpFilters.to = body.querySelector("#v3CmpTo").value.trim();
-      renderCurrentTab();
-    });
-    body.querySelector("#v3BtnCopyCmpMd").addEventListener("click", function () {
-      var lines = [
-        "| 平台 | 获客方式 | 候选 | 待核实 | 核实有效/已核实 | 人工实发 | 有效回复 | 询盘/报价 | 工时(h) | 费用(分币种) |",
-        "|---|---|---|---|---|---|---|---|---|---|",
-      ];
+    function buildCompareMarkdown() {
+      var lines = [];
+      if (hasDateWin) {
+        lines.push("观测窗（UTC+" + (Number(win.tz_offset_minutes || 480) / 60) + "，按发生时间 occurred_at 归集当期投入）：" + (win.from || "不限") + " ~ " + (win.to || "不限"));
+        lines.push("");
+      }
+      lines.push("| 平台 | 获客方式 | 候选 | 待核实 | 核实有效/已核实 | 人工实发 | 有效回复 | 询盘/报价 | 当期工时(h) | 当期费用(分币种) | 累计参考 |");
+      lines.push("|---|---|---|---|---|---|---|---|---|---|---|");
       rows.forEach(function (g) {
         lines.push("| " + [
           g.source_platform,
@@ -884,9 +931,34 @@
           g.inquiries_count + "/" + g.quoted_count,
           g.hours_logged_tenths === null ? "未知" : (g.hours_logged_tenths / 10).toFixed(1),
           formatGroupSpend(g),
+          g.cumulative_reference ? formatCumRef(g) : "—",
         ].join(" | ") + " |");
       });
-      copyText(lines.join("\n"), "已复制同口径 Markdown 来源对比表");
+      if (sharedTasks.length) {
+        lines.push("");
+        lines.push("### 跨国家/跨品类共享未分摊任务");
+        sharedTasks.forEach(function (stItem) {
+          var pHrs = (Number(stItem.period_hours_tenths !== undefined ? stItem.period_hours_tenths : (stItem.hours_logged_tenths || 0)) / 10).toFixed(1);
+          var pSpend = (stItem.spend_display && stItem.spend_status !== "unknown_not_recorded") ? stItem.spend_display : "未记录";
+          lines.push("- [" + stItem.platform + "] " + stItem.title + "（" + (stItem.shared_reason || "shared_unallocated") + "）：当期 " + pHrs + "h / " + pSpend);
+        });
+      }
+      return lines.join("\n");
+    }
+
+    global.__FG_V3_LAST_COMPARE_MD__ = buildCompareMarkdown();
+
+    body.querySelector("#v3BtnRunCmp").addEventListener("click", function () {
+      cmpFilters.country = body.querySelector("#v3CmpCountry").value.trim();
+      cmpFilters.product_line = body.querySelector("#v3CmpProd").value.trim();
+      cmpFilters.from = body.querySelector("#v3CmpFrom").value.trim();
+      cmpFilters.to = body.querySelector("#v3CmpTo").value.trim();
+      renderCurrentTab();
+    });
+    body.querySelector("#v3BtnCopyCmpMd").addEventListener("click", function () {
+      var md = buildCompareMarkdown();
+      global.__FG_V3_LAST_COMPARE_MD__ = md;
+      copyText(md, "已复制同口径 Markdown 来源对比表");
     });
   }
 

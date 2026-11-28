@@ -1469,9 +1469,14 @@ async function main() {
       const legacyStillOk = await callApi(worker, envOff, "GET", "/api/companies", { token: adminToken });
       assert.equal(legacyStillOk.status, 200, "S07: Legacy V2.1 API must remain 200 when V3 flag is OFF");
     }
-    const wranglerToml = fs.readFileSync(path.join(ROOT, "workers/friesgo-api/wrangler.toml"), "utf8");
-    assert.match(wranglerToml, /\[vars\][\s\S]*?V3_SLICE1_ENABLED\s*=\s*"0"/, "S07: Production wrangler.toml [vars] must declare V3_SLICE1_ENABLED = \"0\"");
-    assert.match(wranglerToml, /\[env\.staging\.vars\][\s\S]*?V3_SLICE1_ENABLED\s*=\s*"1"/, "S07: Staging wrangler.toml must declare V3_SLICE1_ENABLED = \"1\"");
+    // N01 / S07: Validate ONLY tracked secret-free template (never depend on gitignored local wrangler.toml!)
+    const wranglerExample = fs.readFileSync(path.join(ROOT, "workers/friesgo-api/wrangler.example.toml"), "utf8");
+    assert.match(wranglerExample, /\[vars\][\s\S]*?V3_SLICE1_ENABLED\s*=\s*"0"/, "S07/N01: Tracked wrangler.example.toml [vars] must declare V3_SLICE1_ENABLED = \"0\"");
+    assert.match(wranglerExample, /\[env\.staging\.vars\][\s\S]*?V3_SLICE1_ENABLED\s*=\s*"1"/, "S07/N01: Tracked wrangler.example.toml [env.staging.vars] must declare V3_SLICE1_ENABLED = \"1\"");
+    assert.match(wranglerExample, /REPLACE_WITH_YOUR_D1_DATABASE_ID/, "N01: Tracked template must use placeholder prod DB ID (zero secrets)");
+    assert.match(wranglerExample, /REPLACE_WITH_STAGING_D1_DATABASE_ID/, "N01: Tracked template must use placeholder staging DB ID (zero secrets)");
+    const gitignoreTxt = fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8");
+    assert.ok(gitignoreTxt.includes("workers/friesgo-api/wrangler.toml"), "N01: Real wrangler.toml must remain gitignored");
 
     // --- S08: Single-Transaction Atomic Idempotency Commit Across All 4 Write Endpoints ---
     let failNextBatchOnLastStmt = false;
@@ -1741,6 +1746,200 @@ async function main() {
     assert.ok(igDay, "N04: Same-day UTC+8 signal MUST be included");
     assert.equal(igDay.checked_candidates, 1, "N04: Half-open UTC+8 window must include 04:00Z (12:00 UTC+8) and exclude 16:30Z (00:30 next day UTC+8)");
 
+    // --- N03 Period Ledger: Disjoint Windows, Title-Only Edit, Multi-Month Efforts, Historical Correction, Zero vs Unrecorded & Shared Cross-Product ---
+    // N03-A (Exact Recheck Counterexample): Task created 2026-11-01 with 50h / USD 100, title edited 2026-11-28 -> MUST NOT double-count on Nov 28!
+    const n03CounterTask = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        platform: "facebook",
+        acquisition_mode: "manual_discovery",
+        title: "TEST N03 Nov-1 Task (50h / USD 100)",
+        country_scope: "Vietnam",
+        product_keywords: "valves",
+        hours_logged_tenths: 500,
+        actual_spend_minor: 10000,
+        spend_currency: "USD",
+        occurred_at: "2026-11-01",
+      },
+    });
+    assert.equal(n03CounterTask.status, 201);
+    const n03CounterTaskId = n03CounterTask.data.task.id;
+
+    // Metadata-only PATCH (title edited on 2026-11-28) -> updated_at moves to Nov 28, effort_entries_added MUST be 0!
+    const titleOnlyPatch = await callApi(worker, env, "PATCH", `/api/v3/acq/tasks/${n03CounterTaskId}`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { title: "TEST N03 Title Edited On Nov 28 Only" },
+    });
+    assert.equal(titleOnlyPatch.status, 200);
+    assert.equal(titleOnlyPatch.data.effort_entries_added, 0, "N03: Title-only edit must NOT write any effort ledger row");
+    db.raw.prepare("UPDATE discovery_tasks SET updated_at = '2026-11-28T04:00:00.000Z' WHERE id = ?").run(n03CounterTaskId);
+
+    const cmpNov1 = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-11-01&to=2026-11-01&country=Vietnam&product_line=valves", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    const cmpNov28 = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-11-28&to=2026-11-28&country=Vietnam&product_line=valves", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    assert.equal(cmpNov1.status, 200);
+    assert.equal(cmpNov28.status, 200);
+    const fbNov1 = cmpNov1.data.groups.find((g) => g.source_platform === "facebook" && g.acquisition_mode === "manual_discovery");
+    const fbNov28 = cmpNov28.data.groups.find((g) => g.source_platform === "facebook" && g.acquisition_mode === "manual_discovery");
+    assert.ok(fbNov1, "N03-A: Nov 1 window must include the 50h / USD 100 initial effort");
+    assert.equal(fbNov1.hours_logged_tenths, 500);
+    assert.equal(fbNov1.spend_display, "USD 100.00");
+    assert.equal(fbNov28, undefined, "N03-A: Nov 28 window must NOT double-count Nov 1 effort after title-only update!");
+
+    // N03-B: Multi-month incremental entries + multi-currency + historical adjustment + over-adjustment rejection + 3-window exact reconciliation!
+    const n03MultiTask = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        platform: "instagram",
+        acquisition_mode: "manual_discovery",
+        title: "TEST N03 Thailand PE Pipes Multi-Month Ledger",
+        country_scope: "Thailand",
+        product_keywords: "pe_pipes",
+        hours_logged_tenths: 100, // 10.0h on 2026-10-20
+        actual_spend_minor: 5000, // USD 50.00
+        spend_currency: "USD",
+        occurred_at: "2026-10-20",
+      },
+    });
+    assert.equal(n03MultiTask.status, 201);
+    const multiTaskId = n03MultiTask.data.task.id;
+
+    // Incremental log #1 on 2026-11-05 (+15.0h, +USD 30.00)
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/acq/tasks/${multiTaskId}/efforts`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { occurred_at: "2026-11-05", hours_delta_tenths: 150, spend_delta_minor: 3000, spend_currency: "USD", entry_type: "log", note: "Nov 5 outreach batch" },
+      })).status,
+      201
+    );
+    // Incremental log #2 on 2026-11-28 (+5.0h, +JPY 200)
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/acq/tasks/${multiTaskId}/efforts`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { occurred_at: "2026-11-28", hours_delta_tenths: 50, spend_delta_minor: 200, spend_currency: "JPY", entry_type: "log", note: "Nov 28 JPY promo" },
+      })).status,
+      201
+    );
+    // Historical correction on 2026-11-05 (-2.0h, -USD 10.00)
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/acq/tasks/${multiTaskId}/efforts`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { occurred_at: "2026-11-05", hours_delta_tenths: -20, spend_delta_minor: -1000, spend_currency: "USD", entry_type: "adjustment", note: "Correct Nov 5 over-logged hours/ad credit" },
+      })).status,
+      201
+    );
+    // Negative log without entry_type='adjustment' -> 400; over-adjustment driving cumulative < 0 -> 400 NEGATIVE_CUMULATIVE_NOT_ALLOWED
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/acq/tasks/${multiTaskId}/efforts`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { occurred_at: "2026-11-05", hours_delta_tenths: -10, entry_type: "log" },
+      })).status,
+      400
+    );
+    const overAdj = await callApi(worker, env, "POST", `/api/v3/acq/tasks/${multiTaskId}/efforts`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { occurred_at: "2026-11-05", hours_delta_tenths: -9999, entry_type: "adjustment" },
+    });
+    assert.equal(overAdj.status, 400);
+    assert.equal(overAdj.data.code, "NEGATIVE_CUMULATIVE_NOT_ALLOWED");
+
+    // Reconcile ledger summary vs 3 disjoint windows: Oct (10h / USD 50), Nov 1-27 (13h / USD 20), Nov 28 (5h / JPY 200) -> SUM = 28h / USD 70 + JPY 200!
+    const effLedger = await callApi(worker, env, "GET", `/api/v3/acq/tasks/${multiTaskId}/efforts`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    assert.equal(effLedger.status, 200);
+    assert.equal(effLedger.data.efforts.length, 4);
+    assert.equal(effLedger.data.reconciled.hours_logged_tenths, 280);
+    assert.equal(effLedger.data.reconciled.spend_display, "JPY 200 + USD 70.00");
+
+    const cmpThW1 = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-10-01&to=2026-10-31&country=Thailand", { token: adminToken, orgId: "org_friesgo_main" });
+    const cmpThW2 = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-11-01&to=2026-11-27&country=Thailand", { token: adminToken, orgId: "org_friesgo_main" });
+    const cmpThW3 = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-11-28&to=2026-11-28&country=Thailand", { token: adminToken, orgId: "org_friesgo_main" });
+    const gW1 = cmpThW1.data.groups.find((g) => g.source_platform === "instagram" && g.acquisition_mode === "manual_discovery");
+    const gW2 = cmpThW2.data.groups.find((g) => g.source_platform === "instagram" && g.acquisition_mode === "manual_discovery");
+    const gW3 = cmpThW3.data.groups.find((g) => g.source_platform === "instagram" && g.acquisition_mode === "manual_discovery");
+    assert.equal(gW1.hours_logged_tenths, 100);
+    assert.equal(gW1.spend_display, "USD 50.00");
+    assert.equal(gW2.hours_logged_tenths, 130);
+    assert.equal(gW2.spend_display, "USD 20.00");
+    assert.equal(gW2.cumulative_reference.hours_logged_tenths, 280);
+    assert.equal(gW2.cumulative_reference.spend_display, "JPY 200 + USD 70.00");
+    assert.equal(gW3.hours_logged_tenths, 50);
+    assert.equal(gW3.spend_display, "JPY 200");
+    assert.equal(
+      gW1.hours_logged_tenths + gW2.hours_logged_tenths + gW3.hours_logged_tenths,
+      effLedger.data.reconciled.hours_logged_tenths,
+      "N03-B: Sum of disjoint period windows MUST strictly reconcile to cumulative ledger hours"
+    );
+    assert.equal(
+      gW1.spend_by_currency.USD.minor + gW2.spend_by_currency.USD.minor,
+      effLedger.data.reconciled.spend_by_currency.USD.minor,
+      "N03-B: Sum of disjoint period USD spend MUST strictly reconcile to cumulative USD ledger"
+    );
+    assert.equal(
+      gW3.spend_by_currency.JPY.minor,
+      effLedger.data.reconciled.spend_by_currency.JPY.minor,
+      "N03-B: Disjoint period JPY spend MUST strictly reconcile to cumulative JPY ledger"
+    );
+
+    // N03-C: Explicit zero spend (USD 0.00) vs unrecorded spend (null -> unknown_not_recorded)
+    await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { platform: "facebook", acquisition_mode: "manual_discovery", title: "TEST N03 Unrecorded Spend Task", country_scope: "Chile", hours_logged_tenths: 0, actual_spend_minor: null, occurred_at: "2026-09-10" },
+    });
+    await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { platform: "facebook", acquisition_mode: "manual_discovery", title: "TEST N03 Explicit Zero Spend Task", country_scope: "Colombia", hours_logged_tenths: 0, actual_spend_minor: 0, spend_currency: "USD", occurred_at: "2026-09-10" },
+    });
+    const cmpChile = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-09-10&to=2026-09-10&country=Chile", { token: adminToken, orgId: "org_friesgo_main" });
+    const cmpCol = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-09-10&to=2026-09-10&country=Colombia", { token: adminToken, orgId: "org_friesgo_main" });
+    assert.equal(cmpChile.data.groups[0].hours_logged_tenths, 0);
+    assert.equal(cmpChile.data.groups[0].spend_status, "unknown_not_recorded");
+    assert.equal(cmpChile.data.groups[0].spend_display, "未记录");
+    assert.equal(cmpCol.data.groups[0].hours_logged_tenths, 0);
+    assert.equal(cmpCol.data.groups[0].spend_status, "recorded");
+    assert.equal(cmpCol.data.groups[0].actual_spend_minor, 0);
+    assert.equal(cmpCol.data.groups[0].spend_display, "USD 0.00");
+
+    // N03-D: Cross-product generic task (empty product_keywords) remains shared_unallocated AND strictly period-scoped!
+    await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        platform: "linkedin",
+        acquisition_mode: "manual_discovery",
+        title: "TEST N03 Thailand Generic All-Products Outreach",
+        country_scope: "Thailand",
+        product_keywords: "",
+        hours_logged_tenths: 40,
+        occurred_at: "2026-10-20",
+      },
+    });
+    const cmpThProdOct = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-10-01&to=2026-10-31&country=Thailand&product_line=pe_pipes", { token: adminToken, orgId: "org_friesgo_main" });
+    const cmpThProdNov = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-11-01&to=2026-11-30&country=Thailand&product_line=pe_pipes", { token: adminToken, orgId: "org_friesgo_main" });
+    const sharedProdOct = cmpThProdOct.data.sharedUnallocatedTasks.find((x) => x.title.includes("Generic All-Products"));
+    const sharedProdNov = cmpThProdNov.data.sharedUnallocatedTasks.find((x) => x.title.includes("Generic All-Products"));
+    assert.ok(sharedProdOct, "N03-D: Generic cross-product task must appear in sharedUnallocatedTasks in Oct");
+    assert.equal(sharedProdOct.shared_reason, "shared_product_any");
+    assert.equal(sharedProdOct.period_hours_tenths, 40);
+    assert.equal(sharedProdNov, undefined, "N03-D: Oct shared task must NOT leak into Nov window");
+
     // --- N08 API Contract Check: Full HTTPS deepLinkUrl inside wechatSafeCard ---
     const todosApi = await callApi(worker, env, "GET", "/api/v3/dispatch/my-todos?scope=all", {
       token: adminToken,
@@ -1758,7 +1957,7 @@ async function main() {
       "N08: wechatSafeCard must embed the full clickable deepLinkUrl"
     );
 
-    console.log("PASS BLOCK 7 (N01/N02/N03/N04/N08-API): CI gate, USD+JPY multi-currency isolation, zero-yield tasks, country/shared-ANY filtering, UTC+8 half-open date window & HTTPS WeChat deep-link verified");
+    console.log("PASS BLOCK 7 (N01/N02/N03-PeriodLedger/N04/N08-API): CI gate, USD+JPY multi-currency isolation, period occurred_at ledger (title-edit immunity, multi-month + adjustment reconciliation, zero vs unrecorded, cross-product shared), UTC+8 half-open date window & HTTPS WeChat deep-link verified");
   }
 
   // =========================================================================
@@ -2126,6 +2325,31 @@ async function main() {
       const compareTxt = document.getElementById("v3Body").innerText;
       const hasDateRangeInputs = Boolean(document.getElementById("v3CmpFrom") && document.getElementById("v3CmpTo"));
 
+      // N03-UI & Export Check #1: Thailand 2026-11-01..2026-11-27 -> period 13.0h / USD 20.00, cumulative ref 28.0h / JPY 200 + USD 70.00
+      document.getElementById("v3CmpCountry").value = "Thailand";
+      document.getElementById("v3CmpProd").value = "";
+      document.getElementById("v3CmpFrom").value = "2026-11-01";
+      document.getElementById("v3CmpTo").value = "2026-11-27";
+      document.getElementById("v3BtnRunCmp").click();
+      await new Promise((r) => setTimeout(r, 350));
+      const cmpW2Txt = document.getElementById("v3Body").innerText;
+      const cmpW2Md = String(window.__FG_V3_LAST_COMPARE_MD__ || "");
+
+      // N03-UI & Export Check #2: Thailand 2026-11-28..2026-11-28 -> period 5.0h / JPY 200 (NOT 13.0h / USD 20.00 or 28.0h!)
+      document.getElementById("v3CmpFrom").value = "2026-11-28";
+      document.getElementById("v3CmpTo").value = "2026-11-28";
+      document.getElementById("v3BtnRunCmp").click();
+      await new Promise((r) => setTimeout(r, 350));
+      const cmpW3Txt = document.getElementById("v3Body").innerText;
+      const cmpW3Md = String(window.__FG_V3_LAST_COMPARE_MD__ || "");
+
+      // Reset compare filters so 360px mobile overflow tests full unfiltered table
+      document.getElementById("v3CmpCountry").value = "";
+      document.getElementById("v3CmpFrom").value = "";
+      document.getElementById("v3CmpTo").value = "";
+      document.getElementById("v3BtnRunCmp").click();
+      await new Promise((r) => setTimeout(r, 250));
+
       window.FG_V3_UI.setTab("projects");
       await new Promise((r) => setTimeout(r, 250));
       const projectsTxt = document.getElementById("v3Body").innerText;
@@ -2142,6 +2366,10 @@ async function main() {
         mainDraftRestored,
         hasTaskCurrencySelect,
         hasDateRangeInputs,
+        cmpW2Txt,
+        cmpW2Md,
+        cmpW3Txt,
+        cmpW3Md,
         todosOk: todosTxt.includes("复制微信脱敏卡"),
         tasksOk: tasksTxt.includes("Facebook") && tasksTxt.includes("Instagram") && tasksTxt.includes("LinkedIn") && tasksTxt.includes("YouTube"),
         signalsOk: signalsTxt.includes("可编辑回复草稿") && signalsTxt.includes("不计触达"),
@@ -2161,7 +2389,14 @@ async function main() {
     assert.equal(epochCheck.tasksOk, true, "Tab 2 FB/IG/LI/YT platform strip must render");
     assert.equal(epochCheck.signalsOk, true, "Tab 3 editable draft drawer must render");
     assert.equal(epochCheck.compareOk, true, "Tab 4 source comparison + Markdown export must render");
-    assert.equal(epochCheck.compareMultiCurrencyOk, true, "N02-UI/N03-UI: Compare tab must render 'USD 1.00 + JPY 200' and '零产出投入' badge");
+    assert.equal(epochCheck.compareMultiCurrencyOk, true, "N02-UI/N03-UI: Compare tab must render 'JPY 200 + USD 1.00' and '零产出投入' badge");
+    // N03-UI & Markdown Export exact period vs cumulative reconciliation assertions
+    assert.ok(epochCheck.cmpW2Txt.includes("13.0") && epochCheck.cmpW2Txt.includes("USD 20.00"), "N03-UI W2: Must display period 13.0h and USD 20.00");
+    assert.ok(epochCheck.cmpW2Txt.includes("累计参考：28.0h / JPY 200 + USD 70.00"), "N03-UI W2: Must display separated cumulative_reference");
+    assert.ok(epochCheck.cmpW2Md.includes("| 13.0 | USD 20.00 | 28.0h / JPY 200 + USD 70.00 |"), "N03-Export W2: Markdown export must match period & cumulative figures");
+    assert.ok(epochCheck.cmpW3Txt.includes("5.0") && epochCheck.cmpW3Txt.includes("JPY 200"), "N03-UI W3: Must display period 5.0h and JPY 200");
+    assert.ok(!epochCheck.cmpW3Md.includes("| 13.0 | USD 20.00 |"), "N03-Export W3: Nov 28 export must NOT repeat Nov 1-27 period effort");
+    assert.ok(epochCheck.cmpW3Md.includes("| 5.0 | JPY 200 | 28.0h / JPY 200 + USD 70.00 |"), "N03-Export W3: Nov 28 Markdown export must match exact period 5.0h / JPY 200");
     assert.equal(epochCheck.projectsOk, true, "Tab 5 projects + blind-dedupe manager hints must render");
     assert.equal(epochCheck.adminOk, true, "Tab 6 applications inbox + catalog manager must render");
 

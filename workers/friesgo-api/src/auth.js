@@ -194,6 +194,7 @@ export const REQUIRED_V4_SLICE1_TABLES = [
   "projects",
   "project_participants",
   "discovery_tasks",
+  "discovery_task_efforts",
   "demand_signals",
   "inquiries",
   "lead_assignments",

@@ -263,6 +263,8 @@
     listTasks: function () { return apiRequest("/api/v3/acq/tasks"); },
     createTask: function (body) { return apiRequest("/api/v3/acq/tasks", { method: "POST", body: body }); },
     patchTask: function (id, body) { return apiRequest("/api/v3/acq/tasks/" + encodeURIComponent(id), { method: "PATCH", body: body }); },
+    listTaskEfforts: function (id) { return apiRequest("/api/v3/acq/tasks/" + encodeURIComponent(id) + "/efforts"); },
+    addTaskEffort: function (id, body) { return apiRequest("/api/v3/acq/tasks/" + encodeURIComponent(id) + "/efforts", { method: "POST", body: body }); },
     listSignals: function (qs) { return apiRequest("/api/v3/acq/signals" + (qs ? "?" + qs : "")); },
     createSignal: function (body, idemKey) { return apiRequest("/api/v3/acq/signals", { method: "POST", body: body, idemKey: idemKey }); },
     auditSignal: function (id, body) { return apiRequest("/api/v3/acq/signals/" + encodeURIComponent(id) + "/audit", { method: "POST", body: body }); },
