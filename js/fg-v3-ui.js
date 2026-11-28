@@ -15,7 +15,34 @@
   var activeTab = "todos"; // todos | tasks | signals | compare | projects | admin
   var todoBucketFilter = "all";
   var sigFilters = { platform: "", audit_status: "", contact_result: "" };
-  var cmpFilters = { country: "", product_line: "" };
+  var cmpFilters = { country: "", product_line: "", from: "", to: "" };
+  var pendingDeepLink = { todoId: "", orgId: "", unauthorizedOrg: false };
+
+  var CURRENCY_DECIMALS = { USD: 2, CNY: 2, EUR: 2, GBP: 2, JPY: 0, AED: 2, SAR: 2 };
+  function formatSpendMinor(minor, currency) {
+    if (minor === null || minor === undefined) return "未知（未记录费用）";
+    var code = String(currency || "USD").toUpperCase();
+    var dec = Object.prototype.hasOwnProperty.call(CURRENCY_DECIMALS, code) ? CURRENCY_DECIMALS[code] : 2;
+    var n = Number(minor);
+    if (!Number.isFinite(n)) return "未知";
+    return code + " " + (dec === 0 ? String(Math.trunc(n)) : (n / Math.pow(10, dec)).toFixed(dec));
+  }
+
+  function formatGroupSpend(g) {
+    if (!g) return "未知";
+    if (g.spend_display && g.spend_status !== "unknown_not_recorded") return g.spend_display;
+    if (g.spend_by_currency && typeof g.spend_by_currency === "object") {
+      var keys = Object.keys(g.spend_by_currency);
+      if (keys.length) {
+        return keys.map(function (k) {
+          var item = g.spend_by_currency[k];
+          return (item && item.formatted) ? item.formatted : formatSpendMinor(item && item.minor, k);
+        }).join(" + ");
+      }
+    }
+    if (g.actual_spend_minor === null || g.actual_spend_minor === undefined) return "未知";
+    return formatSpendMinor(g.actual_spend_minor, g.spend_currency || "USD");
+  }
 
   function esc(s) {
     return String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -74,6 +101,7 @@
       ".v3-tabs .pill{min-height:34px;padding:4px 10px;font-size:12.5px}" +
       ".v3-body{overflow-y:auto;overflow-x:hidden;flex:1;min-height:280px;padding-right:2px}" +
       ".v3-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;max-width:100%;overflow-wrap:anywhere}" +
+      ".v3-card.v3-deeplink-highlight{border:2px solid var(--orange);box-shadow:0 0 0 3px var(--orange-soft);background:var(--orange-soft)}" +
       ".v3-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}" +
       ".v3-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}" +
       ".v3-plat-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}" +
@@ -227,7 +255,11 @@
     var st = global.FG_V3.getState();
     var cloudSt = global.FG_CLOUD && global.FG_CLOUD.getState();
     if (!cloudSt || !cloudSt.loggedIn) {
-      body.innerHTML = '<div class="v3-card"><b>需要成员登录</b><p class="muted">请先点击顶部「🔒 成员登录」认证身份后再进入 V3 获客与伙伴协作中心。</p></div>';
+      body.innerHTML = '<div class="v3-card" id="v3DeepLinkAuthNotice"><b>需要成员登录</b><p class="muted">请先点击顶部「🔒 成员登录」认证身份后再进入 V3 获客与伙伴协作中心' + (pendingDeepLink.todoId ? ('（登录后将自动定位至待办 ' + esc(pendingDeepLink.todoId) + '）') : '') + '。</p></div>';
+      return;
+    }
+    if (pendingDeepLink.unauthorizedOrg) {
+      body.innerHTML = '<div class="v3-card" id="v3DeepLinkUnauthNotice"><b>无法访问目标待办所属数据空间</b><p class="muted">当前登录账号未获得该数据空间的访问授权，或目标待办权限已变更。请在右上角选择您有权访问的工作空间。</p></div>';
       return;
     }
     if (!st.activeContext) {
@@ -260,6 +292,10 @@
     }
 
     var allTodos = res.todos || [];
+    var targetTodoId = pendingDeepLink.todoId || "";
+    if (targetTodoId) {
+      todoBucketFilter = "all";
+    }
     var buckets = [
       { key: "all", label: "全部待办" },
       { key: "pending_accept_or_dispatch", label: "待派单 / 待接单" },
@@ -277,7 +313,17 @@
       ? allTodos
       : allTodos.filter(function (t) { return t.action_bucket === todoBucketFilter; });
 
-    var html = '<div class="v3-chips">';
+    var html = "";
+    if (targetTodoId) {
+      var foundTarget = allTodos.some(function (x) { return x.id === targetTodoId; });
+      if (foundTarget) {
+        html += '<div id="v3DeepLinkFoundNotice" class="v2-guard-bar lv-green" style="margin-bottom:8px">🎯 已通过直达链接定位并高亮待办：<code>' + esc(targetTodoId) + '</code></div>';
+      } else {
+        html += '<div id="v3DeepLinkMissingNotice" class="v2-guard-bar lv-yellow" style="margin-bottom:8px">ℹ️ 未在当前待办列表中找到目标任务（可能已转派他人、已完成归档，或当前账号无权查看）。</div>';
+      }
+    }
+
+    html += '<div class="v3-chips">';
     buckets.forEach(function (b) {
       var cls = todoBucketFilter === b.key ? "v3-chip active" : "v3-chip";
       html += '<button type="button" class="' + cls + '" data-todo-bucket="' + b.key + '">' + b.label + ' (' + (counts[b.key] || 0) + ')</button>';
@@ -294,13 +340,14 @@
       html += '<div class="v3-card"><b>当前分组暂无行动项</b><p class="muted">在「候选登记 / 审核」核实需求或收到买方 RFQ 后，待办卡片会自动进入这里。</p></div>';
     } else {
       filtered.forEach(function (t) {
+        var isTarget = Boolean(targetTodoId && t.id === targetTodoId);
         var readinessBadge = t.fulfillment_readiness === "direct_supply"
           ? '<span class="v3-badge ok">可直接处理</span>'
           : t.fulfillment_readiness === "intelligence_only"
           ? '<span class="v3-badge">暂仅情报</span>'
           : '<span class="v3-badge warn">需技术/供应确认</span>';
         html +=
-          '<div class="v3-card">' +
+          '<div class="v3-card' + (isTarget ? ' v3-deeplink-highlight' : '') + '" data-todo-id="' + esc(t.id) + '">' +
           '  <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">' +
           '    <b>' + esc(t.inquiry_no || t.project_title || t.id) + ' · ' + esc(t.sig_country || "国家待核实") + ' / ' + esc(t.sig_product || "品类待确认") + '</b>' +
           '    <div style="display:flex;gap:5px;flex-wrap:wrap">' +
@@ -334,8 +381,16 @@
     }
     body.innerHTML = html;
 
+    if (targetTodoId) {
+      var targetCard = body.querySelector('.v3-deeplink-highlight');
+      if (targetCard && typeof targetCard.scrollIntoView === "function") {
+        try { targetCard.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) {}
+      }
+    }
+
     body.querySelectorAll("[data-todo-bucket]").forEach(function (b) {
       b.addEventListener("click", function () {
+        pendingDeepLink.todoId = "";
         todoBucketFilter = b.getAttribute("data-todo-bucket");
         renderCurrentTab();
       });
@@ -390,11 +445,22 @@
       btn.addEventListener("click", async function () {
         var inqId = btn.getAttribute("data-act-quote");
         var refNo = prompt("请输入正式报价单号（可留空自动生成）：", "");
-        var amtMajor = prompt("请输入对外报价总额（USD，如 48500.00，不含内部成本与毛利）：", "10000.00");
+        var curCode = (prompt("请输入报价币种（USD / CNY / EUR / GBP / JPY / AED / SAR）：", "USD") || "USD").trim().toUpperCase();
+        var dec = Object.prototype.hasOwnProperty.call(CURRENCY_DECIMALS, curCode) ? CURRENCY_DECIMALS[curCode] : 2;
+        var amtMajor = prompt("请输入对外报价总额（" + curCode + "，不含内部成本与毛利）：", dec === 0 ? "100000" : "10000.00");
         if (!amtMajor) return;
-        var minor = Math.round(Number(amtMajor) * 100) || 0;
-        var r = await global.FG_V3.createInquiryQuote(inqId, { ref_no: refNo || undefined, currency: "USD", total_minor: minor, incoterm: "FOB" });
-        toast(r.ok ? ("正式报价已关联：" + r.ref_no) : ("关联失败：" + (r.error || r.code)));
+        var minor = Math.round(Number(amtMajor) * Math.pow(10, dec));
+        var confirmApproved = isMgr || st.activeContext.role === "independent_user"
+          ? confirm("是否确认为正式已发报价？点击「确定」立即标记为已报价；点击「取消」仅保存为待审批报价草稿。")
+          : false;
+        var r = await global.FG_V3.createInquiryQuote(inqId, {
+          ref_no: refNo || undefined,
+          currency: curCode,
+          total_minor: minor,
+          incoterm: "FOB",
+          confirm_approved: confirmApproved,
+        });
+        toast(r.ok ? ((r.sent_confirmed ? "正式报价已确认：" : "报价草稿已保存：") + r.ref_no) : ("关联失败：" + (r.error || r.code)));
         renderCurrentTab();
       });
     });
@@ -403,7 +469,7 @@
       btn.addEventListener("click", function () {
         var id = btn.getAttribute("data-copy-wx");
         var item = allTodos.find(function (x) { return x.id === id; });
-        if (item) copyText(item.wechatSafeCard, "已复制个人微信脱敏提醒卡（不含电话/邮箱/报价/凭证）");
+        if (item) copyText(item.wechatSafeCard, "已复制个人微信脱敏提醒卡（含可点击直达链接，不含电话/邮箱/报价/凭证）");
       });
     });
 
@@ -416,7 +482,7 @@
   }
 
   // =========================================================================
-  // TAB 2: Discovery Tasks & 3-Platform Status Strip (ACQ01-03)
+  // TAB 2: Discovery Tasks & 3-Platform Status Strip (ACQ01-03 / N02)
   // =========================================================================
   async function renderTasksTab(body, epoch) {
     var res = await global.FG_V3.listTasks();
@@ -445,7 +511,7 @@
         '    <div class="v3-field"><label>产品关键词（选填）</label><input id="v3TaskProd" placeholder="如：valve, HDPE pipe, cable, steel 或留空"></div>' +
         '    <div class="v3-field"><label>采购意图词（仅检索起点）</label><input id="v3TaskIntent" value="looking for supplier, RFQ, need distributor"></div>' +
         '    <div class="v3-field"><label>排除词（过滤卖货广告/招聘）</label><input id="v3TaskExcl" value="we supply, factory direct, wholesale, hiring"></div>' +
-        '    <div class="v3-field"><label>实际费用（USD，无支出请留空勿填0）</label><input id="v3TaskSpend" type="number" step="0.01" placeholder="留空表示未知/未记录"></div>' +
+        '    <div class="v3-field"><label>实际费用与币种（无支出请留空勿填0）</label><div style="display:flex;gap:6px"><select id="v3TaskCurrency" style="width:94px;flex:0 0 auto"><option value="USD">USD</option><option value="CNY">CNY</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="JPY">JPY</option><option value="AED">AED</option><option value="SAR">SAR</option></select><input id="v3TaskSpend" type="number" step="0.01" placeholder="留空表示未知/未记录"></div></div>' +
         '  </div>' +
         '  <div class="v3-acts"><button type="button" class="pill primary" id="v3BtnCreateTask">＋ 创建发现任务</button></div>' +
         '</div>';
@@ -456,9 +522,7 @@
     } else {
       tasks.forEach(function (t) {
         var hrs = (Number(t.hours_logged_tenths || 0) / 10).toFixed(1);
-        var spendTxt = t.actual_spend_minor === null || t.actual_spend_minor === undefined
-          ? "未知（未记录费用）"
-          : ((Number(t.actual_spend_minor) / 100).toFixed(2) + " " + (t.spend_currency || "USD"));
+        var spendTxt = formatSpendMinor(t.actual_spend_minor, t.spend_currency);
         html +=
           '<div class="v3-card">' +
           '  <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
@@ -482,7 +546,9 @@
     if (btnCreate) {
       btnCreate.addEventListener("click", async function () {
         var rawSpend = body.querySelector("#v3TaskSpend").value.trim();
-        var spendMinor = rawSpend !== "" && Number.isFinite(Number(rawSpend)) ? Math.round(Number(rawSpend) * 100) : null;
+        var curCode = body.querySelector("#v3TaskCurrency").value || "USD";
+        var dec = Object.prototype.hasOwnProperty.call(CURRENCY_DECIMALS, curCode) ? CURRENCY_DECIMALS[curCode] : 2;
+        var spendMinor = rawSpend !== "" && Number.isFinite(Number(rawSpend)) ? Math.round(Number(rawSpend) * Math.pow(10, dec)) : null;
         var r = await global.FG_V3.createTask({
           platform: body.querySelector("#v3TaskPlat").value,
           acquisition_mode: body.querySelector("#v3TaskMode").value,
@@ -492,7 +558,7 @@
           intent_keywords: body.querySelector("#v3TaskIntent").value.trim(),
           exclude_keywords: body.querySelector("#v3TaskExcl").value.trim(),
           actual_spend_minor: spendMinor,
-          spend_currency: spendMinor !== null ? "USD" : "",
+          spend_currency: spendMinor !== null ? curCode : "",
         });
         toast(r.ok ? "发现任务已创建" : ("创建失败：" + (r.error || r.code)));
         if (r.ok) renderCurrentTab();
@@ -711,12 +777,14 @@
   }
 
   // =========================================================================
-  // TAB 4: Honest Source Comparison (ACQ10)
+  // TAB 4: Honest Source Comparison (ACQ10 / N02 / N03 / N04)
   // =========================================================================
   async function renderCompareTab(body, epoch) {
     var qs = [];
     if (cmpFilters.country) qs.push("country=" + encodeURIComponent(cmpFilters.country));
     if (cmpFilters.product_line) qs.push("product_line=" + encodeURIComponent(cmpFilters.product_line));
+    if (cmpFilters.from) qs.push("from=" + encodeURIComponent(cmpFilters.from));
+    if (cmpFilters.to) qs.push("to=" + encodeURIComponent(cmpFilters.to));
     var res = await global.FG_V3.getSourceComparison(qs.join("&"));
     if (res.staleContext || epoch !== global.FG_V3.getContextEpoch()) return;
     if (!res.ok) {
@@ -726,31 +794,43 @@
 
     var rows = res.groups || [];
     var futureRows = res.futureCandidates || [];
+    var sharedTasks = res.sharedUnallocatedTasks || [];
+    var win = res.observationWindow || null;
 
     var html =
       '<div class="v2-guard-bar lv-yellow" style="margin-bottom:10px">' +
-      '  <b>同口径分母约束 (ACQ10)：</b>核实有效率 = 已核实有效 / 已完成核实（待核实单列）；回复率 = 有效回复 / 人工实发（草稿与复制严禁计入）；未记录费用显示「未知」，绝不造假 0 成本；YouTube 不计入首轮汇总。' +
+      '  <b>同口径分母约束 (ACQ10)：</b>核实有效率 = 已核实有效 / 已完成核实（待核实单列）；回复率 = 有效回复 / 人工实发（草稿与复制严禁计入）；不同币种费用分列展示严禁混加，未记录费用显示「未知」；零产出任务如实展示；YouTube 不计入首轮汇总。' +
       '</div>' +
       '<div class="v3-filter-bar">' +
       '  <input id="v3CmpCountry" value="' + esc(cmpFilters.country) + '" placeholder="按国家筛选（如 UAE）">' +
       '  <input id="v3CmpProd" value="' + esc(cmpFilters.product_line) + '" placeholder="按品类筛选（如 pe_pipes）">' +
+      '  <input id="v3CmpFrom" type="date" value="' + esc(cmpFilters.from) + '" aria-label="起始日期">' +
+      '  <input id="v3CmpTo" type="date" value="' + esc(cmpFilters.to) + '" aria-label="截止日期">' +
       '  <button type="button" class="pill primary" id="v3BtnRunCmp">刷新对比</button>' +
       '  <button type="button" class="pill" id="v3BtnCopyCmpMd">📋 复制周复盘 Markdown 表</button>' +
       '</div>';
 
+    if (win && (win.from || win.to)) {
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">生效观测窗（UTC+' + (Number(win.tz_offset_minutes || 480) / 60) + '）：' +
+        esc(win.from || "不限") + ' ~ ' + esc(win.to || "不限") +
+        '（UTC: ' + esc(win.start_iso_utc || "—") + ' → ' + esc(win.end_iso_utc || "—") + (win.end_exclusive ? " 不含右端" : "") + '）</div>';
+    }
+
     function renderGroupTable(list, title) {
       if (!list.length) return '<div class="v3-card"><b>' + esc(title) + '</b><p class="muted" style="margin:6px 0 0">暂无样本数据。</p></div>';
       var t = '<div class="v3-card"><b>' + esc(title) + '</b><div class="v3-table-wrap" style="margin-top:8px"><table><thead><tr>' +
-        '<th>平台 / 获客方式</th><th>已查候选</th><th>待核实</th><th>核实有效/已核实(率)</th><th>草稿/复制</th><th>人工实发</th><th>有效回复(率)</th><th>询盘/已报价</th><th>工时(h)</th><th>实际费用</th>' +
+        '<th>平台 / 获客方式</th><th>已查候选</th><th>待核实</th><th>核实有效/已核实(率)</th><th>草稿/复制</th><th>人工实发</th><th>有效回复(率)</th><th>询盘/已报价</th><th>工时(h)</th><th>实际费用(分币种)</th>' +
         '</tr></thead><tbody>';
       list.forEach(function (g) {
         var vRate = g.verified_valid_rate_pct === null ? "—" : (g.verified_valid_rate_pct + "%");
         var rRate = g.reply_rate_pct === null ? "—" : (g.reply_rate_pct + "%");
         var hrs = g.hours_logged_tenths === null ? "未知" : (g.hours_logged_tenths / 10).toFixed(1);
-        var spend = g.actual_spend_minor === null ? "未知" : (g.actual_spend_minor / 100).toFixed(2);
+        var spend = formatGroupSpend(g);
         t +=
           '<tr>' +
-          '<td><b>' + esc(g.source_platform) + '</b><br><small>' + esc(g.acquisition_mode) + (g.small_sample_warning ? ' · ⚠️小样本(n&lt;20)' : '') + '</small></td>' +
+          '<td><b>' + esc(g.source_platform) + '</b><br><small>' + esc(g.acquisition_mode) +
+          (g.zero_yield_task ? ' · <span class="v3-badge warn">零产出投入</span>' : '') +
+          (g.small_sample_warning ? ' · ⚠️小样本(n&lt;20)' : '') + '</small></td>' +
           '<td>' + g.checked_candidates + '</td>' +
           '<td>' + g.pending_verify_count + '</td>' +
           '<td>' + g.verified_valid + '/' + g.verified_completed + ' (' + vRate + ')</td>' +
@@ -759,7 +839,7 @@
           '<td>' + g.replied_count + ' (' + rRate + ')</td>' +
           '<td>' + g.inquiries_count + ' / ' + g.quoted_count + '</td>' +
           '<td>' + hrs + '</td>' +
-          '<td>' + spend + '</td>' +
+          '<td>' + esc(spend) + '</td>' +
           '</tr>';
       });
       t += '</tbody></table></div></div>';
@@ -770,16 +850,26 @@
     if (futureRows.length) {
       html += renderGroupTable(futureRows, "后续候选平台单列（YouTube — 不计入首轮完成率）");
     }
+    if (sharedTasks.length) {
+      html += '<div class="v3-card"><b>跨国共享未分摊任务（country_scope=ANY，按国家筛选时单独列示不混入单国工时/费用）</b>' +
+        sharedTasks.map(function (stItem) {
+          return '<div style="font-size:12px;color:var(--muted);margin-top:4px">[' + esc(stItem.platform.toUpperCase()) + '] ' + esc(stItem.title) +
+            ' · 工时 ' + (Number(stItem.hours_logged_tenths || 0) / 10).toFixed(1) + 'h' +
+            (stItem.spend ? (' · 费用 ' + esc(stItem.spend.formatted)) : '') + '</div>';
+        }).join("") + '</div>';
+    }
     body.innerHTML = html;
 
     body.querySelector("#v3BtnRunCmp").addEventListener("click", function () {
       cmpFilters.country = body.querySelector("#v3CmpCountry").value.trim();
       cmpFilters.product_line = body.querySelector("#v3CmpProd").value.trim();
+      cmpFilters.from = body.querySelector("#v3CmpFrom").value.trim();
+      cmpFilters.to = body.querySelector("#v3CmpTo").value.trim();
       renderCurrentTab();
     });
     body.querySelector("#v3BtnCopyCmpMd").addEventListener("click", function () {
       var lines = [
-        "| 平台 | 获客方式 | 候选 | 待核实 | 核实有效/已核实 | 人工实发 | 有效回复 | 询盘/报价 | 工时(h) | 费用 |",
+        "| 平台 | 获客方式 | 候选 | 待核实 | 核实有效/已核实 | 人工实发 | 有效回复 | 询盘/报价 | 工时(h) | 费用(分币种) |",
         "|---|---|---|---|---|---|---|---|---|---|",
       ];
       rows.forEach(function (g) {
@@ -793,7 +883,7 @@
           g.replied_count,
           g.inquiries_count + "/" + g.quoted_count,
           g.hours_logged_tenths === null ? "未知" : (g.hours_logged_tenths / 10).toFixed(1),
-          g.actual_spend_minor === null ? "未知" : (g.actual_spend_minor / 100).toFixed(2),
+          formatGroupSpend(g),
         ].join(" | ") + " |");
       });
       copyText(lines.join("\n"), "已复制同口径 Markdown 来源对比表");
@@ -1077,15 +1167,68 @@
     }
   }
 
-  async function openHub(tab) {
+  function parseDeepLinkFromLocation() {
+    var todoId = "";
+    var orgId = "";
+    var openRequested = false;
+    try {
+      var qs = new URLSearchParams(location.search || "");
+      var qTodo = (qs.get("v3_todo") || "").trim();
+      var qOrg = (qs.get("v3_org") || "").trim();
+      if (qTodo) {
+        todoId = qTodo;
+        openRequested = true;
+      }
+      if (qOrg) orgId = qOrg;
+    } catch (_) {}
+    var h = String(location.hash || "");
+    if (h === "#v3-hub") {
+      openRequested = true;
+    } else if (h.indexOf("#v3-todo=") === 0) {
+      openRequested = true;
+      var hVal = h.slice("#v3-todo=".length);
+      try { hVal = decodeURIComponent(hVal); } catch (_) {}
+      if (hVal) todoId = hVal.trim();
+    }
+    return { openRequested: openRequested, todoId: todoId, orgId: orgId };
+  }
+
+  async function openHub(tab, opts) {
     ensureModal();
     if (tab) activeTab = tab;
+    if (opts && typeof opts === "object") {
+      pendingDeepLink.todoId = String(opts.todoId || "").trim();
+      pendingDeepLink.orgId = String(opts.orgId || "").trim();
+      pendingDeepLink.unauthorizedOrg = false;
+    }
     modalEl.hidden = false;
     modalEl.querySelectorAll("[data-v3tab]").forEach(function (b) {
       b.classList.toggle("primary", b.getAttribute("data-v3tab") === activeTab);
     });
     if (global.FG_V3) {
       await global.FG_V3.loadContexts();
+      if (pendingDeepLink.orgId) {
+        var st = global.FG_V3.getState();
+        var matchCtx = (st.contexts || []).find(function (c) { return c.org_id === pendingDeepLink.orgId; });
+        if (matchCtx) {
+          global.FG_V3.switchContext(matchCtx);
+          pendingDeepLink.unauthorizedOrg = false;
+        } else {
+          var grantMatch = (st.supportGrants || []).find(function (g) { return g.org_id === pendingDeepLink.orgId; });
+          if (grantMatch) {
+            global.FG_V3.switchContext({
+              org_id: grantMatch.org_id,
+              org_type: grantMatch.org_type,
+              org_name: grantMatch.org_name + " (只读排障)",
+              role: "support_readonly",
+              membership_id: "support_grant",
+            });
+            pendingDeepLink.unauthorizedOrg = false;
+          } else if (global.FG_CLOUD && global.FG_CLOUD.getState() && global.FG_CLOUD.getState().loggedIn) {
+            pendingDeepLink.unauthorizedOrg = true;
+          }
+        }
+      }
     }
     renderCurrentTab();
   }
@@ -1097,6 +1240,7 @@
   if (global.FG_V3 && typeof global.FG_V3.subscribe === "function") {
     global.FG_V3.subscribe(function (st) {
       if (!modalEl || modalEl.hidden) return;
+      if (st.activeContext) pendingDeepLink.unauthorizedOrg = false;
       renderContextBar();
       if (!st.contexts.length && !st.activeContext) {
         var body = modalEl.querySelector("#v3Body");
@@ -1106,15 +1250,18 @@
   }
 
   function checkDeepLink() {
-    var h = String(location.hash || "");
-    if (h === "#v3-hub" || h.indexOf("#v3-todo=") === 0) {
-      openHub("todos");
+    var dl = parseDeepLinkFromLocation();
+    if (dl.openRequested) {
+      openHub("todos", { todoId: dl.todoId, orgId: dl.orgId });
     }
   }
 
   document.addEventListener("DOMContentLoaded", function () {
     var btn = document.getElementById("btnOpenV3Hub");
-    if (btn) btn.addEventListener("click", function () { openHub("todos"); });
+    if (btn) btn.addEventListener("click", function () {
+      pendingDeepLink = { todoId: "", orgId: "", unauthorizedOrg: false };
+      openHub("todos");
+    });
     checkDeepLink();
   });
   window.addEventListener("hashchange", checkDeepLink);
@@ -1124,5 +1271,6 @@
     closeHub: closeHub,
     setTab: setTab,
     renderCurrentTab: renderCurrentTab,
+    checkDeepLink: checkDeepLink,
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -264,7 +264,41 @@ async function main() {
     // 1.8 D1 safe integer overflow & unsupported currency guards
     assert.throws(() => moneyMod.assertD1SafeInt(9007199254740992n), /D1_SAFE_INT_OVERFLOW/);
     assert.throws(() => moneyMod.parseMoneyToMinor("10.00", "ZZZ"), /UNSUPPORTED_CURRENCY/);
-    console.log("PASS BLOCK 1 (ENG02): JPY<->USD cross-decimal FX, $0.03/4 Largest-Remainder, negative symmetry, retained vs unallocated, fixed_per_unit & D1 safe-int guards verified");
+
+    // 1.9 N05: Reject floats, scientific notation, non-integer strings, NaN/Infinity, null/boolean & unsafe integer strings BEFORE Number() truncation!
+    const exactIntErrRe = /INVALID_EXACT_INTEGER|INVALID_INTEGER|UNSAFE_INTEGER|D1_SAFE_INT_OVERFLOW|NEGATIVE_NOT_ALLOWED/;
+    for (const badVal of [1.99, "1.99", NaN, Infinity, -Infinity, "1e5", "9007199254740993", "-9007199254740993", null, true, false, ""]) {
+      assert.throws(
+        () => moneyMod.convertCurrencyMinor({ sourceMinor: badVal, sourceCurrency: "USD", targetCurrency: "EUR", fxRateDec: "0.92" }),
+        exactIntErrRe,
+        `convertCurrencyMinor must reject bad input ${String(badVal)}`
+      );
+      assert.throws(
+        () => moneyMod.calculateLineCommissionMinor({ calcMode: "pct_of_commissionable", currency: "USD", commissionableMinor: badVal, ratePpm: 50000 }),
+        exactIntErrRe,
+        `calculateLineCommissionMinor(commissionableMinor) must reject ${String(badVal)}`
+      );
+      assert.throws(
+        () => moneyMod.calculateLineCommissionMinor({ calcMode: "pct_of_commissionable", currency: "USD", commissionableMinor: 1000, ratePpm: badVal }),
+        exactIntErrRe,
+        `calculateLineCommissionMinor(ratePpm) must reject ${String(badVal)}`
+      );
+      assert.throws(
+        () => moneyMod.splitCommissionLargestRemainder({ totalCommissionMinor: badVal, shares: [{ id: "p1", rolePriority: 1, weightPpm: 1000000 }] }),
+        exactIntErrRe,
+        `splitCommissionLargestRemainder must reject totalCommissionMinor=${String(badVal)}`
+      );
+      assert.throws(
+        () => moneyMod.formatMinor(badVal, "USD"),
+        exactIntErrRe,
+        `formatMinor must reject ${String(badVal)}`
+      );
+    }
+    assert.throws(
+      () => moneyMod.splitCommissionLargestRemainder({ totalCommissionMinor: 100, shares: [{ id: "p1", rolePriority: 1, weightPpm: 1000.5 }] }),
+      exactIntErrRe
+    );
+    console.log("PASS BLOCK 1 (ENG02/N05): JPY<->USD cross-decimal FX, $0.03/4 Largest-Remainder, negative symmetry, retained vs unallocated, fixed_per_unit, D1 safe-int & N05 strict integer guards verified");
   }
 
   // =========================================================================
@@ -740,6 +774,8 @@ async function main() {
   // =========================================================================
   // BLOCK 5 (ACQ01-12 + UX02-05 + REV07-08 + V4 Backup/Restore): 2+ Source E2E Loop & Honest Denominators
   // =========================================================================
+  let mainCmpId = "";
+  let mainInquiryId = "";
   {
     // Create company in main org to test opt-out blocking & blind-dedupe deal reg
     const mainCmp = await callApi(worker, env, "POST", "/api/v3/companies", {
@@ -748,7 +784,7 @@ async function main() {
       body: { canonical_name: "TEST Gulf Water Contracting LLC", country_en: "UAE", website_domain: "gulfwater.example.test" },
     });
     assert.equal(mainCmp.status, 201);
-    const mainCmpId = mainCmp.data.company.id;
+    mainCmpId = mainCmp.data.company.id;
 
     // Task 1: Facebook manual_discovery (country_scope='ANY', 1.5h logged, spend=null)
     const fbTask = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
@@ -850,7 +886,7 @@ async function main() {
     assert.equal(cp.data.countedAsOutreach, false);
     assert.equal(cp.data.manual_sent_count, 0, "Copy MUST NOT count as outreach!");
 
-    // Confirm manual send -> replied -> convert inquiry -> official quote!
+    // Confirm manual send -> replied -> convert inquiry -> draft quote (S06) -> confirmed official quote!
     const ms = await callApi(worker, env, "POST", `/api/v3/acq/signals/${fbSig1.data.signal.id}/contact-action`, {
       token: adminToken,
       orgId: "org_friesgo_main",
@@ -870,12 +906,27 @@ async function main() {
       body: { action: "convert_inquiry" },
     });
     assert.equal(conv.status, 201);
-    const qt = await callApi(worker, env, "POST", `/api/v3/inquiries/${conv.data.inquiry_id}/quote`, {
+    mainInquiryId = conv.data.inquiry_id;
+
+    // S06: Without confirm_approved=true, quote defaults to unconfirmed draft (does NOT advance inquiry to quoted!)
+    const qtDraft = await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
       token: adminToken,
       orgId: "org_friesgo_main",
-      body: { currency: "USD", total_minor: 4850000, incoterm: "CIF" },
+      body: { currency: "USD", total_minor: 4800000, incoterm: "FOB" },
+    });
+    assert.equal(qtDraft.status, 201);
+    assert.equal(qtDraft.data.sent_confirmed, 0, "S06: Quote must default to sent_confirmed=0 draft");
+    assert.equal(qtDraft.data.status, "rfq_in_progress", "S06: Draft quote must not mark inquiry as quoted");
+
+    // S06: Manager explicitly confirms approved quote -> sent_confirmed=1 & status='quoted'
+    const qt = await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { currency: "USD", total_minor: 4850000, incoterm: "CIF", confirm_approved: true },
     });
     assert.equal(qt.status, 201);
+    assert.equal(qt.data.sent_confirmed, 1);
+    assert.equal(qt.data.status, "quoted");
 
     // Opt-out priority test: linked company opted out -> blocks manual_sent with 409 OPT_OUT_BLOCKED!
     const optSig = await callApi(worker, env, "POST", "/api/v3/acq/signals", {
@@ -1033,12 +1084,695 @@ async function main() {
   }
 
   // =========================================================================
-  // BLOCK 6 (Real Headless Chrome): rfq.html, join.html & index.html REV01 contextEpoch Stale-Response Discard
+  // BLOCK 6 (S01–S08): Security & State Consistency Remediation Verification (Positive + Negative)
+  // =========================================================================
+  let partnerAssignedSigId = "";
+  let validDeepLinkTodoId = "";
+  {
+    // --- S01: Legacy V2.1 API Multi-Tenant Isolation ---
+    for (const [m, p] of [
+      ["GET", "/api/companies"],
+      ["POST", "/api/companies"],
+      ["GET", "/api/osm-pool"],
+      ["GET", "/api/events/recent"],
+      ["GET", "/api/scrape-tasks"],
+      ["GET", "/api/feedback"],
+      ["GET", "/api/gmaps/quota"],
+      ["GET", "/api/admin/employees"],
+    ]) {
+      const rTrial = await callApi(worker, env, m, p, {
+        token: trialA.token,
+        body: m === "POST" ? { name: "Illegal Trial Legacy Write", country: "US" } : undefined,
+      });
+      assert.equal(rTrial.status, 403, `S01: trialA calling ${m} ${p} MUST return 403 (got ${rTrial.status})`);
+      if (p.startsWith("/api/admin/")) {
+        assert.match(String(rTrial.data.code || ""), /^(FORBIDDEN_LEGACY_POOL|FORBIDDEN_ROLE)$/);
+      } else {
+        assert.equal(rTrial.data.code, "FORBIDDEN_LEGACY_POOL", `S01: trialA calling ${m} ${p} must return FORBIDDEN_LEGACY_POOL`);
+      }
+    }
+    for (const p of ["/api/companies", "/api/events/recent", "/api/admin/employees"]) {
+      const rPtn = await callApi(worker, env, "GET", p, { token: partnerUser.token });
+      assert.equal(rPtn.status, 403, `S01: partnerUser calling GET ${p} MUST return 403`);
+      if (p.startsWith("/api/admin/")) {
+        assert.match(String(rPtn.data.code || ""), /^(FORBIDDEN_LEGACY_POOL|FORBIDDEN_ROLE)$/);
+      } else {
+        assert.equal(rPtn.data.code, "FORBIDDEN_LEGACY_POOL");
+      }
+    }
+    // super_admin on legacy /api/companies ONLY sees org_friesgo_main — NEVER trialA/trialB companies!
+    const admLegacyList = await callApi(worker, env, "GET", "/api/companies", { token: adminToken });
+    assert.equal(admLegacyList.status, 200);
+    const admLegacyIds = (admLegacyList.data.companies || []).map((c) => c.id);
+    assert.equal(admLegacyIds.includes(trialACompanyId), false, "S01: trialA company must NEVER appear in legacy /api/companies");
+    assert.equal(admLegacyIds.includes(trialBCompanyId), false, "S01: trialB company must NEVER appear in legacy /api/companies");
+    assert.equal((await callApi(worker, env, "GET", `/api/companies/${trialACompanyId}`, { token: adminToken })).status, 404);
+    assert.equal((await callApi(worker, env, "PATCH", `/api/companies/${trialACompanyId}`, { token: adminToken, body: { stage: "contacted" } })).status, 404);
+    assert.equal((await callApi(worker, env, "POST", `/api/companies/${trialACompanyId}/lock`, { token: adminToken, body: {} })).status, 404);
+    assert.equal((await callApi(worker, env, "GET", `/api/companies/${trialACompanyId}/events`, { token: adminToken })).status, 404);
+    const admWrongHdr = await callApi(worker, env, "GET", "/api/companies", { token: adminToken, orgId: trialA.ctx.org_id });
+    assert.equal(admWrongHdr.status, 403, "S01: Legacy /api/companies must reject non-main X-FG-Org-Id");
+    assert.equal(admWrongHdr.data.code, "FORBIDDEN_LEGACY_POOL");
+
+    // --- S02: Disabled org_memberships Fail-Closed (Zero Fallback to org_friesgo_main) ---
+    const disApp = await callApi(worker, env, "POST", "/api/public/applications", {
+      idemKey: "idem_s02_disabled_mem_app",
+      body: {
+        app_type: "partner",
+        partner_mode: "followup",
+        applicant_name: "TEST S02 Disabled Membership User",
+        contact_channel: "email",
+        contact_value: "s02.disabled@example.test",
+        privacyConsent: true,
+        turnstile_token: "ts_once_s02_app",
+      },
+    });
+    assert.equal(disApp.status, 201);
+    const disApps = await callApi(worker, env, "GET", "/api/v3/applications", { token: adminToken, orgId: "org_friesgo_main" });
+    const disAppRow = disApps.data.applications.find((a) => a.application_no === disApp.data.application_no);
+    await callApi(worker, env, "PATCH", `/api/v3/applications/${disAppRow.id}`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { status: "approved", quiz_score: 100, quiz_passed: true },
+    });
+    await callApi(worker, env, "POST", `/api/v3/applications/${disAppRow.id}/activate`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { login_id: "test_s02_disabled", initial_password: "TestUser2026!" },
+    });
+    const s02User = await loginAs("test_s02_disabled");
+    assert.ok(s02User.ctx && s02User.ctx.org_id === "org_friesgo_main");
+    // Disable org_memberships while keeping employees.status = 'active'
+    db.raw.prepare("UPDATE org_memberships SET status = 'disabled' WHERE employee_id = ?").run(s02User.empId);
+    const s02Ctxs = await callApi(worker, env, "GET", "/api/v3/me/contexts", { token: s02User.token });
+    assert.equal(s02Ctxs.status, 200);
+    assert.equal(s02Ctxs.data.contexts.length, 0, "S02: Disabled membership must return empty contexts (never fallback to main)");
+    const s02V3 = await callApi(worker, env, "GET", "/api/v3/companies", { token: s02User.token, orgId: "org_friesgo_main" });
+    assert.equal(s02V3.status, 403);
+    assert.equal(s02V3.data.code, "ORG_MEMBERSHIP_DISABLED");
+    const s02Legacy = await callApi(worker, env, "GET", "/api/companies", { token: s02User.token });
+    assert.equal(s02Legacy.status, 403);
+    assert.equal(s02Legacy.data.code, "ORG_MEMBERSHIP_DISABLED");
+
+    // --- S03: Partner Signal Authorization on /draft and /contact-action ---
+    const admPrivSigRes = await callApi(worker, env, "POST", "/api/v3/acq/signals", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        source_platform: "facebook",
+        acquisition_mode: "manual_discovery",
+        country_en: "Qatar",
+        product_line: "valves",
+        demand_summary: "TEST S03 Private main-org signal NOT assigned to partnerUser",
+      },
+    });
+    assert.equal(admPrivSigRes.status, 201);
+    const admPrivSigId = admPrivSigRes.data.signal.id;
+
+    const ptnDraftDeny = await callApi(worker, env, "POST", `/api/v3/acq/signals/${admPrivSigId}/draft`, {
+      token: partnerUser.token,
+      orgId: "org_friesgo_main",
+      body: { lang: "en" },
+    });
+    assert.equal(ptnDraftDeny.status, 404, "S03: Partner must get 404 on unassigned signal /draft");
+    assert.equal(ptnDraftDeny.data.code, "SIGNAL_NOT_FOUND");
+
+    const ptnActionDeny1 = await callApi(worker, env, "POST", `/api/v3/acq/signals/${admPrivSigId}/contact-action`, {
+      token: partnerUser.token,
+      orgId: "org_friesgo_main",
+      body: { action: "manual_sent" },
+    });
+    assert.equal(ptnActionDeny1.status, 404);
+    assert.equal(ptnActionDeny1.data.code, "SIGNAL_NOT_FOUND");
+
+    const ptnActionDeny2 = await callApi(worker, env, "POST", `/api/v3/acq/signals/${admPrivSigId}/contact-action`, {
+      token: partnerUser.token,
+      orgId: "org_friesgo_main",
+      body: { action: "opted_out" },
+    });
+    assert.equal(ptnActionDeny2.status, 404);
+    const privRow = db.raw
+      .prepare("SELECT draft_count, copy_count, manual_sent_count, opt_out_locked, contact_result FROM demand_signals WHERE id = ?")
+      .get(admPrivSigId);
+    assert.deepEqual(
+      {
+        draft_count: Number(privRow.draft_count),
+        copy_count: Number(privRow.copy_count),
+        manual_sent_count: Number(privRow.manual_sent_count),
+        opt_out_locked: Number(privRow.opt_out_locked),
+        contact_result: privRow.contact_result,
+      },
+      { draft_count: 0, copy_count: 0, manual_sent_count: 0, opt_out_locked: 0, contact_result: "to_contact" },
+      "S03: Unauthorized partner calls must NOT mutate signal counters or state"
+    );
+
+    // Positive S03 check: signal promoted & assigned to partnerUser CAN be drafted/acted by partnerUser
+    const ptnAssignedSigRes = await callApi(worker, env, "POST", "/api/v3/acq/signals", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        source_platform: "facebook",
+        acquisition_mode: "manual_discovery",
+        country_en: "Oman",
+        product_line: "pe_pipes",
+        demand_summary: "TEST S03 Signal assigned to partnerUser for authorized action check",
+      },
+    });
+    partnerAssignedSigId = ptnAssignedSigRes.data.signal.id;
+    const ptnAud = await callApi(worker, env, "POST", `/api/v3/acq/signals/${partnerAssignedSigId}/audit`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { audit_status: "verified_valid", promote_to: "dev_lead" },
+    });
+    assert.equal(ptnAud.status, 200);
+    validDeepLinkTodoId = ptnAud.data.created_assignment_id;
+    const ptnAssign = await callApi(worker, env, "POST", "/api/v3/dispatch/assign", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      idemKey: "idem_s03_assign_ptn",
+      body: { assignment_id: validDeepLinkTodoId, assignee_employee_id: partnerUser.empId, accept_hours: 24 },
+    });
+    assert.equal(ptnAssign.status, 200);
+    const ptnDraftOk = await callApi(worker, env, "POST", `/api/v3/acq/signals/${partnerAssignedSigId}/draft`, {
+      token: partnerUser.token,
+      orgId: "org_friesgo_main",
+      body: { lang: "en" },
+    });
+    assert.equal(ptnDraftOk.status, 200, "S03 positive: Partner CAN draft on explicitly assigned signal");
+
+    // --- S04: Attachment Visibility & Entity-Level Authorization ---
+    const att1 = await callApi(worker, env, "POST", "/api/v3/attachments", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { entity_type: "demand_signal", entity_id: admPrivSigId, filename: "internal_cost_sheet.txt", content_text: "INTERNAL COST ONLY" },
+    });
+    assert.equal(att1.status, 201);
+    assert.equal(att1.data.attachment.visibility, "internal_only", "S04: Internal uploads must default to internal_only");
+
+    const att2 = await callApi(worker, env, "POST", "/api/v3/attachments", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { entity_type: "demand_signal", entity_id: admPrivSigId, visibility: "org_authorized", filename: "unassigned_shared.txt", content_text: "UNASSIGNED SHARED" },
+    });
+    assert.equal(att2.status, 201);
+
+    const att3 = await callApi(worker, env, "POST", "/api/v3/attachments", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { entity_type: "demand_signal", entity_id: partnerAssignedSigId, visibility: "internal_only", filename: "assigned_internal_margin.txt", content_text: "INTERNAL MARGIN" },
+    });
+    assert.equal(att3.status, 201);
+
+    const att4 = await callApi(worker, env, "POST", "/api/v3/attachments", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { entity_type: "demand_signal", entity_id: partnerAssignedSigId, visibility: "org_authorized", filename: "assigned_buyer_spec.txt", content_text: "PARTNER AUTHORIZED SPEC" },
+    });
+    assert.equal(att4.status, 201);
+
+    // Partner MUST get 404 on att1, att2 (unassigned entity!), and att3 (internal_only even on assigned entity!)
+    assert.equal((await callApi(worker, env, "GET", `/api/v3/attachments/${att1.data.attachment.id}`, { token: partnerUser.token, orgId: "org_friesgo_main" })).status, 404);
+    assert.equal((await callApi(worker, env, "GET", `/api/v3/attachments/${att2.data.attachment.id}`, { token: partnerUser.token, orgId: "org_friesgo_main" })).status, 404);
+    assert.equal((await callApi(worker, env, "GET", `/api/v3/attachments/${att3.data.attachment.id}`, { token: partnerUser.token, orgId: "org_friesgo_main" })).status, 404);
+    // Partner CAN download att4 (org_authorized + assigned signal)
+    const att4PtnOk = await callApi(worker, env, "GET", `/api/v3/attachments/${att4.data.attachment.id}`, { token: partnerUser.token, orgId: "org_friesgo_main" });
+    assert.equal(att4PtnOk.status, 200);
+    assert.equal(att4PtnOk.data, "PARTNER AUTHORIZED SPEC");
+
+    // --- S05: Persistent Monotonic Signal Opt-Out Lock (Even Without linked_company_id) & Audited Reconsent ---
+    const unlinkedOptRes = await callApi(worker, env, "POST", "/api/v3/acq/signals", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        source_platform: "instagram",
+        acquisition_mode: "manual_discovery",
+        demand_summary: "TEST S05 Unlinked signal opt-out lock test",
+      },
+    });
+    const unlinkedOptId = unlinkedOptRes.data.signal.id;
+    const markOpt = await callApi(worker, env, "POST", `/api/v3/acq/signals/${unlinkedOptId}/contact-action`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { action: "opted_out", note: "Buyer explicitly said do not contact" },
+    });
+    assert.equal(markOpt.status, 200);
+    assert.equal(markOpt.data.opt_out_locked, 1);
+
+    for (const blockedAct of ["replied", "manual_sent", "need_specs", "waiting_reply", "paused", "invalid", "convert_inquiry", "copied"]) {
+      const rBlk = await callApi(worker, env, "POST", `/api/v3/acq/signals/${unlinkedOptId}/contact-action`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { action: blockedAct },
+      });
+      assert.equal(rBlk.status, 409, `S05: Action '${blockedAct}' MUST be blocked 409 after opted_out (even when unlinked)`);
+      assert.equal(rBlk.data.code, "OPT_OUT_BLOCKED");
+    }
+    const stillLocked = db.raw.prepare("SELECT opt_out_locked, contact_result FROM demand_signals WHERE id = ?").get(unlinkedOptId);
+    assert.equal(Number(stillLocked.opt_out_locked), 1);
+    assert.equal(stillLocked.contact_result, "opted_out");
+
+    // Reconsent negative checks (partner 403, missing evidence 400) + positive audited manager reconsent (200)
+    const reconPtn = await callApi(worker, env, "POST", `/api/v3/acq/signals/${unlinkedOptId}/reconsent`, {
+      token: partnerUser.token,
+      orgId: "org_friesgo_main",
+      body: { reason: "Attempt", consent_evidence: "None" },
+    });
+    assert.equal(reconPtn.status, 403);
+    const reconNoEv = await callApi(worker, env, "POST", `/api/v3/acq/signals/${unlinkedOptId}/reconsent`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { reason: "Missing evidence" },
+    });
+    assert.equal(reconNoEv.status, 400);
+    assert.equal(reconNoEv.data.code, "RECONSENT_EVIDENCE_REQUIRED");
+    const reconOk = await callApi(worker, env, "POST", `/api/v3/acq/signals/${unlinkedOptId}/reconsent`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { reason: "Buyer re-initiated inquiry via official email", consent_evidence: "Email ref MSG-2026-1128" },
+    });
+    assert.equal(reconOk.status, 200);
+    assert.equal(reconOk.data.opt_out_locked, 0);
+    const afterReconAction = await callApi(worker, env, "POST", `/api/v3/acq/signals/${unlinkedOptId}/contact-action`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { action: "copied" },
+    });
+    assert.equal(afterReconAction.status, 200);
+
+    // --- S06: Inquiry Quote Validation, Internal Cost Field Stripping & Opt-Out Check ---
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { currency: "ZZZ", total_minor: 10000, incoterm: "FOB" },
+      })).status,
+      400
+    );
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { currency: "USD", total_minor: -500, incoterm: "FOB" },
+      })).status,
+      400
+    );
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { currency: "USD", total_minor: 12.34, incoterm: "FOB" },
+      })).status,
+      400
+    );
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        body: { currency: "USD", total_minor: 10000, incoterm: "INVALID_TERM" },
+      })).status,
+      400
+    );
+    assert.equal(
+      (await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
+        token: partnerUser.token,
+        orgId: "org_friesgo_main",
+        body: { currency: "USD", total_minor: 10000, incoterm: "FOB", confirm_approved: true },
+      })).status,
+      403
+    );
+    const qtStrip = await callApi(worker, env, "POST", `/api/v3/inquiries/${mainInquiryId}/quote`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        currency: "USD",
+        total_minor: 250000,
+        incoterm: "FOB",
+        factoryRmb: 99999,
+        supplierCost: 88888,
+        marginPct: 42,
+        items: [
+          {
+            sku: "VLV-200",
+            description: "API 600 Gate Valve DN200",
+            qty: 5,
+            unit: "pcs",
+            unit_price_minor: 50000,
+            factoryRmb: 12000,
+            supplierCost: 9000,
+            marginPct: 38,
+            internalCost: 8500,
+          },
+        ],
+      },
+    });
+    assert.equal(qtStrip.status, 201);
+    const savedQuoteRow = db.raw.prepare("SELECT payload_json, sent_confirmed FROM quote_records WHERE quote_id = ?").get(qtStrip.data.quote_id);
+    assert.equal(Number(savedQuoteRow.sent_confirmed), 0);
+    for (const forbiddenKey of ["factoryRmb", "supplierCost", "marginPct", "internalCost"]) {
+      assert.equal(savedQuoteRow.payload_json.includes(forbiddenKey), false, `S06: Saved quote payload_json must NEVER contain ${forbiddenKey}`);
+    }
+
+    // Quote on inquiry linked to opted-out company -> 409 OPT_OUT_BLOCKED
+    const optInqId = `inq_s06_opt_${Date.now()}`;
+    db.raw
+      .prepare(
+        `INSERT INTO inquiries (id, org_id, inquiry_no, company_id, summary, product_line, country_en, status, created_by, created_at, updated_at)
+         VALUES (?, 'org_friesgo_main', ?, ?, 'TEST Opted-Out Company Inquiry', 'valves', 'UAE', 'rfq_in_progress', ?, ?, ?)`
+      )
+      .run(optInqId, `FG-INQ-S06-${Date.now()}`, mainCmpId, adminId, new Date().toISOString(), new Date().toISOString());
+    const qtOptBlocked = await callApi(worker, env, "POST", `/api/v3/inquiries/${optInqId}/quote`, {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { currency: "USD", total_minor: 50000, incoterm: "FOB" },
+    });
+    assert.equal(qtOptBlocked.status, 403, "S06: Quote for opted-out company MUST be blocked 403");
+    assert.equal(qtOptBlocked.data.code, "COMPLIANCE_OR_OPTOUT_BLOCKED");
+
+    // --- S07: V3_SLICE1_ENABLED Feature Flag Fail-Closed ---
+    for (const disabledVal of ["0", undefined, ""]) {
+      const envOff = makeEnv(db, { V3_SLICE1_ENABLED: disabledVal });
+      const hOff = await callApi(worker, envOff, "GET", "/api/health");
+      assert.equal(hOff.status, 200);
+      assert.equal(hOff.data.v3Slice1Enabled, false);
+      for (const [m, p] of [
+        ["GET", "/api/public/catalog"],
+        ["POST", "/api/public/applications"],
+        ["POST", "/api/public/rfq"],
+        ["GET", "/api/v3/me/contexts"],
+        ["GET", "/api/v3/acq/signals"],
+      ]) {
+        const rOff = await callApi(worker, envOff, m, p, { token: adminToken, orgId: "org_friesgo_main", body: m === "POST" ? {} : undefined });
+        assert.equal(rOff.status, 503, `S07: ${m} ${p} MUST return 503 when V3_SLICE1_ENABLED=${String(disabledVal)}`);
+        assert.equal(rOff.data.code, "V3_FEATURE_DISABLED");
+      }
+      // Legacy V2.1 stays 200 when V3 flag is OFF
+      const legacyStillOk = await callApi(worker, envOff, "GET", "/api/companies", { token: adminToken });
+      assert.equal(legacyStillOk.status, 200, "S07: Legacy V2.1 API must remain 200 when V3 flag is OFF");
+    }
+    const wranglerToml = fs.readFileSync(path.join(ROOT, "workers/friesgo-api/wrangler.toml"), "utf8");
+    assert.match(wranglerToml, /\[vars\][\s\S]*?V3_SLICE1_ENABLED\s*=\s*"0"/, "S07: Production wrangler.toml [vars] must declare V3_SLICE1_ENABLED = \"0\"");
+    assert.match(wranglerToml, /\[env\.staging\.vars\][\s\S]*?V3_SLICE1_ENABLED\s*=\s*"1"/, "S07: Staging wrangler.toml must declare V3_SLICE1_ENABLED = \"1\"");
+
+    // --- S08: Single-Transaction Atomic Idempotency Commit Across All 4 Write Endpoints ---
+    let failNextBatchOnLastStmt = false;
+    const faultDb = {
+      raw: db.raw,
+      prepare: (sql) => db.prepare(sql),
+      async batch(stmts) {
+        if (!failNextBatchOnLastStmt) return db.batch(stmts);
+        failNextBatchOnLastStmt = false;
+        db.raw.exec("BEGIN IMMEDIATE");
+        try {
+          for (let i = 0; i < stmts.length; i++) {
+            if (i === stmts.length - 1) throw new Error("SIMULATED_IDEM_COMPLETE_FAILURE");
+            await stmts[i].run();
+          }
+          db.raw.exec("COMMIT");
+        } catch (err) {
+          try { db.raw.exec("ROLLBACK"); } catch {}
+          throw err;
+        }
+      },
+    };
+    const faultEnv = makeEnv(faultDb, { TURNSTILE_SECRET_KEY: "" });
+
+    const s08Cases = [
+      {
+        name: "v3_acq_signals",
+        url: "/api/v3/acq/signals",
+        token: adminToken,
+        orgId: "org_friesgo_main",
+        idemKey: "idem_s08_atomic_signal_1",
+        body: { source_platform: "facebook", acquisition_mode: "manual_discovery", demand_summary: "TEST_S08_ATOMIC_SIG_MARKER" },
+        countSql: "SELECT COUNT(*) AS cnt FROM demand_signals WHERE demand_summary = 'TEST_S08_ATOMIC_SIG_MARKER'",
+      },
+      {
+        name: "v3_deal_reg",
+        url: "/api/v3/partner/deal-reg",
+        token: partnerUser.token,
+        orgId: "org_friesgo_main",
+        idemKey: "idem_s08_atomic_dr_1",
+        body: { reg_tier: "relationship_reg", company_name: "TEST_S08_ATOMIC_DR_CORP", country_en: "UAE" },
+        countSql: "SELECT COUNT(*) AS cnt FROM deal_registrations WHERE company_name = 'TEST_S08_ATOMIC_DR_CORP'",
+      },
+      {
+        name: "public_applications",
+        url: "/api/public/applications",
+        token: "",
+        orgId: "",
+        idemKey: "idem_s08_atomic_app_1",
+        body: {
+          app_type: "tool_trial",
+          applicant_name: "TEST_S08_ATOMIC_APP_USER",
+          contact_channel: "email",
+          contact_value: "s08.app@example.test",
+          privacyConsent: true,
+        },
+        countSql: "SELECT COUNT(*) AS cnt FROM applications WHERE applicant_name = 'TEST_S08_ATOMIC_APP_USER'",
+      },
+      {
+        name: "public_rfq",
+        url: "/api/public/rfq",
+        token: "",
+        orgId: "",
+        idemKey: "idem_s08_atomic_rfq_1",
+        body: {
+          demandSummary: "TEST_S08_ATOMIC_RFQ_MARKER need steel valves",
+          country_en: "UAE",
+          contactChannel: "email",
+          contactValue: "s08.rfq@example.test",
+          privacyConsent: true,
+        },
+        countSql: "SELECT COUNT(*) AS cnt FROM demand_signals WHERE demand_summary LIKE 'TEST_S08_ATOMIC_RFQ_MARKER%'",
+      },
+    ];
+
+    for (const tc of s08Cases) {
+      failNextBatchOnLastStmt = true;
+      let firstStatus = 500;
+      try {
+        const rFail = await callApi(worker, faultEnv, "POST", tc.url, {
+          token: tc.token,
+          orgId: tc.orgId,
+          idemKey: tc.idemKey,
+          body: tc.body,
+        });
+        firstStatus = rFail.status;
+      } catch {
+        firstStatus = 500;
+      }
+      assert.ok(firstStatus >= 500, `S08 (${tc.name}): Simulated batch failure must fail 5xx`);
+      const cntAfterFail = Number(db.raw.prepare(tc.countSql).get().cnt);
+      assert.equal(cntAfterFail, 0, `S08 (${tc.name}): Atomic batch rollback MUST leave 0 rows after mid-commit failure!`);
+
+      const rRetry = await callApi(worker, faultEnv, "POST", tc.url, {
+        token: tc.token,
+        orgId: tc.orgId,
+        idemKey: tc.idemKey,
+        body: tc.body,
+      });
+      assert.equal(rRetry.status, 201, `S08 (${tc.name}): Retry with same idemKey must succeed 201`);
+      const cntAfterRetry = Number(db.raw.prepare(tc.countSql).get().cnt);
+      assert.equal(cntAfterRetry, 1, `S08 (${tc.name}): Retry must produce EXACTLY 1 row`);
+
+      const rReplay = await callApi(worker, faultEnv, "POST", tc.url, {
+        token: tc.token,
+        orgId: tc.orgId,
+        idemKey: tc.idemKey,
+        body: tc.body,
+      });
+      assert.ok([200, 201].includes(rReplay.status), `S08 (${tc.name}): Replay must return 200 or cached 201 (got ${rReplay.status})`);
+      assert.equal(rReplay.data.replayed, true, `S08 (${tc.name}): Replay must report replayed=true`);
+      const cntAfterReplay = Number(db.raw.prepare(tc.countSql).get().cnt);
+      assert.equal(cntAfterReplay, 1, `S08 (${tc.name}): Replay must keep row count at EXACTLY 1 (never 2!)`);
+    }
+
+    console.log("PASS BLOCK 6 (S01–S08): Legacy isolation, disabled membership fail-closed, partner signal auth, attachment visibility/auth, monotonic opt-out lock + audited reconsent, quote schema/cost-strip, V3 feature flag fail-closed & single-tx atomic idempotency verified");
+  }
+
+  // =========================================================================
+  // BLOCK 7 (N01–N04): CI Gate, Multi-Currency Spend Isolation, Zero-Yield Tasks, Shared ANY & UTC+8 Date Window
+  // =========================================================================
+  {
+    // --- N01: CI Quality Gate Static Proof ---
+    const ciYml = fs.readFileSync(path.join(ROOT, ".github/workflows/ci-quality-gate.yml"), "utf8");
+    assert.ok(ciYml.includes("tests/v3-slice1-verify.js"), "N01: CI must execute v3-slice1-verify.js");
+    assert.ok(ciYml.includes("tests/phase2a-verify.js") && ciYml.includes("tests/phase2b-verify.js"), "N01: CI must execute phase2a & phase2b");
+    assert.ok(ciYml.includes("tests/full-audit-suite.js"), "N01: CI must execute full-audit-suite.js");
+    assert.ok(ciYml.includes("join.html") && ciYml.includes("rfq.html"), "N01: CI must package and verify join.html and rfq.html");
+    assert.ok(ciYml.includes("_pages_dist"), "N01: CI must verify _pages_dist asset completeness");
+
+    // --- N02: Multi-Currency Spend Isolation (USD 1.00 + JPY 200 -> NEVER 3.00!) ---
+    const badNoCur = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { platform: "linkedin", acquisition_mode: "owned_ad_form", title: "Missing currency", actual_spend_minor: 100 },
+    });
+    assert.equal(badNoCur.status, 400);
+    assert.equal(badNoCur.data.code, "SPEND_CURRENCY_REQUIRED");
+
+    const badCur = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { platform: "linkedin", acquisition_mode: "owned_ad_form", title: "Invalid currency", actual_spend_minor: 100, spend_currency: "ZZZ" },
+    });
+    assert.equal(badCur.status, 400);
+
+    const badFloatSpend = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { platform: "linkedin", acquisition_mode: "owned_ad_form", title: "Float spend", actual_spend_minor: 1.5, spend_currency: "USD" },
+    });
+    assert.equal(badFloatSpend.status, 400);
+
+    // 2 valid zero-yield tasks in Vietnam with USD 1.00 (100 minor) + JPY 200 (200 minor)
+    const tUsd = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        platform: "linkedin",
+        acquisition_mode: "owned_ad_form",
+        title: "TEST N02/N03 Vietnam USD Boost (Zero Yield)",
+        country_scope: "Vietnam",
+        product_line: "valves",
+        hours_logged_tenths: 10,
+        actual_spend_minor: 100,
+        spend_currency: "USD",
+      },
+    });
+    assert.equal(tUsd.status, 201);
+    const tJpy = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        platform: "linkedin",
+        acquisition_mode: "owned_ad_form",
+        title: "TEST N02/N03 Vietnam JPY Boost (Zero Yield)",
+        country_scope: "Vietnam",
+        product_line: "valves",
+        hours_logged_tenths: 5,
+        actual_spend_minor: 200,
+        spend_currency: "JPY",
+      },
+    });
+    assert.equal(tJpy.status, 201);
+
+    // Another country task (Saudi Arabia) to verify N03 strict country filtering
+    const tSaudi = await callApi(worker, env, "POST", "/api/v3/acq/tasks", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: {
+        platform: "instagram",
+        acquisition_mode: "owned_ad_form",
+        title: "TEST N03 Saudi Task Should Be Excluded From Vietnam Filter",
+        country_scope: "Saudi Arabia",
+        product_line: "cables",
+        hours_logged_tenths: 25,
+        actual_spend_minor: 5000,
+        spend_currency: "USD",
+      },
+    });
+    assert.equal(tSaudi.status, 201);
+
+    const cmpVn = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?country=Vietnam", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    assert.equal(cmpVn.status, 200);
+    const liBoost = cmpVn.data.groups.find((g) => g.source_platform === "linkedin" && g.acquisition_mode === "owned_ad_form");
+    assert.ok(liBoost, "N03: Zero-yield Vietnam task MUST appear in country=Vietnam source-comparison");
+    assert.equal(liBoost.zero_yield_task, true);
+    assert.equal(liBoost.checked_candidates, 0);
+    assert.equal(liBoost.hours_logged_tenths, 15);
+    assert.equal(liBoost.spend_status, "multi_currency_separate", "N02: Mixed USD + JPY must report multi_currency_separate");
+    assert.equal(liBoost.actual_spend_minor, null, "N02: Mixed currencies must NEVER be summed into a single minor total");
+    assert.equal(liBoost.spend_by_currency.USD.formatted, "USD 1.00");
+    assert.equal(liBoost.spend_by_currency.JPY.formatted, "JPY 200");
+    assert.equal(liBoost.spend_display, "JPY 200 + USD 1.00");
+
+    const igSaudiInVn = cmpVn.data.groups.find((g) => g.source_platform === "instagram" && g.acquisition_mode === "owned_ad_form");
+    assert.equal(igSaudiInVn, undefined, "N03: Saudi Arabia task MUST be excluded when filtering country=Vietnam");
+    assert.ok(
+      Array.isArray(cmpVn.data.sharedUnallocatedTasks) && cmpVn.data.sharedUnallocatedTasks.some((x) => x.platform === "facebook"),
+      "N03: Shared ANY-country tasks must be transparently surfaced in sharedUnallocatedTasks rather than silently mixed into Vietnam"
+    );
+
+    // --- N04: Strict Half-Open UTC+8 Date Window ---
+    const badRange1 = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-11-30&to=2026-11-28", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    assert.equal(badRange1.status, 400);
+    assert.equal(badRange1.data.code, "INVALID_DATE_RANGE");
+
+    const badRange2 = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-99-99", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    assert.equal(badRange2.status, 400);
+    assert.equal(badRange2.data.code, "INVALID_DATE_RANGE");
+
+    // Seed two dated signals on UTC+8 boundary for 2026-10-15:
+    //   sigIn:  2026-10-15T04:00:00.000Z (= 2026-10-15 12:00 UTC+8 -> INCLUDED)
+    //   sigOut: 2026-10-15T16:30:00.000Z (= 2026-10-16 00:30 UTC+8 -> EXCLUDED!)
+    const sigIn = await callApi(worker, env, "POST", "/api/v3/acq/signals", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { source_platform: "instagram", acquisition_mode: "owned_account_inquiry", country_en: "Peru", demand_summary: "TEST N04 Included UTC+8 same-day signal" },
+    });
+    const sigOut = await callApi(worker, env, "POST", "/api/v3/acq/signals", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+      body: { source_platform: "instagram", acquisition_mode: "owned_account_inquiry", country_en: "Peru", demand_summary: "TEST N04 Excluded next-day UTC+8 signal" },
+    });
+    db.raw.prepare("UPDATE demand_signals SET discovered_at = '2026-10-15T04:00:00.000Z' WHERE id = ?").run(sigIn.data.signal.id);
+    db.raw.prepare("UPDATE demand_signals SET discovered_at = '2026-10-15T16:30:00.000Z' WHERE id = ?").run(sigOut.data.signal.id);
+
+    const cmpDay = await callApi(worker, env, "GET", "/api/v3/acq/source-comparison?from=2026-10-15&to=2026-10-15&country=Peru", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    assert.equal(cmpDay.status, 200);
+    assert.equal(cmpDay.data.observationWindow.tz_offset_minutes, 480);
+    assert.equal(cmpDay.data.observationWindow.start_iso_utc, "2026-10-14T16:00:00.000Z");
+    assert.equal(cmpDay.data.observationWindow.end_iso_utc, "2026-10-15T16:00:00.000Z");
+    assert.equal(cmpDay.data.observationWindow.end_exclusive, true);
+    const igDay = cmpDay.data.groups.find((g) => g.source_platform === "instagram" && g.acquisition_mode === "owned_account_inquiry");
+    assert.ok(igDay, "N04: Same-day UTC+8 signal MUST be included");
+    assert.equal(igDay.checked_candidates, 1, "N04: Half-open UTC+8 window must include 04:00Z (12:00 UTC+8) and exclude 16:30Z (00:30 next day UTC+8)");
+
+    // --- N08 API Contract Check: Full HTTPS deepLinkUrl inside wechatSafeCard ---
+    const todosApi = await callApi(worker, env, "GET", "/api/v3/dispatch/my-todos?scope=all", {
+      token: adminToken,
+      orgId: "org_friesgo_main",
+    });
+    assert.equal(todosApi.status, 200);
+    const targetTodo = todosApi.data.todos.find((t) => t.id === validDeepLinkTodoId);
+    assert.ok(targetTodo, "N08: Target todo must exist in my-todos");
+    assert.ok(
+      /^https:\/\/.+index\.html\?v3_org=org_friesgo_main&v3_todo=.+#v3-todo=/.test(targetTodo.deepLinkUrl),
+      `N08: deepLinkUrl must be a full clickable HTTPS URL with org & todo query/hash (got ${targetTodo.deepLinkUrl})`
+    );
+    assert.ok(
+      targetTodo.wechatSafeCard.includes(targetTodo.deepLinkUrl),
+      "N08: wechatSafeCard must embed the full clickable deepLinkUrl"
+    );
+
+    console.log("PASS BLOCK 7 (N01/N02/N03/N04/N08-API): CI gate, USD+JPY multi-currency isolation, zero-yield tasks, country/shared-ANY filtering, UTC+8 half-open date window & HTTPS WeChat deep-link verified");
+  }
+
+  // =========================================================================
+  // BLOCK 8 (Real Headless Chrome Desktop + 360px Mobile): N06, N07, N08, N09, N10, N02-UI + REV01/REV10/ACQ04
   // =========================================================================
   let delayNextCompaniesMs = 0;
+  let dropNextPublicAppResponseAfterCommit = false;
+  const receivedPublicAppIdemKeys = [];
+  let apiHitsDuringLocalGuardTest = 0;
+
   const server = http.createServer(async (req, res) => {
     const reqUrl = new URL(req.url, "http://127.0.0.1");
     if (reqUrl.pathname.startsWith("/api/")) {
+      apiHitsDuringLocalGuardTest += 1;
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const rawBody = Buffer.concat(chunks);
@@ -1047,12 +1781,28 @@ async function main() {
         delayNextCompaniesMs = 0;
         await sleep(d);
       }
+      if (reqUrl.pathname === "/api/public/applications" && req.method === "POST") {
+        receivedPublicAppIdemKeys.push(String(req.headers["x-idempotency-key"] || ""));
+      }
       const wReq = new Request(`http://127.0.0.1${reqUrl.pathname}${reqUrl.search}`, {
         method: req.method,
         headers: req.headers,
         body: req.method === "GET" || req.method === "HEAD" ? undefined : rawBody,
       });
       const wResp = await worker.fetch(wReq, env);
+      if (reqUrl.pathname === "/api/public/applications" && req.method === "POST" && dropNextPublicAppResponseAfterCommit) {
+        dropNextPublicAppResponseAfterCommit = false;
+        // Simulate truncated/lost network response AFTER Worker already committed row to D1!
+        res.writeHead(200, { "Content-Type": "application/json", "Content-Length": "4096", Connection: "close" });
+        res.flushHeaders();
+        res.write('{"ok":true', () => {
+          setTimeout(() => {
+            if (req.socket) req.socket.destroy();
+            else res.destroy();
+          }, 20);
+        });
+        return;
+      }
       res.writeHead(wResp.status, Object.fromEntries(wResp.headers.entries()));
       const buf = Buffer.from(await wResp.arrayBuffer());
       res.end(buf);
@@ -1077,28 +1827,121 @@ async function main() {
   // Allow public browser pages to submit without Turnstile widget in local Chrome test
   env.TURNSTILE_SECRET_KEY = "";
 
-  const chrome = await launchChromePage(`${baseUrl}/rfq.html?api=${encodeURIComponent(baseUrl)}&ref=DISABLED_TEST_REF`);
+  // 8.1 N09 Localhost Guard + Client Validation BEFORE any ?api= or localStorage override!
+  const chrome = await launchChromePage(`${baseUrl}/join.html`);
   try {
-    // 6.1 rfq.html: Zero recruitment words (REV10), minimal 3-field submit works smoothly + 360px mobile 0px overflow
+    apiHitsDuringLocalGuardTest = 0;
+    const joinLocalGuard = await chrome.evalJs(`(async () => {
+      const dbg0 = window.__FG_JOIN_DEBUG__();
+      const bannerVisible = !document.getElementById("localApiGuardBanner").hidden;
+      // Submit empty form -> client validation must focus #appName with aria-invalid="true" & show alert
+      document.getElementById("btnSubmitJoin").click();
+      await new Promise((r) => setTimeout(r, 120));
+      const emptyActiveId = document.activeElement ? document.activeElement.id : "";
+      const emptyAriaInvalid = document.getElementById("appName").getAttribute("aria-invalid");
+      const emptyErrVisible = !document.getElementById("joinErrorBox").hidden;
+
+      // Fill required fields and click submit WITHOUT ?api= -> local guard MUST block fallback to production!
+      document.getElementById("appName").value = "Local Preview Should Not Hit Prod";
+      document.getElementById("contactValue").value = "local_guard_test";
+      document.getElementById("privacyConsent").checked = true;
+      document.getElementById("btnSubmitJoin").click();
+      await new Promise((r) => setTimeout(r, 150));
+      const blockedErrTxt = document.getElementById("joinErrorBox").innerText;
+      const blockedErrVisible = !document.getElementById("joinErrorBox").hidden;
+      sessionStorage.clear();
+      return { dbg0, bannerVisible, emptyActiveId, emptyAriaInvalid, emptyErrVisible, blockedErrVisible, blockedErrTxt };
+    })()`);
+    assert.equal(joinLocalGuard.dbg0.apiTarget.ok, false, "N09: join.html on localhost without ?api= must NOT default to production API");
+    assert.equal(joinLocalGuard.dbg0.apiTarget.blockedLocalProd, true);
+    assert.equal(joinLocalGuard.dbg0.apiTarget.url, "");
+    assert.equal(joinLocalGuard.bannerVisible, true, "N09: Local preview guard banner must be visible");
+    assert.equal(joinLocalGuard.emptyActiveId, "appName", "N09: Empty submit must focus first invalid input #appName");
+    assert.equal(joinLocalGuard.emptyAriaInvalid, "true");
+    assert.equal(joinLocalGuard.emptyErrVisible, true);
+    assert.equal(joinLocalGuard.blockedErrVisible, true);
+    assert.equal(apiHitsDuringLocalGuardTest, 0, "N09: Zero API fetches allowed during client validation & local-guard block");
+
+    // N09 on rfq.html without ?api=
+    await chrome.navigate(`${baseUrl}/rfq.html`);
+    apiHitsDuringLocalGuardTest = 0;
+    const rfqLocalGuard = await chrome.evalJs(`(async () => {
+      const dbg0 = window.__FG_RFQ_DEBUG__();
+      const bannerVisible = !document.getElementById("localApiGuardBanner").hidden;
+      document.getElementById("btnSubmitRfq").click();
+      await new Promise((r) => setTimeout(r, 120));
+      const emptyActiveId = document.activeElement ? document.activeElement.id : "";
+      const emptyAriaInvalid = document.getElementById("rfqDemand").getAttribute("aria-invalid");
+      document.getElementById("rfqDemand").value = "Local preview RFQ should not hit prod";
+      document.getElementById("rfqCountry").value = "UAE";
+      document.getElementById("rfqContactVal").value = "local@example.test";
+      document.getElementById("rfqPrivacyConsent").checked = true;
+      document.getElementById("btnSubmitRfq").click();
+      await new Promise((r) => setTimeout(r, 150));
+      const blockedErrVisible = !document.getElementById("rfqErrorBox").hidden;
+      sessionStorage.clear();
+      return { dbg0, bannerVisible, emptyActiveId, emptyAriaInvalid, blockedErrVisible };
+    })()`);
+    assert.equal(rfqLocalGuard.dbg0.apiTarget.ok, false, "N09: rfq.html on localhost without ?api= must NOT default to production API");
+    assert.equal(rfqLocalGuard.dbg0.apiTarget.blockedLocalProd, true);
+    assert.equal(rfqLocalGuard.dbg0.apiTarget.url, "");
+    assert.equal(rfqLocalGuard.bannerVisible, true);
+    assert.equal(rfqLocalGuard.emptyActiveId, "rfqDemand", "N09: Empty RFQ submit must focus #rfqDemand");
+    assert.equal(rfqLocalGuard.emptyAriaInvalid, "true");
+    assert.equal(rfqLocalGuard.blockedErrVisible, true);
+    assert.equal(apiHitsDuringLocalGuardTest, 0, "N09: rfq.html must make 0 API requests (including catalog) in local preview without ?api=");
+
+    // 8.2 rfq.html with ?api=: N10 bilingual <option> + N07 idemKey reload persistence + REV10 zero recruitment + 360px 0px overflow
+    await chrome.navigate(`${baseUrl}/rfq.html?api=${encodeURIComponent(baseUrl)}&ref=DISABLED_TEST_REF`);
+    const rfqPreReload = await chrome.evalJs(`(() => {
+      const optEn = document.querySelector('#rfqProductLine option[value="valves"]').textContent;
+      document.getElementById("rfqDemand").value = "TEST Browser RFQ: need HDPE PE100 pipe DN250 for municipal project";
+      document.getElementById("rfqDemand").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("rfqCountry").value = "Vietnam";
+      document.getElementById("rfqCountry").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("rfqProductLine").value = "valves";
+      document.getElementById("rfqProductLine").dispatchEvent(new Event("change", { bubbles: true }));
+      document.getElementById("rfqContactVal").value = "browser.buyer@example.test";
+      document.getElementById("rfqContactVal").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("rfqPrivacyConsent").checked = true;
+      document.getElementById("rfqPrivacyConsent").dispatchEvent(new Event("change", { bubbles: true }));
+      const idemBeforeLang = window.__FG_RFQ_DEBUG__().idemKey;
+      // N10: Toggle EN -> ZH -> EN and confirm <option> translates while form values & idemKey stay intact!
+      document.getElementById("btnLangToggle").click();
+      const optZh = document.querySelector('#rfqProductLine option[value="valves"]').textContent;
+      const idemAfterZh = window.__FG_RFQ_DEBUG__().idemKey;
+      document.getElementById("btnLangToggle").click();
+      const optEnBack = document.querySelector('#rfqProductLine option[value="valves"]').textContent;
+      return { optEn, optZh, optEnBack, idemBeforeLang, idemAfterZh };
+    })()`);
+    assert.notEqual(rfqPreReload.optEn, rfqPreReload.optZh, "N10: rfq.html <option> labels must translate between EN and ZH");
+    assert.equal(rfqPreReload.optEn, rfqPreReload.optEnBack);
+    assert.equal(rfqPreReload.idemBeforeLang, rfqPreReload.idemAfterZh, "N07/N10: Language toggle must NOT alter idemKey");
+
+    // Reload rfq.html and assert draft + exact idemKey survive (N07)
+    await chrome.send("Page.reload");
+    await sleep(600);
     const rfqCheck = await chrome.evalJs(`(async () => {
+      const idemAfterReload = window.__FG_RFQ_DEBUG__().idemKey;
+      const demandRestored = document.getElementById("rfqDemand").value;
       const bodyTxt = document.body.innerText;
       const hasRecruitText = /加盟|合伙人|招商|代理返佣|招聘/i.test(bodyTxt);
-      document.getElementById("rfqDemand").value = "TEST Browser RFQ: need HDPE PE100 pipe DN250 for municipal project";
-      document.getElementById("rfqCountry").value = "Vietnam";
-      document.getElementById("rfqContactVal").value = "browser.buyer@example.test";
-      document.getElementById("rfqPrivacyConsent").checked = true;
       document.getElementById("btnSubmitRfq").click();
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 100));
         if (!document.getElementById("rfqSuccessBox").hidden) break;
       }
       return {
+        idemAfterReload,
+        demandRestored,
         hasRecruitText,
         refBannerHidden: document.getElementById("refBanner").hidden,
         hasCopyRefBtn: Boolean(document.getElementById("btnCopyRfqNo")),
         successText: document.getElementById("rfqSuccessBox").innerText
       };
     })()`);
+    assert.equal(rfqCheck.idemAfterReload, rfqPreReload.idemBeforeLang, "N07: rfq.html idemKey MUST survive page reload");
+    assert.ok(rfqCheck.demandRestored.includes("HDPE PE100"));
     assert.equal(rfqCheck.hasRecruitText, false, "REV10: rfq.html must contain zero partner/recruitment text");
     assert.equal(rfqCheck.refBannerHidden, true, "REV06: Invalid/disabled ref must stay hidden/neutral");
     assert.equal(rfqCheck.hasCopyRefBtn, true, "rfq.html receipt must expose one-click copy button");
@@ -1109,18 +1952,113 @@ async function main() {
     const rfqMobileOverflow = await chrome.evalJs("Math.max(0, document.documentElement.scrollWidth - window.innerWidth)");
     assert.equal(rfqMobileOverflow, 0, "rfq.html must have 0px horizontal overflow at 360px mobile viewport");
 
-    // 6.2 join.html: 3-way form + one-time lookup secret + copy/check buttons + 360px mobile 0px overflow
+    // 8.3 join.html with ?api=: N06 3x reload draft survival + N10 bilingual <option> + N07 lost-response reload replay deduplication!
     await chrome.navigate(`${baseUrl}/join.html?api=${encodeURIComponent(baseUrl)}`);
     const joinMobileOverflow = await chrome.evalJs("Math.max(0, document.documentElement.scrollWidth - window.innerWidth)");
     assert.equal(joinMobileOverflow, 0, "join.html must have 0px horizontal overflow at 360px mobile viewport");
 
     await chrome.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-    await sleep(100);
-    const joinCheck = await chrome.evalJs(`(async () => {
+    await sleep(120);
+    const joinInit = await chrome.evalJs(`(() => {
       const marketingDefault = document.getElementById("marketingOptIn").checked;
-      document.getElementById("appName").value = "TEST Chrome Partner";
-      document.getElementById("contactValue").value = "chrome_partner_wx";
+      const optZh = document.querySelector('#partnerMode option[value="followup"]').textContent;
+      // N10: Toggle ZH -> EN -> ZH and verify <option> translates
+      document.getElementById("btnLangToggle").click();
+      const optEn = document.querySelector('#partnerMode option[value="followup"]').textContent;
+      document.getElementById("btnLangToggle").click();
+      // Select tool_trial track & fill fields (N06)
+      document.querySelector('.track-card[data-track="tool_trial"]').click();
+      document.getElementById("appName").value = "TEST Chrome Reload Idem User";
+      document.getElementById("appName").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("contactValue").value = "chrome_reload_wx";
+      document.getElementById("contactValue").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("countryTz").value = "Singapore (UTC+8)";
+      document.getElementById("countryTz").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("experienceNote").value = "Valve export team trial";
+      document.getElementById("experienceNote").dispatchEvent(new Event("input", { bubbles: true }));
       document.getElementById("privacyConsent").checked = true;
+      document.getElementById("privacyConsent").dispatchEvent(new Event("change", { bubbles: true }));
+      const dbg = window.__FG_JOIN_DEBUG__();
+      return { marketingDefault, optZh, optEn, idemKey: dbg.idemKey, track: dbg.track };
+    })()`);
+    assert.equal(joinInit.marketingDefault, false, "Marketing opt-in must default unchecked");
+    assert.notEqual(joinInit.optZh, joinInit.optEn, "N10: join.html <option> labels must translate between ZH and EN");
+    assert.equal(joinInit.track, "tool_trial");
+
+    // N06 + N07: Reload join.html THREE CONSECUTIVE TIMES — draft fields, track AND idemKey must survive EVERY reload!
+    for (let r = 1; r <= 3; r++) {
+      await chrome.send("Page.reload");
+      await sleep(500);
+      const snap = await chrome.evalJs(`(() => {
+        const dbg = window.__FG_JOIN_DEBUG__();
+        return {
+          track: dbg.track,
+          idemKey: dbg.idemKey,
+          appName: document.getElementById("appName").value,
+          contactValue: document.getElementById("contactValue").value,
+          countryTz: document.getElementById("countryTz").value,
+          note: document.getElementById("experienceNote").value,
+          consent: document.getElementById("privacyConsent").checked,
+        };
+      })()`);
+      assert.equal(snap.track, "tool_trial", `N06 reload #${r}: track must survive`);
+      assert.equal(snap.appName, "TEST Chrome Reload Idem User", `N06 reload #${r}: appName must survive`);
+      assert.equal(snap.contactValue, "chrome_reload_wx", `N06 reload #${r}: contactValue must survive`);
+      assert.equal(snap.countryTz, "Singapore (UTC+8)", `N06 reload #${r}: countryTz must survive`);
+      assert.equal(snap.note, "Valve export team trial", `N06 reload #${r}: experienceNote must survive`);
+      assert.equal(snap.consent, true, `N06 reload #${r}: privacyConsent must survive`);
+      assert.equal(snap.idemKey, joinInit.idemKey, `N07 reload #${r}: idemKey must stay identical across reloads`);
+    }
+
+    // N07 Lost-Response Network Interruption -> Reload -> Resubmit -> Server receives IDENTICAL X-Idempotency-Key & creates ONLY 1 DB row!
+    receivedPublicAppIdemKeys.length = 0;
+    dropNextPublicAppResponseAfterCommit = true;
+    const lostRespState = await chrome.evalJs(`(async () => {
+      document.getElementById("btnSubmitJoin").click();
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        if (!document.getElementById("joinErrorBox").hidden) break;
+      }
+      return {
+        errVisible: !document.getElementById("joinErrorBox").hidden,
+        idemStillSaved: window.__FG_JOIN_DEBUG__().idemKey
+      };
+    })()`);
+    assert.equal(lostRespState.errVisible, true, "N07: Lost network response should show retryable network error");
+    assert.equal(lostRespState.idemStillSaved, joinInit.idemKey);
+
+    await chrome.send("Page.reload");
+    await sleep(500);
+    const replaySubmit = await chrome.evalJs(`(async () => {
+      const idemBeforeRetry = window.__FG_JOIN_DEBUG__().idemKey;
+      document.getElementById("btnSubmitJoin").click();
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        if (!document.getElementById("joinSuccessBox").hidden) break;
+      }
+      return {
+        idemBeforeRetry,
+        receipt: document.getElementById("joinSuccessBox").innerText
+      };
+    })()`);
+    assert.equal(replaySubmit.idemBeforeRetry, joinInit.idemKey);
+    assert.ok(replaySubmit.receipt.includes("FG-APP-"), "N07: Reloaded retry must recover original FG-APP receipt");
+    assert.equal(receivedPublicAppIdemKeys.length, 2);
+    assert.equal(receivedPublicAppIdemKeys[0], receivedPublicAppIdemKeys[1], "N07: Server must receive identical X-Idempotency-Key across reload retry");
+    const reloadAppCount = Number(
+      db.raw.prepare("SELECT COUNT(*) AS cnt FROM applications WHERE applicant_name = 'TEST Chrome Reload Idem User'").get().cnt
+    );
+    assert.equal(reloadAppCount, 1, "N07: Lost-response + reload + retry MUST create ONLY 1 application row in D1!");
+
+    // Fresh clean submission on join.html to confirm one-time secret + copy + status lookup flow
+    await chrome.navigate(`${baseUrl}/join.html?api=${encodeURIComponent(baseUrl)}`);
+    const joinCheck = await chrome.evalJs(`(async () => {
+      document.getElementById("appName").value = "TEST Chrome Partner";
+      document.getElementById("appName").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("contactValue").value = "chrome_partner_wx";
+      document.getElementById("contactValue").dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("privacyConsent").checked = true;
+      document.getElementById("privacyConsent").dispatchEvent(new Event("change", { bubbles: true }));
       document.getElementById("btnSubmitJoin").click();
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 100));
@@ -1134,18 +2072,16 @@ async function main() {
         if (!document.getElementById("statusResultBox").hidden) break;
       }
       return {
-        marketingDefault,
         hasCopyReceiptBtn,
         receipt,
         statusOut: document.getElementById("statusResultBox").innerText
       };
     })()`);
-    assert.equal(joinCheck.marketingDefault, false, "Marketing opt-in must default unchecked");
     assert.equal(joinCheck.hasCopyReceiptBtn, true, "join.html must provide one-click copy receipt/secret button");
     assert.ok(joinCheck.receipt.includes("FG-APP-") && joinCheck.receipt.includes("fglk_"));
     assert.ok(joinCheck.statusOut.includes("FG-APP-"));
 
-    // 6.3 index.html: Real Chrome login + REV01 contextEpoch stale-response discard + scoped drafts + ALL 6 V3 Hub tabs + 360px mobile 0px overflow
+    // 8.4 index.html: Real Chrome login + REV01 contextEpoch + ACQ04 scoped drafts + ALL 6 V3 Hub tabs + N02-UI + N08 Deep-Links!
     await chrome.navigate(`${baseUrl}/index.html`);
     const liveTotpForChrome = await getAdminTotp();
     delayNextCompaniesMs = 450;
@@ -1176,6 +2112,7 @@ async function main() {
       window.FG_V3_UI.setTab("tasks");
       await new Promise((r) => setTimeout(r, 250));
       const tasksTxt = document.getElementById("v3Body").innerText;
+      const hasTaskCurrencySelect = Boolean(document.getElementById("v3TaskCurrency"));
 
       window.FG_V3_UI.setTab("signals");
       await new Promise((r) => setTimeout(r, 300));
@@ -1185,8 +2122,9 @@ async function main() {
       const signalsTxt = document.getElementById("v3Body").innerText;
 
       window.FG_V3_UI.setTab("compare");
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 300));
       const compareTxt = document.getElementById("v3Body").innerText;
+      const hasDateRangeInputs = Boolean(document.getElementById("v3CmpFrom") && document.getElementById("v3CmpTo"));
 
       window.FG_V3_UI.setTab("projects");
       await new Promise((r) => setTimeout(r, 250));
@@ -1202,10 +2140,13 @@ async function main() {
         slowRes,
         otherDraft,
         mainDraftRestored,
+        hasTaskCurrencySelect,
+        hasDateRangeInputs,
         todosOk: todosTxt.includes("复制微信脱敏卡"),
         tasksOk: tasksTxt.includes("Facebook") && tasksTxt.includes("Instagram") && tasksTxt.includes("LinkedIn") && tasksTxt.includes("YouTube"),
         signalsOk: signalsTxt.includes("可编辑回复草稿") && signalsTxt.includes("不计触达"),
         compareOk: compareTxt.includes("facebook") && compareTxt.includes("manual_discovery") && compareTxt.includes("复制周复盘 Markdown"),
+        compareMultiCurrencyOk: compareTxt.includes("JPY 200 + USD 1.00") && compareTxt.includes("零产出投入"),
         projectsOk: projectsTxt.includes("主管可见查重提示") && projectsTxt.includes("创建轻量工程"),
         adminOk: adminTxt.includes("入驻申请审批与分离激活") && adminTxt.includes("核验产品目录与认证维护"),
       };
@@ -1214,14 +2155,17 @@ async function main() {
     assert.equal(epochCheck.slowRes.code, "STALE_CONTEXT_DISCARDED");
     assert.equal(epochCheck.otherDraft, null, "ACQ04: Draft from Org Main MUST NOT leak into Other Org");
     assert.equal(epochCheck.mainDraftRestored.demand_summary, "MAIN_ORG_SECRET_DRAFT");
+    assert.equal(epochCheck.hasTaskCurrencySelect, true, "N02-UI: Task form must expose currency selector");
+    assert.equal(epochCheck.hasDateRangeInputs, true, "N04-UI: Compare tab must expose from/to date inputs");
     assert.equal(epochCheck.todosOk, true, "Tab 1 todos + WeChat card must render");
     assert.equal(epochCheck.tasksOk, true, "Tab 2 FB/IG/LI/YT platform strip must render");
     assert.equal(epochCheck.signalsOk, true, "Tab 3 editable draft drawer must render");
     assert.equal(epochCheck.compareOk, true, "Tab 4 source comparison + Markdown export must render");
+    assert.equal(epochCheck.compareMultiCurrencyOk, true, "N02-UI/N03-UI: Compare tab must render 'USD 1.00 + JPY 200' and '零产出投入' badge");
     assert.equal(epochCheck.projectsOk, true, "Tab 5 projects + blind-dedupe manager hints must render");
     assert.equal(epochCheck.adminOk, true, "Tab 6 applications inbox + catalog manager must render");
 
-    // Verify 360px mobile 0px horizontal overflow across all 6 Hub tabs!
+    // Verify 360px mobile 0px horizontal overflow across all 6 Hub tabs (including multi-currency compare!)
     await chrome.send("Emulation.setDeviceMetricsOverride", { width: 360, height: 780, deviceScaleFactor: 2, mobile: true });
     for (const tabKey of ["todos", "tasks", "signals", "compare", "projects", "admin"]) {
       await chrome.evalJs(`(async () => { window.FG_V3_UI.setTab(${JSON.stringify(tabKey)}); await new Promise((r) => setTimeout(r, 200)); })()`);
@@ -1229,15 +2173,53 @@ async function main() {
       assert.equal(ov, 0, `V3 Hub tab "${tabKey}" must have 0px horizontal overflow at 360px mobile viewport`);
     }
 
+    // 8.5 N08 Deep-Link Real Browser Landing Tests (Found + Missing + Unauthorized Org!)
+    await chrome.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+    await chrome.navigate(`${baseUrl}/index.html?v3_org=org_friesgo_main&v3_todo=${encodeURIComponent(validDeepLinkTodoId)}#v3-todo=${encodeURIComponent(validDeepLinkTodoId)}`);
+    await sleep(600);
+    const dlFound = await chrome.evalJs(`(async () => {
+      for (let i = 0; i < 20; i++) {
+        if (document.getElementById("v3DeepLinkFoundNotice")) break;
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      const notice = document.getElementById("v3DeepLinkFoundNotice");
+      const highlighted = document.querySelector('.v3-deeplink-highlight[data-todo-id="' + ${JSON.stringify(validDeepLinkTodoId)} + '"]');
+      return { foundNotice: Boolean(notice), highlighted: Boolean(highlighted) };
+    })()`);
+    assert.equal(dlFound.foundNotice, true, "N08: Valid deep-link must open V3 Hub and render #v3DeepLinkFoundNotice");
+    assert.equal(dlFound.highlighted, true, "N08: Valid deep-link must highlight the exact target todo card");
+
+    await chrome.navigate(`${baseUrl}/index.html?v3_org=org_friesgo_main&v3_todo=asg_nonexistent_999#v3-todo=asg_nonexistent_999`);
+    await sleep(600);
+    const dlMissing = await chrome.evalJs(`(async () => {
+      for (let i = 0; i < 20; i++) {
+        if (document.getElementById("v3DeepLinkMissingNotice")) break;
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      return Boolean(document.getElementById("v3DeepLinkMissingNotice"));
+    })()`);
+    assert.equal(dlMissing, true, "N08: Missing/reassigned deep-link todo must render neutral #v3DeepLinkMissingNotice");
+
+    await chrome.navigate(`${baseUrl}/index.html?v3_org=org_unauth_999&v3_todo=asg_1#v3-todo=asg_1`);
+    await sleep(600);
+    const dlUnauth = await chrome.evalJs(`(async () => {
+      for (let i = 0; i < 20; i++) {
+        if (document.getElementById("v3DeepLinkUnauthNotice")) break;
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      return Boolean(document.getElementById("v3DeepLinkUnauthNotice"));
+    })()`);
+    assert.equal(dlUnauth, true, "N08: Unauthorized org deep-link must render neutral #v3DeepLinkUnauthNotice");
+
     assert.equal(chrome.pageErrors.length, 0, "Zero uncaught Chrome pageErrors: " + chrome.pageErrors.join(" | "));
 
-    console.log("PASS BLOCK 6 (Real Headless Chrome Desktop + 360px Mobile): rfq.html, join.html, all 6 V3 Hub tabs, REV01 contextEpoch stale-response discard, ACQ04 scoped drafts, 0px mobile overflow & 0 pageErrors verified");
+    console.log("PASS BLOCK 8 (Real Headless Chrome Desktop + 360px Mobile): N09 localhost guard + client validation, N10 bilingual <option>, N06 3x reload draft, N07 lost-response reload replay, N08 deep-link (found/missing/unauth), N02-UI USD+JPY, REV01 contextEpoch, ACQ04 scoped drafts, 0px mobile overflow & 0 pageErrors verified");
   } finally {
     await chrome.close();
     server.close();
   }
 
-  console.log("\nALL V3 SLICE-1 DIRECTED VERIFICATION BLOCKS (1–6) PASSED!");
+  console.log("\nALL V3 SLICE-1 DIRECTED VERIFICATION BLOCKS (1–8, S01–S08, N01–N10) PASSED!");
 }
 
 main().catch((err) => {

@@ -214,6 +214,9 @@ CREATE TABLE IF NOT EXISTS demand_signals (
   audit_status TEXT NOT NULL DEFAULT 'pending_verify' CHECK(audit_status IN ('pending_verify','verified_valid','approved','duplicate','expired','seller_ad','irrelevant','rejected')),
   audit_reason TEXT NOT NULL DEFAULT '',
   contact_result TEXT NOT NULL DEFAULT 'to_contact' CHECK(contact_result IN ('to_contact','manual_sent','waiting_reply','active_dialogue','need_specs','converted_inquiry','paused','invalid','opted_out')),
+  opt_out_locked INTEGER NOT NULL DEFAULT 0,
+  opt_out_at TEXT,
+  idem_key TEXT NOT NULL DEFAULT '',
   draft_count INTEGER NOT NULL DEFAULT 0,
   copy_count INTEGER NOT NULL DEFAULT 0,
   manual_sent_count INTEGER NOT NULL DEFAULT 0,
@@ -232,6 +235,7 @@ CREATE TABLE IF NOT EXISTS demand_signals (
 CREATE INDEX IF NOT EXISTS idx_signals_org_plat ON demand_signals(org_id, source_platform, acquisition_mode, audit_status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_signals_ext ON demand_signals(org_id, source_platform, external_id);
 CREATE INDEX IF NOT EXISTS idx_signals_task ON demand_signals(org_id, task_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_signals_org_idem ON demand_signals(org_id, created_by, idem_key) WHERE idem_key != '';
 
 CREATE TABLE IF NOT EXISTS inquiries (
   id TEXT PRIMARY KEY,
@@ -327,16 +331,19 @@ CREATE TABLE IF NOT EXISTS deal_registrations (
   canonical_sha256 TEXT NOT NULL DEFAULT '',
   reviewed_by TEXT NOT NULL DEFAULT '',
   review_note TEXT NOT NULL DEFAULT '',
+  idem_key TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_deal_reg_org_partner ON deal_registrations(org_id, partner_employee_id, status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deal_reg_org_idem ON deal_registrations(org_id, partner_employee_id, idem_key) WHERE idem_key != '';
 
 CREATE TABLE IF NOT EXISTS attachments_meta (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
   entity_type TEXT NOT NULL,
   entity_id TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'internal_only' CHECK(visibility IN ('internal_only','org_authorized')),
   filename TEXT NOT NULL,
   content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
   size_bytes INTEGER NOT NULL DEFAULT 0,

@@ -2,7 +2,7 @@
 // Preserves stable IDs (id / tlId / quoteId / logId), never downgrades opt-out or compliance blocks,
 // and never creates duplicate rows on repeated migration submissions.
 
-import { requireAuth } from "../auth.js";
+import { requireLegacyMainInternal } from "../auth.js";
 import { randomId } from "../crypto.js";
 import {
   extractCleanDomain,
@@ -67,7 +67,7 @@ export async function handleMigrateRoutes(request, env, cors, url) {
 
   // 1. Dry-Run Scan: inspect uploaded IndexedDB leads against D1 without writing a single row
   if (path === "/api/migrate/dry-run" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 2 * 1024 * 1024);
     const leads = (Array.isArray(body.leads) ? body.leads : []).filter((l) => l && !l.deletedAt && (l.company || l.canonical_name));
@@ -79,14 +79,16 @@ export async function handleMigrateRoutes(request, env, cors, url) {
     for (let i = 0; i < idList.length; i += 80) {
       const chunk = idList.slice(i, i + 80);
       const ph = chunk.map(() => "?").join(",");
-      const res = await env.DB.prepare(`SELECT id FROM companies WHERE id IN (${ph})`).bind(...chunk).all();
+      const res = auth.v4
+        ? await env.DB.prepare(`SELECT id FROM companies WHERE org_id = ? AND id IN (${ph})`).bind(auth.orgId, ...chunk).all()
+        : await env.DB.prepare(`SELECT id FROM companies WHERE id IN (${ph})`).bind(...chunk).all();
       for (const r of res.results || []) existingById.add(r.id);
     }
 
     const dedupeAll = [];
     for (let i = 0; i < leads.length; i += 100) {
       const slice = leads.slice(i, i + 100);
-      const res = await batchDedupeCandidates(env.DB, slice);
+      const res = await batchDedupeCandidates(env.DB, slice, auth.v4 ? auth.orgId : null);
       res.forEach((r, j) => dedupeAll.push({ ...r, index: i + j }));
     }
 
@@ -164,7 +166,7 @@ export async function handleMigrateRoutes(request, env, cors, url) {
 
   // 2. Idempotent Commit: writes companies, contacts, timeline events, quotes & order compliance logs
   if (path === "/api/migrate/commit" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 2 * 1024 * 1024);
 
@@ -188,7 +190,7 @@ export async function handleMigrateRoutes(request, env, cors, url) {
     const dedupeAll = [];
     for (let i = 0; i < leads.length; i += 100) {
       const slice = leads.slice(i, i + 100);
-      const res = await batchDedupeCandidates(env.DB, slice);
+      const res = await batchDedupeCandidates(env.DB, slice, auth.v4 ? auth.orgId : null);
       res.forEach((r, j) => dedupeAll.push({ ...r, index: i + j }));
     }
 
@@ -211,13 +213,17 @@ export async function handleMigrateRoutes(request, env, cors, url) {
         continue;
       }
 
-      // Determine authoritative target company ID
+      // Determine authoritative target company ID (strictly main-org scoped in V4)
       let targetId = "";
-      const existingSameId = await env.DB.prepare("SELECT * FROM companies WHERE id = ?").bind(localId).first();
+      const existingSameId = auth.v4
+        ? await env.DB.prepare("SELECT * FROM companies WHERE id = ? AND org_id = ?").bind(localId, auth.orgId).first()
+        : await env.DB.prepare("SELECT * FROM companies WHERE id = ?").bind(localId).first();
       if (existingSameId) {
         targetId = existingSameId.id;
       } else if (dec && dec.action === "merge" && dec.targetId) {
-        const tgtRow = await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL").bind(dec.targetId).first();
+        const tgtRow = auth.v4
+          ? await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND org_id = ? AND deleted_at IS NULL").bind(dec.targetId, auth.orgId).first()
+          : await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL").bind(dec.targetId).first();
         if (tgtRow) targetId = tgtRow.id;
       } else if ((!dec || dec.action !== "create_new") && d.status === "high_match" && d.match && d.match.id) {
         targetId = d.match.id;

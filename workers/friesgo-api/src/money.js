@@ -1,6 +1,6 @@
-// FriesGo Global V3.0 - Exact BigInt Rational Monetary, FX & Largest-Remainder Split Engine (ENG02 / REV04)
-// Zero floating-point arithmetic. Validates supported currencies, currency minor-unit decimal places (e.g. JPY=0, USD=2),
-// JS Number.MAX_SAFE_INTEGER binding boundaries for Cloudflare D1, and deterministic Hamilton Largest-Remainder splits.
+// FriesGo Global V3.0 - Exact BigInt Rational Monetary, FX & Largest-Remainder Split Engine (ENG02 / REV04 / N05)
+// Zero floating-point arithmetic. Strictly rejects fractional numbers, scientific notation, NaN, Infinity,
+// and unsafe integers (> Number.MAX_SAFE_INTEGER) BEFORE any Number conversion.
 
 export const SUPPORTED_CURRENCIES = Object.freeze({
   USD: { code: "USD", decimals: 2, symbol: "$" },
@@ -26,11 +26,51 @@ export function getCurrencySpec(code) {
 }
 
 /**
+ * N05: Strict exact integer parser that rejects floats, NaN, Infinity, scientific notation,
+ * booleans, empty values, and integers outside JS/D1 safe integer range BEFORE any Number() cast!
+ */
+export function parseExactSafeIntBigInt(raw, label = "integer", { allowNegative = true } = {}) {
+  let val;
+  if (typeof raw === "bigint") {
+    val = raw;
+  } else if (typeof raw === "number") {
+    if (!Number.isFinite(raw) || !Number.isSafeInteger(raw)) {
+      throw new Error(`INVALID_EXACT_INTEGER: ${label} must be a finite safe integer`);
+    }
+    val = BigInt(raw);
+  } else if (typeof raw === "string") {
+    const s = raw.trim();
+    const re = allowNegative ? /^-?\d+$/ : /^\d+$/;
+    if (!re.test(s)) {
+      throw new Error(`INVALID_EXACT_INTEGER: ${label} must be a strict base-10 integer string`);
+    }
+    val = BigInt(s);
+  } else {
+    throw new Error(`INVALID_EXACT_INTEGER: ${label} has unsupported type`);
+  }
+
+  if (!allowNegative && val < 0n) {
+    throw new Error(`NEGATIVE_NOT_ALLOWED: ${label} must be >= 0`);
+  }
+  const abs = val < 0n ? -val : val;
+  if (abs > MAX_SAFE_BIGINT) {
+    throw new Error(`D1_SAFE_INT_OVERFLOW: ${label} exceeds Number.MAX_SAFE_INTEGER`);
+  }
+  return val;
+}
+
+/**
  * Parses a strict decimal string (e.g. "18.3750", "-0.0050") into scaled BigInt (value * 10^scale).
  * Rejects scientific notation, NaN, trailing garbage, or excess decimal precision.
  */
 export function parseDecimalToScaledBigInt(raw, maxScale, { allowNegative = false } = {}) {
-  const s = String(raw === undefined || raw === null ? "" : raw).trim();
+  if (typeof raw !== "string" && typeof raw !== "number" && typeof raw !== "bigint") {
+    throw new Error("INVALID_DECIMAL: unsupported type");
+  }
+  if (typeof raw === "number" && !Number.isFinite(raw)) {
+    throw new Error("INVALID_DECIMAL: non-finite number");
+  }
+  const s = String(raw).trim();
   const re = allowNegative ? /^-?\d+(?:\.\d+)?$/ : /^\d+(?:\.\d+)?$/;
   if (!re.test(s)) {
     throw new Error(`INVALID_DECIMAL: ${s}`);
@@ -63,6 +103,9 @@ export function divRoundHalfUp(num, den) {
 }
 
 export function assertD1SafeInt(valBigInt, label = "amount_minor") {
+  if (typeof valBigInt !== "bigint") {
+    throw new Error(`INVALID_BIGINT: ${label}`);
+  }
   const abs = valBigInt < 0n ? -valBigInt : valBigInt;
   if (abs > MAX_SAFE_BIGINT) {
     throw new Error(`D1_SAFE_INT_OVERFLOW: ${label} exceeds Number.MAX_SAFE_INTEGER`);
@@ -86,7 +129,7 @@ export function parseMoneyToMinor(rawMajor, currencyCode, { allowNegative = fals
 
 export function formatMinor(minorInt, currencyCode) {
   const spec = getCurrencySpec(currencyCode);
-  const m = BigInt(minorInt);
+  const m = parseExactSafeIntBigInt(minorInt, "minorInt", { allowNegative: true });
   const neg = m < 0n ? "-" : "";
   const abs = m < 0n ? -m : m;
   if (spec.decimals === 0) return `${neg}${abs.toString()}`;
@@ -110,19 +153,17 @@ export function calculateLineCommissionMinor({
 }) {
   const spec = getCurrencySpec(currency);
   if (calcMode === "pct_of_commissionable") {
-    const base = BigInt(Math.trunc(Number(commissionableMinor)));
-    if (!Number.isInteger(ratePpm) || ratePpm < 0 || ratePpm > 500000) {
+    const base = parseExactSafeIntBigInt(commissionableMinor, "commissionableMinor", { allowNegative });
+    const rateBig = parseExactSafeIntBigInt(ratePpm, "ratePpm", { allowNegative: false });
+    if (rateBig > 500000n) {
       throw new Error(`INVALID_RATE_PPM: ${ratePpm}`);
     }
-    if (!allowNegative && base < 0n) throw new Error("NEGATIVE_BASE_NOT_ALLOWED");
-    const res = divRoundHalfUp(base * BigInt(ratePpm), 1000000n);
+    const res = divRoundHalfUp(base * rateBig, 1000000n);
     return assertD1SafeInt(res, "commission_minor");
   }
   if (calcMode === "fixed_per_unit") {
     const qtyScaled = parseDecimalToScaledBigInt(qtyDec, 4, { allowNegative });
     const rateScaled = parseDecimalToScaledBigInt(unitRateDec, 4, { allowNegative: false });
-    // qtyScaled * rateScaled is scaled by 10^8 in major currency.
-    // Convert to minor units (10^dp): multiply by 10^dp, divide by 10^8.
     const num = qtyScaled * rateScaled * POW10[spec.decimals];
     const den = POW10[8];
     const res = divRoundHalfUp(num, den);
@@ -136,12 +177,11 @@ export function calculateLineCommissionMinor({
  * fxRateDec expresses: 1 major unit of sourceCurrency = fxRateDec major units of targetCurrency (up to 6 decimals).
  * Formula:
  *   target_minor = round_half_up( source_minor * fx_scaled * 10^dp_target / (10^6 * 10^dp_source) )
- * Example: JPY 1,000 (minor=1000, dp=0) * 0.006700 -> USD (dp=2) = 670 minor ($6.70), NOT $0.07!
  */
 export function convertCurrencyMinor({ sourceMinor, sourceCurrency, targetCurrency, fxRateDec }) {
   const srcSpec = getCurrencySpec(sourceCurrency);
   const tgtSpec = getCurrencySpec(targetCurrency);
-  const srcBig = BigInt(Math.trunc(Number(sourceMinor)));
+  const srcBig = parseExactSafeIntBigInt(sourceMinor, "sourceMinor", { allowNegative: true });
   if (srcSpec.code === tgtSpec.code) {
     return assertD1SafeInt(srcBig, "converted_minor");
   }
@@ -156,70 +196,62 @@ export function convertCurrencyMinor({ sourceMinor, sourceCurrency, targetCurren
 /**
  * ENG02: Deterministic Hamilton Largest-Remainder split for multi-partner commission allocation.
  * Works symmetrically for positive commissions AND negative refund adjustments!
- * Explicitly separates:
- *   - companyRetainedMinor (pre-agreed company share, if configured in rule)
- *   - partnerAllocations (each partner's exact minor share)
- *   - unallocatedPoolMinor (remainder pool if configured weights sum < 100%)
- * Guarantees: SUM(partnerAllocations) + companyRetainedMinor + unallocatedPoolMinor === totalCommissionMinor
- *
- * Each entry in `shares`: { id: string, rolePriority?: number, weightPpm: number }
- *   where total sum of partner weights + companyRetainedPpm <= 1,000,000 (100%).
- * Deterministic tie-break for identical fractional remainders:
- *   1. Higher rolePriority (e.g. primary_followup > referrer > collaborator)
- *   2. Higher weightPpm
- *   3. Lexicographical id ASC (stable, independent of input order!)
  */
 export function splitCommissionLargestRemainder({
   totalCommissionMinor,
   shares = [],
   companyRetainedPpm = 0,
 }) {
-  const total = BigInt(Math.trunc(Number(totalCommissionMinor)));
-  if (!Number.isInteger(companyRetainedPpm) || companyRetainedPpm < 0 || companyRetainedPpm > 1000000) {
+  const total = parseExactSafeIntBigInt(totalCommissionMinor, "totalCommissionMinor", { allowNegative: true });
+  const retainedBig = parseExactSafeIntBigInt(companyRetainedPpm, "companyRetainedPpm", { allowNegative: false });
+  if (retainedBig > 1000000n) {
     throw new Error(`INVALID_COMPANY_RETAINED_PPM: ${companyRetainedPpm}`);
   }
-  let partnerWeightSum = 0;
+  let partnerWeightSum = 0n;
+  const parsedShares = [];
   for (const s of shares) {
     if (!s || !s.id) throw new Error("SHARE_ID_REQUIRED");
-    if (!Number.isInteger(s.weightPpm) || s.weightPpm < 0) {
-      throw new Error(`INVALID_SHARE_WEIGHT_PPM: ${s.weightPpm}`);
-    }
-    partnerWeightSum += s.weightPpm;
+    const w = parseExactSafeIntBigInt(s.weightPpm, "weightPpm", { allowNegative: false });
+    partnerWeightSum += w;
+    parsedShares.push({
+      id: String(s.id),
+      rolePriority: Number.isSafeInteger(Number(s.rolePriority || 0)) ? Number(s.rolePriority || 0) : 0,
+      weightPpmBig: w,
+      weightPpm: Number(w),
+    });
   }
-  const totalConfiguredPpm = partnerWeightSum + companyRetainedPpm;
-  if (totalConfiguredPpm > 1000000) {
-    throw new Error(`SHARE_WEIGHTS_EXCEED_100_PCT: ${totalConfiguredPpm} ppm`);
+  const totalConfiguredPpm = partnerWeightSum + retainedBig;
+  if (totalConfiguredPpm > 1000000n) {
+    throw new Error(`SHARE_WEIGHTS_EXCEED_100_PCT: ${totalConfiguredPpm.toString()} ppm`);
   }
 
-  const unallocatedPpm = 1000000 - totalConfiguredPpm;
+  const unallocatedPpm = 1000000n - totalConfiguredPpm;
   const neg = total < 0n;
   const absTotal = neg ? -total : total;
 
-  // Build unified Hamilton buckets across partners + optional companyRetained + optional unallocatedPool
-  const buckets = shares.map((s) => ({
+  const buckets = parsedShares.map((s) => ({
     kind: "partner",
-    id: String(s.id),
-    rolePriority: Number(s.rolePriority || 0),
-    weightPpm: BigInt(s.weightPpm),
+    id: s.id,
+    rolePriority: s.rolePriority,
+    weightPpm: s.weightPpmBig,
   }));
-  if (companyRetainedPpm > 0) {
+  if (retainedBig > 0n) {
     buckets.push({
       kind: "company_retained",
       id: "__company_retained__",
       rolePriority: -10,
-      weightPpm: BigInt(companyRetainedPpm),
+      weightPpm: retainedBig,
     });
   }
-  if (unallocatedPpm > 0) {
+  if (unallocatedPpm > 0n) {
     buckets.push({
       kind: "unallocated_pool",
       id: "__unallocated_pool__",
       rolePriority: -20,
-      weightPpm: BigInt(unallocatedPpm),
+      weightPpm: unallocatedPpm,
     });
   }
 
-  // Exact floor + fractional remainder (num % 1,000,000)
   let floorSum = 0n;
   const computed = buckets.map((b) => {
     const exactNum = absTotal * b.weightPpm;
@@ -229,7 +261,7 @@ export function splitCommissionLargestRemainder({
     return { ...b, alloc: base, rem };
   });
 
-  let leftover = absTotal - floorSum; // guaranteed 0 <= leftover < buckets.length
+  let leftover = absTotal - floorSum;
   const ranked = computed.slice().sort((a, b) => {
     if (b.rem !== a.rem) return b.rem > a.rem ? 1 : -1;
     if (b.rolePriority !== a.rolePriority) return b.rolePriority - a.rolePriority;
@@ -242,7 +274,6 @@ export function splitCommissionLargestRemainder({
     leftover -= 1n;
   }
 
-  // Restore original input order for partners & apply sign symmetrically
   const partnerMap = new Map();
   let companyRetainedBig = 0n;
   let unallocatedPoolBig = 0n;
@@ -253,15 +284,14 @@ export function splitCommissionLargestRemainder({
     else unallocatedPoolBig = signed;
   }
 
-  const allocations = shares.map((s) => ({
-    id: String(s.id),
+  const allocations = parsedShares.map((s) => ({
+    id: s.id,
     weightPpm: s.weightPpm,
-    amountMinor: assertD1SafeInt(partnerMap.get(String(s.id)) || 0n, "partner_share_minor"),
+    amountMinor: assertD1SafeInt(partnerMap.get(s.id) || 0n, "partner_share_minor"),
   }));
   const companyRetainedMinor = assertD1SafeInt(companyRetainedBig, "company_retained_minor");
   const unallocatedPoolMinor = assertD1SafeInt(unallocatedPoolBig, "unallocated_pool_minor");
 
-  // Hard invariant assertion
   const checkSum =
     allocations.reduce((acc, a) => acc + BigInt(a.amountMinor), 0n) +
     BigInt(companyRetainedMinor) +

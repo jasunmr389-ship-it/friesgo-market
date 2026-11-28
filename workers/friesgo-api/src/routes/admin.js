@@ -2,7 +2,7 @@
 // Employee lifecycle (create/disable/enable/reset password/device session revocation),
 // Audit logs, Full logical backup/restore, and Mandatory Post-Restore Security Re-Verification.
 
-import { EXPECTED_SCHEMA_VERSION, parseQuotaCapStrict, probeSchemaHealth, requireAuth, sanitizeEmployeePublic, verifyEmployeeTotpOrRecovery } from "../auth.js";
+import { EXPECTED_SCHEMA_VERSION, parseQuotaCapStrict, probeSchemaHealth, requireLegacyMainInternal, sanitizeEmployeePublic, verifyEmployeeTotpOrRecovery } from "../auth.js";
 import { hashPassword, randomId, sha256Hex, validatePasswordStrength } from "../crypto.js";
 import { json, monotonicCompliance, monotonicOptOut, nowIso, parseJsonBody, safeJsonParse, writeAuditLog } from "../utils.js";
 import { recomputeCompanyDerivedState } from "./companies.js";
@@ -63,12 +63,12 @@ const V4_SLICE1_TABLE_COLUMNS = {
   projects: new Set(["id","org_id","project_code","title","country_en","product_line","fulfillment_readiness","status","primary_owner_id","notes","created_by","created_at","updated_at"]),
   project_participants: new Set(["id","org_id","project_id","company_id","buyer_role","contact_name","contact_channel","notes","created_at"]),
   discovery_tasks: new Set(["id","org_id","platform","acquisition_mode","title","target_buyer_roles","product_keywords","intent_keywords","exclude_keywords","language","country_scope","owner_employee_id","review_window_days","candidate_cap","hours_logged_tenths","actual_spend_minor","spend_currency","status","created_by","created_at","updated_at"]),
-  demand_signals: new Set(["id","org_id","task_id","source_platform","acquisition_mode","signal_tier","source_url","external_id","published_at","discovered_at","last_verified_at","language","country_en","product_line","fulfillment_readiness","company_name","buyer_role","contact_name","contact_channel","demand_summary","usage_license_scope","ai_inferred_fields_json","judgment_tags_json","missing_info_json","audit_status","audit_reason","contact_result","draft_count","copy_count","manual_sent_count","manual_sent_at","replied_at","next_action","next_action_due_at","referrer_employee_id","linked_company_id","linked_project_id","linked_inquiry_id","created_by","created_at","updated_at"]),
+  demand_signals: new Set(["id","org_id","task_id","source_platform","acquisition_mode","signal_tier","source_url","external_id","published_at","discovered_at","last_verified_at","language","country_en","product_line","fulfillment_readiness","company_name","buyer_role","contact_name","contact_channel","demand_summary","usage_license_scope","ai_inferred_fields_json","judgment_tags_json","missing_info_json","audit_status","audit_reason","contact_result","opt_out_locked","opt_out_at","idem_key","draft_count","copy_count","manual_sent_count","manual_sent_at","replied_at","next_action","next_action_due_at","referrer_employee_id","linked_company_id","linked_project_id","linked_inquiry_id","created_by","created_at","updated_at"]),
   inquiries: new Set(["id","org_id","inquiry_no","company_id","project_id","source_signal_id","source_platform","acquisition_mode","country_en","product_line","summary","specs_json","contact_channel","contact_value","referrer_employee_id","primary_owner_id","status","loss_reason","exit_stage","linked_quote_id","created_by","created_at","updated_at"]),
   lead_assignments: new Set(["id","org_id","company_id","project_id","inquiry_id","signal_id","lead_kind","assignment_status","business_stage","primary_assignee_id","collaborators_json","source_contributor_id","assigned_by","accept_deadline_at","first_contact_deadline_at","sla_timezone","sla_paused_reason","loss_reason","last_op_id","version","created_at","updated_at"]),
   assignment_events: new Set(["id","org_id","assignment_id","op_id","event_type","actor_id","from_assignee_id","to_assignee_id","reason","meta_json","created_at"]),
-  deal_registrations: new Set(["id","org_id","reg_no","reg_tier","partner_employee_id","company_name","norm_name","country_en","website_domain","contact_channel","relationship_note","demand_evidence","project_title","status","linked_company_id","linked_project_id","receipt_type","protection_cert_no","protection_scope_json","protection_starts_at","protection_expires_at","canonical_sha256","reviewed_by","review_note","created_at","updated_at"]),
-  attachments_meta: new Set(["id","org_id","entity_type","entity_id","filename","content_type","size_bytes","sha256","content_b64","uploaded_by","expires_at","deleted_at","created_at"]),
+  deal_registrations: new Set(["id","org_id","reg_no","reg_tier","partner_employee_id","company_name","norm_name","country_en","website_domain","contact_channel","relationship_note","demand_evidence","project_title","status","linked_company_id","linked_project_id","receipt_type","protection_cert_no","protection_scope_json","protection_starts_at","protection_expires_at","canonical_sha256","idem_key","reviewed_by","review_note","created_at","updated_at"]),
+  attachments_meta: new Set(["id","org_id","entity_type","entity_id","filename","content_type","size_bytes","sha256","content_b64","visibility","uploaded_by","expires_at","deleted_at","created_at"]),
 };
 
 const TABLE_RULES = {
@@ -335,7 +335,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 1. List members
   if (path === "/api/admin/employees" && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin", "manager"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin", "manager"] });
     if (!auth.ok) return auth.response;
     const rows = await env.DB
       .prepare(
@@ -352,7 +352,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 2. Create member (super_admin + TOTP)
   if (path === "/api/admin/employees" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 16384);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -396,7 +396,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 2b. Batch create members (super_admin + single TOTP 2FA verification for up to 20 members)
   if (path === "/api/admin/employees/batch" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 65536);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -497,7 +497,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
   // 3. Update member (disable / enable / reset password / change role / change quota cap)
   const empMatch = path.match(/^\/api\/admin\/employees\/([^/]+)$/);
   if (empMatch && method === "PATCH") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const targetId = decodeURIComponent(empMatch[1]);
     const body = await parseJsonBody(request, 16384);
@@ -591,7 +591,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
   // 4. List or revoke employee device sessions (super_admin + TOTP)
   const empSesMatch = path.match(/^\/api\/admin\/employees\/([^/]+)\/sessions$/);
   if (empSesMatch && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const targetId = decodeURIComponent(empSesMatch[1]);
     const rows = await env.DB
@@ -605,7 +605,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   const empRevMatch = path.match(/^\/api\/admin\/employees\/([^/]+)\/revoke-sessions$/);
   if (empRevMatch && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const targetId = decodeURIComponent(empRevMatch[1]);
     const body = await parseJsonBody(request, 8192);
@@ -632,7 +632,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 5. Audit logs
   if (path === "/api/admin/audit-logs" && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin", "manager"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin", "manager"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const limit = Math.min(100, Math.max(10, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
     const rows = await env.DB
@@ -644,7 +644,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 6. Export logical company backup snapshot (super_admin + TOTP; excludes password hashes & TOTP secrets)
   if (path === "/api/admin/export-backup" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 8192);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -681,7 +681,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 7. Restore logical backup snapshot (D05/S02/R04: full pre-validation, persistent restore_jobs, atomic batch rollback, monotonic opt-out protection, per-ID reconciliation)
   if (path === "/api/admin/restore-backup" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 5 * 1024 * 1024);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -978,7 +978,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 8. Mandatory Post-Restore Security Re-Verification Gate (D05/R04: refuses to unfreeze after failed/incomplete restore job!)
   if (path === "/api/admin/post-restore-verify" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 8192);
     const totpErr = await enforceSuperAdminTotp(env, auth.actor, body, cors);
@@ -1179,7 +1179,7 @@ export async function handleAdminRoutes(request, env, cors, url) {
 
   // 9. Restore Jobs Ledger (super_admin, readable even while frozen)
   if (path === "/api/admin/restore-jobs" && method === "GET") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"], allowDuringRestoreFreeze: true });
     if (!auth.ok) return auth.response;
     const rows = await env.DB
       .prepare(

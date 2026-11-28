@@ -64,20 +64,13 @@ function fetchJson(url) {
   });
 }
 
-async function launchChromeInstance(baseUrl, cdpPort, profileDir) {
-  const proc = spawn(
-    CHROME,
-    [
-      "--headless=new",
-      "--disable-gpu",
-      "--no-first-run",
-      "--window-size=1440,920",
-      `--remote-debugging-port=${cdpPort}`,
-      `--user-data-dir=${profileDir}`,
-      baseUrl
-    ],
-    { stdio: "ignore" }
-  );
+async function launchChromeInstance(baseUrl, _unusedPort, profileDir) {
+  const { spawnChromeEphemeralCdp } = require("./_chrome.cjs");
+  const { proc, cdpPort } = await spawnChromeEphemeralCdp({
+    profileDir,
+    url: baseUrl,
+    windowSize: "1440,920",
+  });
   let targets = null;
   for (let i = 0; i < 60; i++) {
     try {
@@ -87,8 +80,8 @@ async function launchChromeInstance(baseUrl, cdpPort, profileDir) {
     await new Promise((r) => setTimeout(r, 150));
   }
   const pageTarget = targets && targets.find((t) => t.type === "page");
-  assert.ok(pageTarget, `Chrome instance on port ${cdpPort} must launch`);
-  return { proc, pageTarget };
+  assert.ok(pageTarget, `Chrome instance on ephemeral port ${cdpPort} must launch`);
+  return { proc, pageTarget, cdpPort };
 }
 
 async function connectCdpTarget(wsUrl) {
@@ -224,7 +217,7 @@ async function probeSafariWebDriver() {
   };
 
   try {
-    chrome1 = await launchChromeInstance(baseUrl, 9411, profileDir1);
+    chrome1 = await launchChromeInstance(baseUrl, 0, profileDir1);
     const tabA = await connectCdpTarget(chrome1.pageTarget.webSocketDebuggerUrl);
     await new Promise((r) => setTimeout(r, 1000));
     await tabA.evalJs(`window._fgStoreReadyPromise`);
@@ -387,7 +380,7 @@ async function probeSafariWebDriver() {
 
     // Open Tab B on same browser profile
     const { targetId: tabBId } = await tabA.send("Target.createTarget", { url: baseUrl });
-    const targetsNow = await fetchJson(`http://127.0.0.1:9411/json`);
+    const targetsNow = await fetchJson(`http://127.0.0.1:${chrome1.cdpPort}/json`);
     const tabBMeta = targetsNow.find((t) => t.id === tabBId);
     const tabB = await connectCdpTarget(tabBMeta.webSocketDebuggerUrl);
     await new Promise((r) => setTimeout(r, 900));
@@ -888,11 +881,39 @@ async function probeSafariWebDriver() {
     assert.deepStrictEqual(exportedBundle.compareList, ["Vietnam", "Saudi Arabia", "Mexico"]);
     assert.strictEqual(exportedBundle.defaultOwner, "李外贸总监");
 
-    // Launch second clean browser instance (profileDir2) with empty storage!
-    chrome2 = await launchChromeInstance(baseUrl, 9412, profileDir2);
+    // Launch second clean browser instance (profileDir2) with empty storage on OS-assigned ephemeral CDP port
+    chrome2 = await launchChromeInstance(baseUrl, 0, profileDir2);
     const cleanTab = await connectCdpTarget(chrome2.pageTarget.webSocketDebuggerUrl);
     await new Promise((r) => setTimeout(r, 1000));
     await cleanTab.evalJs(`window._fgStoreReadyPromise`);
+
+    const expectedActiveIds = exportedBundle.crmLeads.map((l) => String(l.id)).sort();
+    const expectedTrashIds = exportedBundle.crmTrash.map((t) => String((t && t.lead && t.lead.id) || t.id)).sort();
+    const expectedComplianceIds = exportedBundle.complianceLogs.map((c) => String(c.logId)).sort();
+    const expectedQuoteIds = exportedBundle.crmLeads
+      .flatMap((l) => (l.quotes || []).map((q) => String(q.quoteId || q.refNo || "")))
+      .sort();
+    const expectedTimelineIds = exportedBundle.crmLeads
+      .flatMap((l) => (l.timeline || []).map((t) => String(t.tlId || t.id || "")))
+      .sort();
+
+    const snapshotCleanTabIds = async () =>
+      cleanTab.evalJs(`(async () => {
+        await window._fgStoreReadyPromise;
+        return {
+          active: crmLeads.length,
+          trash: crmTrash.length,
+          compliance: complianceLogs.length,
+          compareList: [...compareList],
+          defaultOwner,
+          activeIds: crmLeads.map(l => String(l.id)).sort(),
+          trashIds: crmTrash.map(t => String((t && t.lead && t.lead.id) || t.id)).sort(),
+          complianceIds: complianceLogs.map(c => String(c.logId)).sort(),
+          quoteIds: crmLeads.flatMap(l => (l.quotes || []).map(q => String(q.quoteId || q.refNo || ""))).sort(),
+          timelineIds: crmLeads.flatMap(l => (l.timeline || []).map(t => String(t.tlId || t.id || ""))).sort(),
+          legacyLeadsMirrorCleared: localStorage.getItem("friesgo_leads_v2") === null
+        };
+      })()`);
 
     const restoreVerify = await cleanTab.evalJs(`(async () => {
       const beforeSt = await window.FG_STORE.loadState();
@@ -907,35 +928,55 @@ async function probeSafariWebDriver() {
         afterOwner: defaultOwner,
         quotesPreserved: (crmLeads[0] && crmLeads[0].quotes ? crmLeads[0].quotes.length : 0),
         timelinesPreserved: (crmLeads[0] && crmLeads[0].timeline ? crmLeads[0].timeline.length : 0),
-        ordersPreserved: complianceLogs.map(c => c.orderRef).sort()
+        ordersPreserved: complianceLogs.map(c => c.orderRef).sort(),
+        activeIds: crmLeads.map(l => String(l.id)).sort(),
+        trashIds: crmTrash.map(t => String((t && t.lead && t.lead.id) || t.id)).sort(),
+        complianceIds: complianceLogs.map(c => String(c.logId)).sort(),
+        quoteIds: crmLeads.flatMap(l => (l.quotes || []).map(q => String(q.quoteId || q.refNo || ""))).sort(),
+        timelineIds: crmLeads.flatMap(l => (l.timeline || []).map(t => String(t.tlId || t.id || ""))).sort()
       };
     })()`);
-    // Also reload cleanTab to confirm persistence in fresh browser profile's IndexedDB + localStorage!
+    // Reload cleanTab TWICE consecutively to confirm deterministic persistence in fresh profile's IndexedDB + localStorage!
     await cleanTab.send("Page.reload");
     await new Promise((r) => setTimeout(r, 900));
-    const afterCleanReload = await cleanTab.evalJs(`(async () => {
-      await window._fgStoreReadyPromise;
-      return {
-        active: crmLeads.length,
-        trash: crmTrash.length,
-        compliance: complianceLogs.length,
-        compareList,
-        defaultOwner
-      };
-    })()`);
+    const afterCleanReload1 = await snapshotCleanTabIds();
+
+    await cleanTab.send("Page.reload");
+    await new Promise((r) => setTimeout(r, 900));
+    const afterCleanReload2 = await snapshotCleanTabIds();
+
     assert.strictEqual(restoreVerify.beforeActive, 0);
-    assert.strictEqual(afterCleanReload.active, exportedBundle.crmLeads.length);
-    assert.strictEqual(afterCleanReload.trash, 1);
-    assert.strictEqual(afterCleanReload.compliance, 2);
-    assert.deepStrictEqual(afterCleanReload.compareList, ["Vietnam", "Saudi Arabia", "Mexico"]);
-    assert.strictEqual(afterCleanReload.defaultOwner, "李外贸总监");
+    assert.deepStrictEqual(restoreVerify.activeIds, expectedActiveIds);
+    assert.deepStrictEqual(restoreVerify.trashIds, expectedTrashIds);
+    assert.deepStrictEqual(restoreVerify.complianceIds, expectedComplianceIds);
+    assert.deepStrictEqual(restoreVerify.quoteIds, expectedQuoteIds);
+    assert.deepStrictEqual(restoreVerify.timelineIds, expectedTimelineIds);
+    for (const [idx, snap] of [afterCleanReload1, afterCleanReload2].entries()) {
+      const label = `cleanReload#${idx + 1}`;
+      assert.strictEqual(snap.active, exportedBundle.crmLeads.length, `${label} active count mismatch`);
+      assert.strictEqual(snap.trash, 1, `${label} trash count mismatch`);
+      assert.strictEqual(snap.compliance, 2, `${label} compliance count mismatch`);
+      assert.deepStrictEqual(snap.compareList, ["Vietnam", "Saudi Arabia", "Mexico"], `${label} compareList mismatch`);
+      assert.strictEqual(snap.defaultOwner, "李外贸总监", `${label} defaultOwner mismatch`);
+      assert.deepStrictEqual(snap.activeIds, expectedActiveIds, `${label} activeIds mismatch`);
+      assert.deepStrictEqual(snap.trashIds, expectedTrashIds, `${label} trashIds mismatch`);
+      assert.deepStrictEqual(snap.complianceIds, expectedComplianceIds, `${label} complianceIds mismatch`);
+      assert.deepStrictEqual(snap.quoteIds, expectedQuoteIds, `${label} quoteIds mismatch`);
+      assert.deepStrictEqual(snap.timelineIds, expectedTimelineIds, `${label} timelineIds mismatch`);
+      assert.strictEqual(snap.legacyLeadsMirrorCleared, true, `${label} stale legacy leads key must stay cleared`);
+    }
     assert.strictEqual(restoreVerify.quotesPreserved, 2);
     assert.strictEqual(cleanTab.pageErrors.length, 0);
 
     cleanTab.ws.close();
     chrome2.proc.kill();
     chrome2 = null;
-    auditLog.crossBrowserBackupRestore = { pass: true, ...restoreVerify, persistedAfterReload: afterCleanReload };
+    auditLog.crossBrowserBackupRestore = {
+      pass: true,
+      ...restoreVerify,
+      persistedAfterReload: afterCleanReload1,
+      persistedAfterReload2: afterCleanReload2
+    };
 
     /* =========================================================================
      * PART E: QA Item 7 — Interactive Audit of All 33 Router Keys & 41 Views

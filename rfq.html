@@ -94,35 +94,35 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       <div class="form-grid">
         <div class="full">
           <label for="rfqDemand" data-i18n="lblDemand">Product or Project Requirement *</label>
-          <textarea id="rfqDemand" required maxlength="2000" placeholder="e.g. Looking for HDPE PE100 pipes DN200 PN16 for a water supply project, or gate valves / power cables / steel structure... (Specs can be unknown at this stage)"></textarea>
+          <textarea id="rfqDemand" required maxlength="2000" data-i18n-placeholder="phDemand" placeholder="e.g. Looking for HDPE PE100 pipes DN200 PN16 for a water supply project, or gate valves / power cables / steel structure... (Specs can be unknown at this stage)"></textarea>
         </div>
         <div>
           <label for="rfqCountry" data-i18n="lblCountry">Destination Country / Region *</label>
-          <input id="rfqCountry" type="text" required maxlength="80" placeholder="e.g. UAE / Saudi Arabia / Vietnam / Mexico">
+          <input id="rfqCountry" type="text" required maxlength="80" data-i18n-placeholder="phCountry" placeholder="e.g. UAE / Saudi Arabia / Vietnam / Mexico">
         </div>
         <div>
           <label for="rfqProductLine" data-i18n="lblProductLine">Product Category (Optional)</label>
           <select id="rfqProductLine">
-            <option value="unspecified">Not sure / Other industrial product</option>
-            <option value="valves">Valves / Industrial Flow Control</option>
-            <option value="pe_pipes">PE / HDPE Pipes &amp; Fittings</option>
-            <option value="cables">Power &amp; Industrial Cables</option>
-            <option value="steel_structures">Steel Structures &amp; Fabrication</option>
+            <option value="unspecified" data-i18n="optCatUnspecified">Not sure / Other industrial product</option>
+            <option value="valves" data-i18n="optCatValves">Valves / Industrial Flow Control</option>
+            <option value="pe_pipes" data-i18n="optCatPePipes">PE / HDPE Pipes &amp; Fittings</option>
+            <option value="cables" data-i18n="optCatCables">Power &amp; Industrial Cables</option>
+            <option value="steel_structures" data-i18n="optCatSteel">Steel Structures &amp; Fabrication</option>
           </select>
         </div>
         <div>
           <label for="rfqChannel" data-i18n="lblChannel">Preferred Contact Channel *</label>
           <select id="rfqChannel">
-            <option value="email">Email</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="phone">Phone</option>
-            <option value="wechat">WeChat</option>
-            <option value="linkedin">LinkedIn</option>
+            <option value="email" data-i18n="optChEmail">Email</option>
+            <option value="whatsapp" data-i18n="optChWhatsapp">WhatsApp</option>
+            <option value="phone" data-i18n="optChPhone">Phone</option>
+            <option value="wechat" data-i18n="optChWechat">WeChat</option>
+            <option value="linkedin" data-i18n="optChLinkedin">LinkedIn</option>
           </select>
         </div>
         <div>
           <label for="rfqContactVal" data-i18n="lblContactVal">Email / WhatsApp / Phone *</label>
-          <input id="rfqContactVal" type="text" required maxlength="160" placeholder="procurement@yourcompany.com or +971 ...">
+          <input id="rfqContactVal" type="text" required maxlength="160" data-i18n-placeholder="phContactVal" placeholder="procurement@yourcompany.com or +971 ...">
         </div>
       </div>
 
@@ -135,27 +135,27 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         <div class="form-grid" style="margin-top:10px">
           <div>
             <label for="rfqCompany" data-i18n="lblCompany">Company / Organization Name (Optional)</label>
-            <input id="rfqCompany" type="text" maxlength="120" placeholder="Leave blank if confidential or individual buyer">
+            <input id="rfqCompany" type="text" maxlength="120" data-i18n-placeholder="phCompany" placeholder="Leave blank if confidential or individual buyer">
           </div>
           <div>
             <label for="rfqContactName" data-i18n="lblContactName">Your Name (Optional)</label>
-            <input id="rfqContactName" type="text" maxlength="100" placeholder="Optional">
+            <input id="rfqContactName" type="text" maxlength="100" data-i18n-placeholder="phContactName" placeholder="Optional">
           </div>
           <div>
             <label for="rfqQty" data-i18n="lblQty">Estimated Quantity (Optional / Unknown OK)</label>
-            <input id="rfqQty" type="text" maxlength="100" placeholder="e.g. 5,000 meters or unknown">
+            <input id="rfqQty" type="text" maxlength="100" data-i18n-placeholder="phQty" placeholder="e.g. 5,000 meters or unknown">
           </div>
           <div>
             <label for="rfqPort" data-i18n="lblPort">Destination Port / City (Optional / Unknown OK)</label>
-            <input id="rfqPort" type="text" maxlength="100" placeholder="e.g. Jebel Ali / Haiphong / unknown">
+            <input id="rfqPort" type="text" maxlength="100" data-i18n-placeholder="phPort" placeholder="e.g. Jebel Ali / Haiphong / unknown">
           </div>
           <div>
             <label for="rfqStandard" data-i18n="lblStd">Standard / Pressure / Voltage (Optional)</label>
-            <input id="rfqStandard" type="text" maxlength="160" placeholder="e.g. ISO 4427 / API 600 / IEC 60502 / Need engineer confirmation">
+            <input id="rfqStandard" type="text" maxlength="160" data-i18n-placeholder="phStd" placeholder="e.g. ISO 4427 / API 600 / IEC 60502 / Need engineer confirmation">
           </div>
           <div>
             <label for="rfqTimeline" data-i18n="lblTimeline">Target Delivery Window (Optional)</label>
-            <input id="rfqTimeline" type="text" maxlength="100" placeholder="e.g. Q3 / Urgent / Budgeting">
+            <input id="rfqTimeline" type="text" maxlength="100" data-i18n-placeholder="phTimeline" placeholder="e.g. Q3 / Urgent / Budgeting">
           </div>
         </div>
       </details>
@@ -171,18 +171,20 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         </label>
       </div>
 
+      <div id="localApiGuardBanner" class="alert err" role="status" hidden></div>
+
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button type="submit" class="btn primary" id="btnSubmitRfq" data-i18n="btnSubmit">Submit Inquiry</button>
         <button type="button" class="btn" id="btnResetRfq" data-i18n="btnReset">Clear</button>
       </div>
     </form>
 
-    <div id="rfqErrorBox" class="alert err" hidden></div>
-    <div id="rfqSuccessBox" class="alert ok" hidden></div>
+    <div id="rfqErrorBox" class="alert err" role="alert" aria-live="assertive" hidden></div>
+    <div id="rfqSuccessBox" class="alert ok" role="status" aria-live="polite" hidden></div>
   </div>
 
   <footer>
-    <span>FriesGo Global · Official Industrial Export Desk</span>
+    <span data-i18n="footerLeft">FriesGo Global · Official Industrial Export Desk</span>
     <span data-i18n="footerNote">Direct inquiry handling · No third-party unauthorized payment collection</span>
   </footer>
 </div>
@@ -194,6 +196,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
   var DRAFT_KEY = "friesgo_public_rfq_draft_v1";
   var lang = "en";
   var currentIdemKey = "";
+  var currentPayloadSig = "";
   var approvedMap = Object.create(null);
   var qs = new URLSearchParams(location.search);
   var refParam = (qs.get("ref") || "").trim();
@@ -238,7 +241,41 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       lblMarketing: "[Optional, unchecked by default] Send me occasional verified product catalog updates (opt out anytime).",
       btnSubmit: "Submit Inquiry",
       btnReset: "Clear",
-      footerNote: "Direct inquiry handling · Official quotes & payments handled solely by FriesGo Global"
+      footerLeft: "FriesGo Global · Official Industrial Export Desk",
+      footerNote: "Direct inquiry handling · Official quotes & payments handled solely by FriesGo Global",
+      optCatUnspecified: "Not sure / Other industrial product",
+      optCatValves: "Valves / Industrial Flow Control",
+      optCatPePipes: "PE / HDPE Pipes & Fittings",
+      optCatCables: "Power & Industrial Cables",
+      optCatSteel: "Steel Structures & Fabrication",
+      optChEmail: "Email",
+      optChWhatsapp: "WhatsApp",
+      optChPhone: "Phone",
+      optChWechat: "WeChat",
+      optChLinkedin: "LinkedIn",
+      phDemand: "e.g. Looking for HDPE PE100 pipes DN200 PN16 for a water supply project, or gate valves / power cables / steel structure...",
+      phCountry: "e.g. UAE / Saudi Arabia / Vietnam / Mexico",
+      phContactVal: "procurement@yourcompany.com or +971 ...",
+      phCompany: "Leave blank if confidential or individual buyer",
+      phContactName: "Optional",
+      phQty: "e.g. 5,000 meters or unknown",
+      phPort: "e.g. Jebel Ali / Haiphong / unknown",
+      phStd: "e.g. ISO 4427 / API 600 / IEC 60502 / Need engineer confirmation",
+      phTimeline: "e.g. Q3 / Urgent / Budgeting",
+      errDemandRequired: "Please briefly describe your product or project requirement (at least 5 characters).",
+      errCountryRequired: "Please enter your destination country or project region.",
+      errContactRequired: "Please provide a valid email, WhatsApp, phone, or handle so we can reply.",
+      errPrivacyRequired: "Please check the required privacy consent box before submitting.",
+      errLocalProdBlocked: "Safety Guard: Localhost/file preview without an explicit test API override (?api=http://127.0.0.1:... or window.FG_CLOUD_API_OVERRIDE) is blocked from submitting to production.",
+      errSubmitFailed: "Submission failed. Your inputs are safely preserved — please check and retry.",
+      errNetworkInterrupted: "Network interrupted. Your form inputs and duplicate-protection key are safely preserved even across reload — please click Submit again.",
+      receiptTitle: "✅ Inquiry Received",
+      receiptReplayed: " (Safe Idempotent Retry — No Duplicate Created)",
+      receiptRefLabel: "Reference No.:",
+      receiptStatusLabel: "Status:",
+      receiptCopyBtn: "📋 Copy Reference No.",
+      receiptCopied: "✅ Copied",
+      receiptMissingHint: "Optional details our engineer will confirm with you: "
     },
     zh: {
       hdrSub: "工业品出口采购询价",
@@ -266,31 +303,123 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       lblTimeline: "预计交期或项目时间窗（选填）",
       lblPrivacy: "【必选】我同意 FriesGo Global 仅为回复本次产品询价与提供正式报价之目的使用上述联系方式。",
       lblMarketing: "【可选，默认不勾选】我同意接收经核验的产品目录更新（可随时退订）。",
-      btnSubmit: "提交询价 / Submit Inquiry",
+      btnSubmit: "提交询价",
       btnReset: "清空",
-      footerNote: "官方出口团队直达受理 · 正式报价与收款均由 FriesGo Global 官方统一负责"
+      footerLeft: "FriesGo Global · 官方工业品出口服务台",
+      footerNote: "官方出口团队直达受理 · 正式报价与收款均由 FriesGo Global 官方统一负责",
+      optCatUnspecified: "暂不确定 / 其他工业品",
+      optCatValves: "工业阀门 / 流体控制",
+      optCatPePipes: "PE / HDPE 管道及管件",
+      optCatCables: "电力及工业电缆",
+      optCatSteel: "钢结构及金属构件",
+      optChEmail: "Email（电子邮箱）",
+      optChWhatsapp: "WhatsApp",
+      optChPhone: "Phone（电话）",
+      optChWechat: "WeChat（微信）",
+      optChLinkedin: "LinkedIn",
+      phDemand: "例如：寻找市政供水项目 HDPE PE100 DN200 PN16 管道，或闸阀 / 电力电缆 / 钢结构（暂不确定规格也可直接描述）",
+      phCountry: "例如：阿联酋 / 沙特 / 越南 / 墨西哥",
+      phContactVal: "procurement@yourcompany.com 或 +86 / +971 ...",
+      phCompany: "如涉及保密或个人采购可暂不填写",
+      phContactName: "选填",
+      phQty: "例如：5,000 米 或 暂未确定",
+      phPort: "例如：杰贝阿里港 / 海防港 或 暂未确定",
+      phStd: "例如：ISO 4427 / API 600 / IEC 60502 / 待工程师确认",
+      phTimeline: "例如：三季度 / 急单 / 预算询价",
+      errDemandRequired: "请简要描述您的产品或项目需求（至少 5 个字符）。",
+      errCountryRequired: "请填写目的国家或项目所在地区。",
+      errContactRequired: "请提供至少一个有效的联系方式（邮箱 / WhatsApp / 电话 / 微信）。",
+      errPrivacyRequired: "请先勾选同意隐私与询价数据处理声明后再提交。",
+      errLocalProdBlocked: "安全拦截：当前为本地预览环境（localhost / file），未显式配置测试 API（?api=http://127.0.0.1:... 或 window.FG_CLOUD_API_OVERRIDE），已阻止将本地数据误发至生产接口。",
+      errSubmitFailed: "提交失败，您的填写内容已完整保留，请检查后重试。",
+      errNetworkInterrupted: "网络请求中断，您的表单输入与防重提交编号已完整保留；即使刷新页面后重试也不会重复建单。",
+      receiptTitle: "✅ 询价已收到",
+      receiptReplayed: "（幂等重试安全返回，未重复建单）",
+      receiptRefLabel: "询价编号：",
+      receiptStatusLabel: "状态：",
+      receiptCopyBtn: "📋 复制询价编号",
+      receiptCopied: "✅ 已复制",
+      receiptMissingHint: "后续由出口工程师协助确认的选填项："
     }
   };
 
-  function getApiBase() {
-    if (window.FG_CLOUD_API_OVERRIDE) return String(window.FG_CLOUD_API_OVERRIDE).replace(/\/+$/, "");
+  function t(key) {
+    return (I18N[lang] && I18N[lang][key]) || (I18N.en && I18N.en[key]) || key;
+  }
+
+  function isLocalPreviewHost() {
+    var h = String(location.hostname || "").toLowerCase();
+    return location.protocol === "file:" || h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "[::1]";
+  }
+
+  function resolveApiTarget() {
+    if (window.FG_CLOUD_API_OVERRIDE) {
+      return { ok: true, url: String(window.FG_CLOUD_API_OVERRIDE).replace(/\/+$/, "") };
+    }
     try {
       var qsApi = qs.get("api");
-      if (qsApi && /^https?:\/\//i.test(qsApi)) return qsApi.replace(/\/+$/, "");
+      if (qsApi && /^https?:\/\//i.test(qsApi)) return { ok: true, url: qsApi.replace(/\/+$/, "") };
       var saved = localStorage.getItem("friesgo_cloud_api_url_v1");
-      if (saved && /^https?:\/\//i.test(saved)) return saved.replace(/\/+$/, "");
+      if (saved && /^https?:\/\//i.test(saved)) return { ok: true, url: saved.replace(/\/+$/, "") };
     } catch (_) {}
-    return DEFAULT_API;
+    if (isLocalPreviewHost()) {
+      return { ok: false, blockedLocalProd: true, url: "" };
+    }
+    return { ok: true, url: DEFAULT_API };
   }
 
   function newIdemKey() {
     return "rfq_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
   }
 
+  function computePayloadSig() {
+    return JSON.stringify({
+      demand: document.getElementById("rfqDemand").value.trim(),
+      country: document.getElementById("rfqCountry").value.trim(),
+      productLine: document.getElementById("rfqProductLine").value,
+      channel: document.getElementById("rfqChannel").value,
+      contactVal: document.getElementById("rfqContactVal").value.trim(),
+      company: document.getElementById("rfqCompany").value.trim(),
+      contactName: document.getElementById("rfqContactName").value.trim(),
+      qty: document.getElementById("rfqQty").value.trim(),
+      port: document.getElementById("rfqPort").value.trim(),
+      std: document.getElementById("rfqStandard").value.trim(),
+      timeline: document.getElementById("rfqTimeline").value.trim(),
+      privacyConsent: document.getElementById("rfqPrivacyConsent").checked,
+      marketingOptIn: document.getElementById("rfqMarketingOptIn").checked
+    });
+  }
+
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, function (c) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c];
     });
+  }
+
+  function clearInvalidMarkers(formEl) {
+    formEl.querySelectorAll("[aria-invalid]").forEach(function (el) {
+      el.removeAttribute("aria-invalid");
+    });
+  }
+
+  function showValidationError(errBox, fieldEl, message) {
+    errBox.textContent = message;
+    errBox.hidden = false;
+    if (fieldEl) {
+      fieldEl.setAttribute("aria-invalid", "true");
+      try { fieldEl.focus(); } catch (_) {}
+    }
+  }
+
+  function refreshLocalGuardBanner() {
+    var banner = document.getElementById("localApiGuardBanner");
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok && apiInfo.blockedLocalProd) {
+      banner.textContent = t("errLocalProdBlocked");
+      banner.hidden = false;
+    } else {
+      banner.hidden = true;
+    }
   }
 
   function renderCategoryChips() {
@@ -315,7 +444,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         if (!Array.from(sel.options).some(function (o) { return o.value === cat.category_key; })) {
           var opt = document.createElement("option");
           opt.value = cat.category_key;
-          opt.textContent = cat.title_en;
+          opt.textContent = lang === "zh" ? (cat.title_cn || cat.title_en) : cat.title_en;
           sel.appendChild(opt);
         }
         sel.value = cat.category_key;
@@ -326,7 +455,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         } else {
           detail.hidden = true;
         }
-        saveDraft();
+        onFormMutated();
       });
       chips.appendChild(b);
     });
@@ -334,16 +463,25 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
 
   function applyLang() {
     var d = I18N[lang];
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
     document.querySelectorAll("[data-i18n]").forEach(function (el) {
       var k = el.getAttribute("data-i18n");
       if (d[k]) el.textContent = d[k];
     });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n-placeholder");
+      if (d[k]) el.setAttribute("placeholder", d[k]);
+    });
+    refreshLocalGuardBanner();
     renderCategoryChips();
   }
 
   function saveDraft() {
     try {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        lang: lang,
+        idemKey: currentIdemKey,
+        payloadSig: currentPayloadSig,
         demand: document.getElementById("rfqDemand").value,
         country: document.getElementById("rfqCountry").value,
         productLine: document.getElementById("rfqProductLine").value,
@@ -354,33 +492,59 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         qty: document.getElementById("rfqQty").value,
         port: document.getElementById("rfqPort").value,
         std: document.getElementById("rfqStandard").value,
-        timeline: document.getElementById("rfqTimeline").value
+        timeline: document.getElementById("rfqTimeline").value,
+        privacyConsent: document.getElementById("rfqPrivacyConsent").checked,
+        marketingOptIn: document.getElementById("rfqMarketingOptIn").checked
       }));
     } catch (_) {}
+  }
+
+  function onFormMutated() {
+    var nextSig = computePayloadSig();
+    if (!currentIdemKey || (currentPayloadSig && nextSig !== currentPayloadSig)) {
+      currentIdemKey = newIdemKey();
+    }
+    currentPayloadSig = nextSig;
+    saveDraft();
   }
 
   function restoreDraft() {
     try {
       var raw = sessionStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
+      if (!raw) {
+        currentIdemKey = newIdemKey();
+        currentPayloadSig = computePayloadSig();
+        return;
+      }
       var d = JSON.parse(raw);
-      if (d.demand) document.getElementById("rfqDemand").value = d.demand;
-      if (d.country) document.getElementById("rfqCountry").value = d.country;
-      if (d.productLine) document.getElementById("rfqProductLine").value = d.productLine;
-      if (d.channel) document.getElementById("rfqChannel").value = d.channel;
-      if (d.contactVal) document.getElementById("rfqContactVal").value = d.contactVal;
-      if (d.company) document.getElementById("rfqCompany").value = d.company;
-      if (d.contactName) document.getElementById("rfqContactName").value = d.contactName;
-      if (d.qty) document.getElementById("rfqQty").value = d.qty;
-      if (d.port) document.getElementById("rfqPort").value = d.port;
-      if (d.std) document.getElementById("rfqStandard").value = d.std;
-      if (d.timeline) document.getElementById("rfqTimeline").value = d.timeline;
-    } catch (_) {}
+      if (d.lang === "zh" || d.lang === "en") lang = d.lang;
+      if (typeof d.demand === "string") document.getElementById("rfqDemand").value = d.demand;
+      if (typeof d.country === "string") document.getElementById("rfqCountry").value = d.country;
+      if (typeof d.productLine === "string") document.getElementById("rfqProductLine").value = d.productLine;
+      if (typeof d.channel === "string") document.getElementById("rfqChannel").value = d.channel;
+      if (typeof d.contactVal === "string") document.getElementById("rfqContactVal").value = d.contactVal;
+      if (typeof d.company === "string") document.getElementById("rfqCompany").value = d.company;
+      if (typeof d.contactName === "string") document.getElementById("rfqContactName").value = d.contactName;
+      if (typeof d.qty === "string") document.getElementById("rfqQty").value = d.qty;
+      if (typeof d.port === "string") document.getElementById("rfqPort").value = d.port;
+      if (typeof d.std === "string") document.getElementById("rfqStandard").value = d.std;
+      if (typeof d.timeline === "string") document.getElementById("rfqTimeline").value = d.timeline;
+      if (typeof d.privacyConsent === "boolean") document.getElementById("rfqPrivacyConsent").checked = d.privacyConsent;
+      if (typeof d.marketingOptIn === "boolean") document.getElementById("rfqMarketingOptIn").checked = d.marketingOptIn;
+      currentIdemKey = (typeof d.idemKey === "string" && d.idemKey) ? d.idemKey : newIdemKey();
+      currentPayloadSig = computePayloadSig();
+      saveDraft();
+    } catch (_) {
+      currentIdemKey = newIdemKey();
+      currentPayloadSig = computePayloadSig();
+    }
   }
 
   async function loadPublicCatalog() {
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok) return; // N09: Never hit production catalog from localhost without explicit test API!
     try {
-      var u = getApiBase() + "/api/public/catalog" + (refParam ? ("?ref=" + encodeURIComponent(refParam)) : "");
+      var u = apiInfo.url + "/api/public/catalog" + (refParam ? ("?ref=" + encodeURIComponent(refParam)) : "");
       var resp = await fetch(u);
       var data = await resp.json();
       if (!resp.ok || !data.ok) return;
@@ -391,7 +555,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         var rb = document.getElementById("refBanner");
         rb.innerHTML =
           "<b>Referred via:</b> " + esc(data.referral.displayTitle) + " (Ref: " + esc(data.referral.refCode) + ")<br>" +
-          "<small>" + esc(data.referral.officialDisclaimerEn) + "</small>";
+          "<small>" + esc(lang === "zh" ? data.referral.officialDisclaimerCn : data.referral.officialDisclaimerEn) + "</small>";
         rb.hidden = false;
       }
       if (Array.isArray(data.categories)) {
@@ -406,44 +570,80 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
   document.getElementById("btnLangToggle").addEventListener("click", function () {
     lang = lang === "en" ? "zh" : "en";
     applyLang();
+    saveDraft(); // Preserve exact draft & idemKey across language switch!
   });
 
   document.getElementById("btnMarkSpecsUnknown").addEventListener("click", function () {
     document.getElementById("rfqQty").value = "unknown";
     document.getElementById("rfqPort").value = "unknown";
-    document.getElementById("rfqStandard").value = "Need engineer confirmation";
-    saveDraft();
+    document.getElementById("rfqStandard").value = lang === "zh" ? "待工程师确认" : "Need engineer confirmation";
+    onFormMutated();
   });
 
-  document.getElementById("rfqForm").addEventListener("input", function () {
-    currentIdemKey = newIdemKey();
-    saveDraft();
-  });
+  document.getElementById("rfqForm").addEventListener("input", onFormMutated);
+  document.getElementById("rfqForm").addEventListener("change", onFormMutated);
 
   document.getElementById("btnResetRfq").addEventListener("click", function () {
-    document.getElementById("rfqForm").reset();
+    var form = document.getElementById("rfqForm");
+    form.reset();
+    clearInvalidMarkers(form);
     document.getElementById("rfqErrorBox").hidden = true;
     document.getElementById("rfqSuccessBox").hidden = true;
     currentIdemKey = newIdemKey();
+    currentPayloadSig = computePayloadSig();
     renderCategoryChips();
     try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
   });
 
   document.getElementById("rfqForm").addEventListener("submit", async function (ev) {
     ev.preventDefault();
+    var form = document.getElementById("rfqForm");
     var errBox = document.getElementById("rfqErrorBox");
     var okBox = document.getElementById("rfqSuccessBox");
     errBox.hidden = true;
     okBox.hidden = true;
+    clearInvalidMarkers(form);
+
+    // N09: Strict client-side validation with accessible focus BEFORE any network call
+    var demandEl = document.getElementById("rfqDemand");
+    var countryEl = document.getElementById("rfqCountry");
+    var contactEl = document.getElementById("rfqContactVal");
+    var consentEl = document.getElementById("rfqPrivacyConsent");
+    if (demandEl.value.trim().length < 5) {
+      showValidationError(errBox, demandEl, t("errDemandRequired"));
+      return;
+    }
+    if (!countryEl.value.trim()) {
+      showValidationError(errBox, countryEl, t("errCountryRequired"));
+      return;
+    }
+    if (!contactEl.value.trim()) {
+      showValidationError(errBox, contactEl, t("errContactRequired"));
+      return;
+    }
+    if (!consentEl.checked) {
+      showValidationError(errBox, consentEl, t("errPrivacyRequired"));
+      return;
+    }
+
+    // N09: Block localhost/file fallback to production API unless explicitly overridden
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok) {
+      showValidationError(errBox, null, t("errLocalProdBlocked"));
+      return;
+    }
 
     if (!currentIdemKey) currentIdemKey = newIdemKey();
+    currentPayloadSig = computePayloadSig();
+    saveDraft(); // Persist exact idemKey BEFORE fetch so reload after lost response replays cleanly!
+
     var stdVal = document.getElementById("rfqStandard").value.trim();
     var payload = {
-      demandSummary: document.getElementById("rfqDemand").value.trim(),
-      country_en: document.getElementById("rfqCountry").value.trim(),
+      demandSummary: demandEl.value.trim(),
+      country_en: countryEl.value.trim(),
       productLine: document.getElementById("rfqProductLine").value,
       contactChannel: document.getElementById("rfqChannel").value,
-      contactValue: document.getElementById("rfqContactVal").value.trim(),
+      contactValue: contactEl.value.trim(),
       companyName: document.getElementById("rfqCompany").value.trim(),
       contactName: document.getElementById("rfqContactName").value.trim(),
       quantity: document.getElementById("rfqQty").value.trim() || "unknown",
@@ -454,7 +654,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       sourcePlatform: srcParam,
       sourceSignalId: sigParam,
       sourceTaskId: taskParam,
-      privacyConsent: document.getElementById("rfqPrivacyConsent").checked,
+      privacyConsent: consentEl.checked,
       marketingOptIn: document.getElementById("rfqMarketingOptIn").checked,
       idem_key: currentIdemKey
     };
@@ -462,24 +662,24 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
     var btn = document.getElementById("btnSubmitRfq");
     btn.disabled = true;
     try {
-      var resp = await fetch(getApiBase() + "/api/public/rfq", {
+      var resp = await fetch(apiInfo.url + "/api/public/rfq", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Idempotency-Key": currentIdemKey },
         body: JSON.stringify(payload)
       });
       var data = await resp.json();
       if (!resp.ok || !data.ok) {
-        errBox.textContent = (data && data.error) || ("Submission failed (" + resp.status + "). Your inputs are preserved.");
+        errBox.textContent = (data && data.error) || (t("errSubmitFailed") + " (" + resp.status + ")");
         errBox.hidden = false;
         return;
       }
       var missingHint = Array.isArray(data.missingFieldsHint) && data.missingFieldsHint.length
-        ? "<p style='margin:6px 0 0;font-size:12.5px'>Optional details our engineer will confirm with you: " + esc(data.missingFieldsHint.join(", ")) + "</p>"
+        ? "<p style='margin:6px 0 0;font-size:12.5px'>" + esc(t("receiptMissingHint")) + esc(data.missingFieldsHint.join(", ")) + "</p>"
         : "";
       okBox.innerHTML =
-        "<b>✅ Inquiry Received" + (data.replayed ? " (Safe Idempotent Retry)" : "") + "</b>" +
-        "<div class='receipt-no'><b>Reference No.:</b> " + esc(data.inquiry_no) + " · Status: " + esc(data.status) + "</div>" +
-        "<button type='button' class='pill' id='btnCopyRfqNo' style='margin:4px 0 8px'>📋 Copy Reference No.</button>" +
+        "<b>" + esc(t("receiptTitle")) + (data.replayed ? esc(t("receiptReplayed")) : "") + "</b>" +
+        "<div class='receipt-no'><b>" + esc(t("receiptRefLabel")) + "</b> " + esc(data.inquiry_no) + " · " + esc(t("receiptStatusLabel")) + " " + esc(data.status) + "</div>" +
+        "<button type='button' class='pill' id='btnCopyRfqNo' style='margin:4px 0 8px'>" + esc(t("receiptCopyBtn")) + "</button>" +
         "<p style='margin:4px 0 0'>" + esc(lang === "zh" ? data.nextStepCn : data.nextStepEn) + "</p>" +
         missingHint;
       okBox.hidden = false;
@@ -487,20 +687,28 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       if (copyBtn) {
         copyBtn.addEventListener("click", function () {
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(data.inquiry_no).then(function () { copyBtn.textContent = "✅ Copied"; });
+            navigator.clipboard.writeText(data.inquiry_no).then(function () { copyBtn.textContent = t("receiptCopied"); });
           }
         });
       }
       try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
     } catch (e) {
-      errBox.textContent = "Network interrupted. Your form inputs are safely preserved — please click Submit again (protected against duplicates).";
+      errBox.textContent = t("errNetworkInterrupted");
       errBox.hidden = false;
     } finally {
       btn.disabled = false;
     }
   });
 
-  currentIdemKey = newIdemKey();
+  // Expose read-only diagnostic getter for automated verification of N07/N09/N10
+  window.__FG_RFQ_DEBUG__ = function () {
+    return {
+      lang: lang,
+      idemKey: currentIdemKey,
+      apiTarget: resolveApiTarget()
+    };
+  };
+
   restoreDraft();
   applyLang();
   loadPublicCatalog();

@@ -118,44 +118,44 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         <div class="form-grid">
           <div>
             <label for="appName" data-i18n="lblName">姓名 / 称呼 *</label>
-            <input id="appName" name="applicant_name" type="text" required maxlength="120" placeholder="例如：Alex Chen / 陈先生">
+            <input id="appName" name="applicant_name" type="text" required maxlength="120" data-i18n-placeholder="phName" placeholder="例如：Alex Chen / 陈先生">
           </div>
           <div id="partnerModeWrap">
             <label for="partnerMode" data-i18n="lblPartnerMode">期望合作模式 *</label>
             <select id="partnerMode" name="partner_mode">
-              <option value="followup">业务跟进型（开发并全程跟进客户至询盘/成交）</option>
-              <option value="referrer">客户推荐型（引荐买方线索，由官方团队承接跟进）</option>
+              <option value="followup" data-i18n="optModeFollowup">业务跟进型（开发并全程跟进客户至询盘/成交）</option>
+              <option value="referrer" data-i18n="optModeReferrer">客户推荐型（引荐买方线索，由官方团队承接跟进）</option>
             </select>
           </div>
           <div>
             <label for="contactChannel" data-i18n="lblChannel">首选联系渠道 *</label>
             <select id="contactChannel" name="contact_channel">
-              <option value="wechat">WeChat（个人微信）</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="email">Email</option>
-              <option value="linkedin">LinkedIn</option>
-              <option value="phone">Phone</option>
+              <option value="wechat" data-i18n="optChWechat">WeChat（个人微信）</option>
+              <option value="whatsapp" data-i18n="optChWhatsapp">WhatsApp</option>
+              <option value="email" data-i18n="optChEmail">Email（电子邮箱）</option>
+              <option value="linkedin" data-i18n="optChLinkedin">LinkedIn</option>
+              <option value="phone" data-i18n="optChPhone">Phone（电话）</option>
             </select>
           </div>
           <div>
             <label for="contactValue" data-i18n="lblContactVal">联系方式（微信号/邮箱/号码） *</label>
-            <input id="contactValue" name="contact_value" type="text" required maxlength="160" placeholder="请确保能接收审核通知">
+            <input id="contactValue" name="contact_value" type="text" required maxlength="160" data-i18n-placeholder="phContactVal" placeholder="请确保能接收审核通知">
           </div>
           <div>
             <label for="countryTz" data-i18n="lblCountryTz">所在国家与时区（选填）</label>
-            <input id="countryTz" name="country_tz" type="text" maxlength="100" placeholder="例如：China (UTC+8) / UAE (UTC+4)">
+            <input id="countryTz" name="country_tz" type="text" maxlength="100" data-i18n-placeholder="phCountryTz" placeholder="例如：China (UTC+8) / UAE (UTC+4)">
           </div>
           <div>
             <label for="languages" data-i18n="lblLanguages">工作语言（选填）</label>
-            <input id="languages" name="languages" type="text" maxlength="120" placeholder="例如：中文, English, Spanish, Arabic">
+            <input id="languages" name="languages" type="text" maxlength="120" data-i18n-placeholder="phLanguages" placeholder="例如：中文, English, Spanish, Arabic">
           </div>
           <div class="full">
             <label for="productLines" data-i18n="lblProducts">熟悉或关注的工业品类（选填，不限品类，逗号分隔）</label>
-            <input id="productLines" name="product_lines" type="text" maxlength="200" placeholder="候选参考：Valves, PE Pipes, Cables, Steel Structures 或其他工业品">
+            <input id="productLines" name="product_lines" type="text" maxlength="200" data-i18n-placeholder="phProducts" placeholder="候选参考：Valves, PE Pipes, Cables, Steel Structures 或其他工业品">
           </div>
           <div class="full">
             <label for="experienceNote" data-i18n="lblSummary">背景说明 / 客户市场方向 / 试用需求（选填）</label>
-            <textarea id="experienceNote" name="experience_note" maxlength="1200" placeholder="简述您的外贸经验、可覆盖目标市场或独立工具使用场景"></textarea>
+            <textarea id="experienceNote" name="experience_note" maxlength="1200" data-i18n-placeholder="phSummary" placeholder="简述您的外贸经验、可覆盖目标市场或独立工具使用场景"></textarea>
           </div>
         </div>
 
@@ -170,6 +170,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
           </label>
         </div>
 
+        <div id="localApiGuardBanner" class="alert err" role="status" hidden></div>
         <div id="turnstileSlot" class="muted" style="font-size:12px;margin-bottom:10px"></div>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -178,8 +179,8 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         </div>
       </form>
 
-      <div id="joinErrorBox" class="alert err" hidden></div>
-      <div id="joinSuccessBox" class="alert ok" hidden></div>
+      <div id="joinErrorBox" class="alert err" role="alert" aria-live="assertive" hidden></div>
+      <div id="joinSuccessBox" class="alert ok" role="status" aria-live="polite" hidden></div>
     </div>
 
     <!-- Status Lookup View (ENG04) -->
@@ -201,13 +202,13 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
           <button type="submit" class="btn primary" id="btnCheckStatus" data-i18n="btnCheck">查询状态 / Check Status</button>
         </div>
       </form>
-      <div id="statusResultBox" class="alert" hidden></div>
+      <div id="statusResultBox" class="alert" role="alert" aria-live="polite" hidden></div>
     </div>
   </div>
 
   <footer>
-    <span>FriesGo Global · Official Partner &amp; Workspace Intake</span>
-    <span><a href="rfq.html" style="color:inherit">Buyer Product RFQ</a> · <a href="index.html" style="color:inherit">Member Workspace</a></span>
+    <span data-i18n="footerLeft">FriesGo Global · 官方合作与空间入驻</span>
+    <span><a href="rfq.html" style="color:inherit" data-i18n="navRfq">买方产品询价 (RFQ)</a> · <a href="index.html" style="color:inherit" data-i18n="navWorkspace">成员工作台</a></span>
   </footer>
 </div>
 
@@ -219,6 +220,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
   var currentLang = "zh";
   var currentTrack = "partner";
   var currentIdemKey = "";
+  var currentPayloadSig = "";
   var lastReceipt = null;
 
   var I18N = {
@@ -253,13 +255,48 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       lblSummary: "背景说明 / 客户市场方向 / 试用需求（选填）",
       lblPrivacy: "【必选】我已阅读并同意 FriesGo Global 仅为审核本次申请及沟通合作之目的处理上述信息，知悉审核通过后须完成规范培训方能激活账号。",
       lblMarketing: "【可选，默认不勾选】我同意接收 FriesGo Global 后续发布的合作开放通知与产品目录更新（可随时退订）。",
-      btnSubmit: "提交申请 / Submit Application",
+      btnSubmit: "提交申请",
       btnReset: "清空重填",
       statusTitle: "使用申请编号与查询密钥核对进度",
       statusSub: "为保护申请人隐私，须同时输入提交成功时获得的申请编号（FG-APP-...）与查询密钥（fglk_...）。如查询密钥遗失，请通过原登记联系方式联系官方运营人工核验重置。",
       lblAppNo: "申请编号 (Application No.) *",
       lblLookupSecret: "查询密钥 (Lookup Secret) *",
-      btnCheck: "查询状态 / Check Status"
+      btnCheck: "查询状态",
+      footerLeft: "FriesGo Global · 官方合作与空间入驻",
+      optModeFollowup: "业务跟进型（开发并全程跟进客户至询盘/成交）",
+      optModeReferrer: "客户推荐型（引荐买方线索，由官方团队承接跟进）",
+      optChWechat: "WeChat（个人微信）",
+      optChWhatsapp: "WhatsApp",
+      optChEmail: "Email（电子邮箱）",
+      optChLinkedin: "LinkedIn",
+      optChPhone: "Phone（电话）",
+      phName: "例如：Alex Chen / 陈先生",
+      phContactVal: "请确保能接收审核通知",
+      phCountryTz: "例如：China (UTC+8) / UAE (UTC+4)",
+      phLanguages: "例如：中文, English, Spanish, Arabic",
+      phProducts: "候选参考：Valves, PE Pipes, Cables, Steel Structures 或其他工业品",
+      phSummary: "简述您的外贸经验、可覆盖目标市场或独立工具使用场景",
+      errNameRequired: "请先填写您的姓名或称呼。",
+      errContactRequired: "请填写有效的联系方式（微信号 / 邮箱 / 电话）。",
+      errPrivacyRequired: "请先阅读并勾选同意隐私与申请数据处理声明。",
+      errStatusFields: "请同时输入申请编号（FG-APP-...）与查询密钥（fglk_...）。",
+      errLocalProdBlocked: "安全拦截：当前为本地预览环境（localhost / file），未显式配置测试 API（?api=http://127.0.0.1:... 或 window.FG_CLOUD_API_OVERRIDE），已阻止将本地数据误发至生产接口。",
+      errSubmitFailed: "提交失败，您的填写内容已完整保留，请检查后重试。",
+      errNetworkInterrupted: "网络请求中断，您的表单输入与防重提交编号已完整保留；即使刷新页面后重试也不会重复建单。",
+      errStatusUnreachable: "查询服务暂不可达，请稍后重试。",
+      errStatusNotFound: "申请编号或查询密钥不匹配。",
+      receiptTitle: "✅ 申请已收到",
+      receiptReplayed: "（幂等重试安全返回，未重复建单）",
+      receiptAppNo: "申请编号：",
+      receiptSecretTitle: "查询密钥（仅本次明文展示，保存后可反复查进度）：",
+      receiptCopyBtn: "📋 一键复制编号与查询密钥",
+      receiptCopied: "✅ 已复制到剪贴板",
+      receiptCheckBtn: "🔎 立即核验进度",
+      stLabelNo: "申请编号：",
+      stLabelStatus: "当前状态：",
+      stLabelNext: "下一步说明：",
+      stLabelNote: "补充说明：",
+      stLabelUpdated: "更新时间："
     },
     en: {
       brandSub: "Partner & Join Us",
@@ -298,47 +335,134 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       statusSub: "Enter both your Application No. (FG-APP-...) and Lookup Secret (fglk_...). If your secret is lost, contact our desk via your registered channel for manual reset.",
       lblAppNo: "Application No. *",
       lblLookupSecret: "Lookup Secret *",
-      btnCheck: "Check Status"
+      btnCheck: "Check Status",
+      footerLeft: "FriesGo Global · Official Partner & Workspace Intake",
+      optModeFollowup: "Follow-up Partner (Develop and manage buyers through inquiry & order)",
+      optModeReferrer: "Referrer Partner (Introduce buyer leads; FriesGo desk handles follow-up)",
+      optChWechat: "WeChat (Personal)",
+      optChWhatsapp: "WhatsApp",
+      optChEmail: "Email",
+      optChLinkedin: "LinkedIn",
+      optChPhone: "Phone",
+      phName: "e.g. Alex Chen",
+      phContactVal: "Ensure you can receive review updates",
+      phCountryTz: "e.g. UAE (UTC+4) / Singapore (UTC+8)",
+      phLanguages: "e.g. English, Chinese, Spanish, Arabic",
+      phProducts: "e.g. Valves, PE Pipes, Cables, Steel Structures or other industrial items",
+      phSummary: "Briefly share your export experience, target markets, or workspace trial goals",
+      errNameRequired: "Please enter your name before submitting.",
+      errContactRequired: "Please enter a valid contact handle, email, or phone number.",
+      errPrivacyRequired: "Please review and check the required privacy consent box.",
+      errStatusFields: "Please enter both your Application No. (FG-APP-...) and Lookup Secret (fglk_...).",
+      errLocalProdBlocked: "Safety Guard: Localhost/file preview without an explicit test API override (?api=http://127.0.0.1:... or window.FG_CLOUD_API_OVERRIDE) is blocked from submitting to production.",
+      errSubmitFailed: "Submission failed. Your inputs are safely preserved — please check and retry.",
+      errNetworkInterrupted: "Network interrupted. Your inputs and duplicate-protection key are safely preserved even across reload — please retry.",
+      errStatusUnreachable: "Status lookup service is temporarily unreachable. Please retry later.",
+      errStatusNotFound: "Application No. or Lookup Secret did not match.",
+      receiptTitle: "✅ Application Received",
+      receiptReplayed: " (Safe Idempotent Replay — No Duplicate Created)",
+      receiptAppNo: "Application No.:",
+      receiptSecretTitle: "Lookup Secret (shown once; save to check status anytime):",
+      receiptCopyBtn: "📋 Copy No. & Lookup Secret",
+      receiptCopied: "✅ Copied to Clipboard",
+      receiptCheckBtn: "🔎 Verify Status Now",
+      stLabelNo: "Application No.: ",
+      stLabelStatus: "Status: ",
+      stLabelNext: "Next Step: ",
+      stLabelNote: "Review Note: ",
+      stLabelUpdated: "Updated: "
     }
   };
 
-  function getApiBase() {
-    if (window.FG_CLOUD_API_OVERRIDE) return String(window.FG_CLOUD_API_OVERRIDE).replace(/\/+$/, "");
+  function t(key) {
+    return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.zh && I18N.zh[key]) || key;
+  }
+
+  function isLocalPreviewHost() {
+    var h = String(location.hostname || "").toLowerCase();
+    return location.protocol === "file:" || h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "[::1]";
+  }
+
+  function resolveApiTarget() {
+    if (window.FG_CLOUD_API_OVERRIDE) {
+      return { ok: true, url: String(window.FG_CLOUD_API_OVERRIDE).replace(/\/+$/, "") };
+    }
     try {
       var qsApi = new URLSearchParams(location.search).get("api");
-      if (qsApi && /^https?:\/\//i.test(qsApi)) return qsApi.replace(/\/+$/, "");
+      if (qsApi && /^https?:\/\//i.test(qsApi)) return { ok: true, url: qsApi.replace(/\/+$/, "") };
       var saved = localStorage.getItem("friesgo_cloud_api_url_v1");
-      if (saved && /^https?:\/\//i.test(saved)) return saved.replace(/\/+$/, "");
+      if (saved && /^https?:\/\//i.test(saved)) return { ok: true, url: saved.replace(/\/+$/, "") };
     } catch (_) {}
-    return DEFAULT_API;
+    if (isLocalPreviewHost()) {
+      return { ok: false, blockedLocalProd: true, url: "" };
+    }
+    return { ok: true, url: DEFAULT_API };
   }
 
   function newIdemKey() {
     return "app_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
   }
 
+  function computePayloadSig() {
+    return JSON.stringify({
+      track: currentTrack,
+      applicant_name: document.getElementById("appName").value.trim(),
+      partner_mode: currentTrack === "partner" ? document.getElementById("partnerMode").value : "",
+      contact_channel: document.getElementById("contactChannel").value,
+      contact_value: document.getElementById("contactValue").value.trim(),
+      country_tz: document.getElementById("countryTz").value.trim(),
+      languages: document.getElementById("languages").value.trim(),
+      product_lines: document.getElementById("productLines").value.trim(),
+      experience_note: document.getElementById("experienceNote").value.trim(),
+      privacyConsent: document.getElementById("privacyConsent").checked,
+      marketingOptIn: document.getElementById("marketingOptIn").checked
+    });
+  }
+
+  function refreshLocalGuardBanner() {
+    var banner = document.getElementById("localApiGuardBanner");
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok && apiInfo.blockedLocalProd) {
+      banner.textContent = t("errLocalProdBlocked");
+      banner.hidden = false;
+    } else {
+      banner.hidden = true;
+    }
+  }
+
   function applyLang() {
     var dict = I18N[currentLang];
+    document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
     document.querySelectorAll("[data-i18n]").forEach(function (el) {
       var k = el.getAttribute("data-i18n");
       if (dict[k]) el.textContent = dict[k];
     });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n-placeholder");
+      if (dict[k]) el.setAttribute("placeholder", dict[k]);
+    });
+    refreshLocalGuardBanner();
   }
 
-  function selectTrack(t) {
-    currentTrack = t;
+  function selectTrack(tr, opts) {
+    var silent = Boolean(opts && opts.silent);
+    currentTrack = tr;
     document.querySelectorAll(".track-card").forEach(function (b) {
-      b.setAttribute("aria-pressed", b.getAttribute("data-track") === t ? "true" : "false");
+      b.setAttribute("aria-pressed", b.getAttribute("data-track") === tr ? "true" : "false");
     });
-    document.getElementById("partnerModeWrap").hidden = t !== "partner";
-    currentIdemKey = newIdemKey();
-    saveDraft();
+    document.getElementById("partnerModeWrap").hidden = tr !== "partner";
+    if (!silent) {
+      onFormMutated();
+    }
   }
 
   function saveDraft() {
     try {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        lang: currentLang,
         track: currentTrack,
+        idemKey: currentIdemKey,
+        payloadSig: currentPayloadSig,
         applicant_name: document.getElementById("appName").value,
         partner_mode: document.getElementById("partnerMode").value,
         contact_channel: document.getElementById("contactChannel").value,
@@ -346,32 +470,71 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         country_tz: document.getElementById("countryTz").value,
         languages: document.getElementById("languages").value,
         product_lines: document.getElementById("productLines").value,
-        experience_note: document.getElementById("experienceNote").value
+        experience_note: document.getElementById("experienceNote").value,
+        privacyConsent: document.getElementById("privacyConsent").checked,
+        marketingOptIn: document.getElementById("marketingOptIn").checked
       }));
     } catch (_) {}
+  }
+
+  function onFormMutated() {
+    var nextSig = computePayloadSig();
+    if (!currentIdemKey || (currentPayloadSig && nextSig !== currentPayloadSig)) {
+      currentIdemKey = newIdemKey();
+    }
+    currentPayloadSig = nextSig;
+    saveDraft();
   }
 
   function restoreDraft() {
     try {
       var raw = sessionStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
+      if (!raw) {
+        currentIdemKey = newIdemKey();
+        currentPayloadSig = computePayloadSig();
+        return;
+      }
       var d = JSON.parse(raw);
-      if (d.track) selectTrack(d.track);
-      if (d.applicant_name) document.getElementById("appName").value = d.applicant_name;
-      if (d.partner_mode) document.getElementById("partnerMode").value = d.partner_mode;
-      if (d.contact_channel) document.getElementById("contactChannel").value = d.contact_channel;
-      if (d.contact_value) document.getElementById("contactValue").value = d.contact_value;
-      if (d.country_tz) document.getElementById("countryTz").value = d.country_tz;
-      if (d.languages) document.getElementById("languages").value = d.languages;
-      if (d.product_lines) document.getElementById("productLines").value = d.product_lines;
-      if (d.experience_note) document.getElementById("experienceNote").value = d.experience_note;
-    } catch (_) {}
+      if (d.lang === "en" || d.lang === "zh") currentLang = d.lang;
+      if (d.track) selectTrack(d.track, { silent: true });
+      if (typeof d.applicant_name === "string") document.getElementById("appName").value = d.applicant_name;
+      if (typeof d.partner_mode === "string") document.getElementById("partnerMode").value = d.partner_mode;
+      if (typeof d.contact_channel === "string") document.getElementById("contactChannel").value = d.contact_channel;
+      if (typeof d.contact_value === "string") document.getElementById("contactValue").value = d.contact_value;
+      if (typeof d.country_tz === "string") document.getElementById("countryTz").value = d.country_tz;
+      if (typeof d.languages === "string") document.getElementById("languages").value = d.languages;
+      if (typeof d.product_lines === "string") document.getElementById("productLines").value = d.product_lines;
+      if (typeof d.experience_note === "string") document.getElementById("experienceNote").value = d.experience_note;
+      if (typeof d.privacyConsent === "boolean") document.getElementById("privacyConsent").checked = d.privacyConsent;
+      if (typeof d.marketingOptIn === "boolean") document.getElementById("marketingOptIn").checked = d.marketingOptIn;
+      currentIdemKey = (typeof d.idemKey === "string" && d.idemKey) ? d.idemKey : newIdemKey();
+      currentPayloadSig = computePayloadSig();
+      saveDraft();
+    } catch (_) {
+      currentIdemKey = newIdemKey();
+      currentPayloadSig = computePayloadSig();
+    }
   }
 
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, function (c) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c];
     });
+  }
+
+  function clearInvalidMarkers(formEl) {
+    formEl.querySelectorAll("[aria-invalid]").forEach(function (el) {
+      el.removeAttribute("aria-invalid");
+    });
+  }
+
+  function showValidationError(errBox, fieldEl, message) {
+    errBox.textContent = message;
+    errBox.hidden = false;
+    if (fieldEl) {
+      fieldEl.setAttribute("aria-invalid", "true");
+      try { fieldEl.focus(); } catch (_) {}
+    }
   }
 
   function switchTab(tab) {
@@ -385,6 +548,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
   document.getElementById("btnLangToggle").addEventListener("click", function () {
     currentLang = currentLang === "zh" ? "en" : "zh";
     applyLang();
+    saveDraft(); // Preserve exact draft & idemKey across language switch!
   });
   document.getElementById("tabBtnApply").addEventListener("click", function () { switchTab("apply"); });
   document.getElementById("tabBtnStatus").addEventListener("click", function () { switchTab("status"); });
@@ -392,38 +556,68 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
     btn.addEventListener("click", function () { selectTrack(btn.getAttribute("data-track")); });
   });
 
-  document.getElementById("joinForm").addEventListener("input", function () {
-    currentIdemKey = newIdemKey();
-    saveDraft();
-  });
+  document.getElementById("joinForm").addEventListener("input", onFormMutated);
+  document.getElementById("joinForm").addEventListener("change", onFormMutated);
 
   document.getElementById("btnResetJoin").addEventListener("click", function () {
-    document.getElementById("joinForm").reset();
+    var form = document.getElementById("joinForm");
+    form.reset();
+    clearInvalidMarkers(form);
     document.getElementById("joinErrorBox").hidden = true;
     document.getElementById("joinSuccessBox").hidden = true;
     currentIdemKey = newIdemKey();
+    currentPayloadSig = computePayloadSig();
     try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
   });
 
   document.getElementById("joinForm").addEventListener("submit", async function (ev) {
     ev.preventDefault();
+    var form = document.getElementById("joinForm");
     var errBox = document.getElementById("joinErrorBox");
     var okBox = document.getElementById("joinSuccessBox");
     errBox.hidden = true;
     okBox.hidden = true;
+    clearInvalidMarkers(form);
+
+    // N09: Strict client-side required-field validation with accessible focus BEFORE any network call
+    var nameEl = document.getElementById("appName");
+    var contactEl = document.getElementById("contactValue");
+    var consentEl = document.getElementById("privacyConsent");
+    if (!nameEl.value.trim()) {
+      showValidationError(errBox, nameEl, t("errNameRequired"));
+      return;
+    }
+    if (!contactEl.value.trim()) {
+      showValidationError(errBox, contactEl, t("errContactRequired"));
+      return;
+    }
+    if (!consentEl.checked) {
+      showValidationError(errBox, consentEl, t("errPrivacyRequired"));
+      return;
+    }
+
+    // N09: Block localhost/file fallback to production API unless explicitly overridden
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok) {
+      showValidationError(errBox, null, t("errLocalProdBlocked"));
+      return;
+    }
 
     if (!currentIdemKey) currentIdemKey = newIdemKey();
+    currentPayloadSig = computePayloadSig();
+    saveDraft(); // Persist exact idemKey BEFORE fetch so reload after lost response replays cleanly!
+
     var payload = {
       app_type: currentTrack,
       partner_mode: currentTrack === "partner" ? document.getElementById("partnerMode").value : "",
-      applicant_name: document.getElementById("appName").value.trim(),
+      applicant_name: nameEl.value.trim(),
       country_tz: document.getElementById("countryTz").value.trim(),
       languages: document.getElementById("languages").value.trim(),
       contact_channel: document.getElementById("contactChannel").value,
-      contact_value: document.getElementById("contactValue").value.trim(),
+      contact_value: contactEl.value.trim(),
       product_lines: document.getElementById("productLines").value.split(/[,，]/).map(function (x) { return x.trim(); }).filter(Boolean),
       summary: { note: document.getElementById("experienceNote").value.trim() },
-      privacyConsent: document.getElementById("privacyConsent").checked,
+      privacyConsent: consentEl.checked,
       marketingOptIn: document.getElementById("marketingOptIn").checked,
       idem_key: currentIdemKey
     };
@@ -431,28 +625,28 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
     var btn = document.getElementById("btnSubmitJoin");
     btn.disabled = true;
     try {
-      var resp = await fetch(getApiBase() + "/api/public/applications", {
+      var resp = await fetch(apiInfo.url + "/api/public/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Idempotency-Key": currentIdemKey },
         body: JSON.stringify(payload)
       });
       var data = await resp.json();
       if (!resp.ok || !data.ok) {
-        errBox.textContent = (data && data.error) || ("提交失败 (" + resp.status + ")，您的填写内容已保留，请检查后重试。");
+        errBox.textContent = (data && data.error) || (t("errSubmitFailed") + " (" + resp.status + ")");
         errBox.hidden = false;
         return;
       }
       lastReceipt = { application_no: data.application_no, lookup_secret: data.lookup_secret || "" };
       var secretBlock = data.lookup_secret
-        ? "<div class='secret-box'><b>查询密钥 / Lookup Secret (仅本次明文展示，保存后可反复查进度)：</b><br>" + esc(data.lookup_secret) + "</div>"
+        ? "<div class='secret-box'><b>" + esc(t("receiptSecretTitle")) + "</b><br>" + esc(data.lookup_secret) + "</div>"
         : "<p>" + esc(data.lookupSecretNotice || "") + "</p>";
       okBox.innerHTML =
-        "<b>✅ 申请已收到" + (data.replayed ? "（幂等重试安全返回，未重复建单）" : "") + "</b>" +
-        "<div class='secret-box'><b>申请编号 / Application No.：</b> " + esc(data.application_no) + "</div>" +
+        "<b>" + esc(t("receiptTitle")) + (data.replayed ? esc(t("receiptReplayed")) : "") + "</b>" +
+        "<div class='secret-box'><b>" + esc(t("receiptAppNo")) + "</b> " + esc(data.application_no) + "</div>" +
         secretBlock +
         "<div style='display:flex;gap:8px;flex-wrap:wrap;margin:8px 0'>" +
-        "  <button type='button' class='pill' id='btnCopyReceipt'>📋 一键复制编号与查询密钥</button>" +
-        "  <button type='button' class='pill' id='btnGoCheckStatus'>🔎 立即核验进度</button>" +
+        "  <button type='button' class='pill' id='btnCopyReceipt'>" + esc(t("receiptCopyBtn")) + "</button>" +
+        "  <button type='button' class='pill' id='btnGoCheckStatus'>" + esc(t("receiptCheckBtn")) + "</button>" +
         "</div>" +
         "<p style='margin:6px 0 0'>" + esc(data.nextStep || "") + "</p>";
       okBox.hidden = false;
@@ -464,7 +658,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
         btnCopy.addEventListener("click", function () {
           var txt = "FriesGo Global Application Receipt\nApplication No: " + lastReceipt.application_no + (lastReceipt.lookup_secret ? ("\nLookup Secret: " + lastReceipt.lookup_secret) : "");
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(txt).then(function () { btnCopy.textContent = "✅ 已复制到剪贴板"; });
+            navigator.clipboard.writeText(txt).then(function () { btnCopy.textContent = t("receiptCopied"); });
           }
         });
       }
@@ -477,7 +671,7 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       }
       try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
     } catch (e) {
-      errBox.textContent = "网络请求中断，您的表单输入已完整保留，请直接再次点击「提交申请」（系统自动幂等防重）。";
+      errBox.textContent = t("errNetworkInterrupted");
       errBox.hidden = false;
     } finally {
       btn.disabled = false;
@@ -486,12 +680,32 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
 
   document.getElementById("statusForm").addEventListener("submit", async function (ev) {
     ev.preventDefault();
+    var form = document.getElementById("statusForm");
     var box = document.getElementById("statusResultBox");
     box.hidden = true;
-    var appNo = document.getElementById("stAppNo").value.trim();
-    var secret = document.getElementById("stSecret").value.trim();
+    clearInvalidMarkers(form);
+    var appNoEl = document.getElementById("stAppNo");
+    var secretEl = document.getElementById("stSecret");
+    var appNo = appNoEl.value.trim();
+    var secret = secretEl.value.trim();
+    if (!appNo) {
+      box.className = "alert err";
+      showValidationError(box, appNoEl, t("errStatusFields"));
+      return;
+    }
+    if (!secret) {
+      box.className = "alert err";
+      showValidationError(box, secretEl, t("errStatusFields"));
+      return;
+    }
+    var apiInfo = resolveApiTarget();
+    if (!apiInfo.ok) {
+      box.className = "alert err";
+      showValidationError(box, null, t("errLocalProdBlocked"));
+      return;
+    }
     try {
-      var resp = await fetch(getApiBase() + "/api/public/applications/status", {
+      var resp = await fetch(apiInfo.url + "/api/public/applications/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ application_no: appNo, lookup_secret: secret })
@@ -499,28 +713,37 @@ footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-si
       var data = await resp.json();
       if (!resp.ok || !data.ok) {
         box.className = "alert err";
-        box.textContent = (data && data.error) || "申请编号或查询密钥不匹配";
+        box.textContent = (data && data.error) || t("errStatusNotFound");
         box.hidden = false;
         return;
       }
       box.className = "alert ok";
       box.innerHTML =
-        "<b>申请编号：</b>" + esc(data.application_no) + "<br>" +
-        "<b>当前状态：</b>" + esc(data.statusLabel || data.status) + "<br>" +
-        "<b>下一步说明：</b>" + esc(data.nextStep || "") +
-        (data.publicNote ? "<br><b>补充说明：</b>" + esc(data.publicNote) : "") +
-        "<br><small>更新时间：" + esc(data.updated_at) + "</small>";
+        "<b>" + esc(t("stLabelNo")) + "</b>" + esc(data.application_no) + "<br>" +
+        "<b>" + esc(t("stLabelStatus")) + "</b>" + esc(data.statusLabel || data.status) + "<br>" +
+        "<b>" + esc(t("stLabelNext")) + "</b>" + esc(data.nextStep || "") +
+        (data.publicNote ? "<br><b>" + esc(t("stLabelNote")) + "</b>" + esc(data.publicNote) : "") +
+        "<br><small>" + esc(t("stLabelUpdated")) + esc(data.updated_at) + "</small>";
       box.hidden = false;
     } catch (e) {
       box.className = "alert err";
-      box.textContent = "查询服务暂不可达，请稍后重试。";
+      box.textContent = t("errStatusUnreachable");
       box.hidden = false;
     }
   });
 
-  currentIdemKey = newIdemKey();
-  applyLang();
+  // Expose read-only diagnostic getter for automated verification of N06/N07/N09
+  window.__FG_JOIN_DEBUG__ = function () {
+    return {
+      lang: currentLang,
+      track: currentTrack,
+      idemKey: currentIdemKey,
+      apiTarget: resolveApiTarget()
+    };
+  };
+
   restoreDraft();
+  applyLang();
 })();
 </script>
 </body>

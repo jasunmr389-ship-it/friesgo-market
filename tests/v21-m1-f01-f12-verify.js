@@ -89,12 +89,11 @@ async function connectCdpTarget(wsUrl) {
   const { srv, port } = await startServer();
   const baseUrl = `http://127.0.0.1:${port}/`;
   const userDataDir = `/tmp/fg-f01-f12-verify-${Date.now()}`;
-  const dbgPort = 9440 + Math.floor(Math.random() * 400);
-  const chrome = spawn(
-    CHROME,
-    ["--headless=new", "--no-sandbox", "--disable-gpu", `--remote-debugging-port=${dbgPort}`, `--user-data-dir=${userDataDir}`, baseUrl],
-    { stdio: "ignore" }
-  );
+  const { spawnChromeEphemeralCdp } = require("./_chrome.cjs");
+  const { proc: chrome, cdpPort: dbgPort } = await spawnChromeEphemeralCdp({
+    profileDir: userDataDir,
+    url: baseUrl
+  });
 
   let cdp = null;
   try {

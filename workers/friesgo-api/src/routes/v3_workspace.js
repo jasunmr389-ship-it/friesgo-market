@@ -12,6 +12,7 @@
 
 import { requireAuth, resolveTenantContext, runIdempotentOperation } from "../auth.js";
 import { base64ToBytes, bytesToBase64, hashPassword, randomHex, randomId, sha256Hex } from "../crypto.js";
+import { formatMinor, getCurrencySpec, parseExactSafeIntBigInt } from "../money.js";
 import {
   addDaysIso,
   addSecondsIso,
@@ -71,6 +72,9 @@ const VALID_BUYER_ROLES = new Set([
   "unknown",
 ]);
 const VALID_REG_TIERS = new Set(["relationship_reg", "demand_reg", "project_reg"]);
+const VALID_QUOTE_TIERS = new Set(["indicative", "official", "formal"]);
+const VALID_INCOTERMS = new Set(["EXW", "FCA", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]);
+const VALID_ATTACH_ENTITY_TYPES = new Set(["demand_signal", "deal_registration", "inquiry", "company", "project", "application"]);
 
 function isManagerRole(ctx) {
   return ctx.role === "super_admin" || ctx.role === "manager";
@@ -93,6 +97,214 @@ function rejectReadOnlySupport(ctx, method, cors) {
     );
   }
   return null;
+}
+
+/**
+ * S03: Enforce signal-level access control for partners (must be creator, referrer, or active assignee).
+ */
+async function canActorAccessSignal(db, ctx, actorId, sig) {
+  if (!sig || sig.org_id !== ctx.orgId) return false;
+  if (!isPartnerRole(ctx)) return true;
+  if (sig.created_by === actorId || sig.referrer_employee_id === actorId) return true;
+  const asg = await db
+    .prepare(
+      `SELECT 1 AS ok FROM lead_assignments
+       WHERE org_id = ? AND signal_id = ? AND primary_assignee_id = ? AND assignment_status IN ('pending_accept','accepted')
+       LIMIT 1`
+    )
+    .bind(ctx.orgId, sig.id, actorId)
+    .first();
+  return Boolean(asg);
+}
+
+/**
+ * S04: Enforce partner entity-level access control for attachments (visibility + parent entity ownership/assignment).
+ */
+async function canPartnerAccessEntity(db, ctx, actorId, entityType, entityId) {
+  if (!entityId) return false;
+  if (entityType === "demand_signal") {
+    const sig = await db.prepare("SELECT * FROM demand_signals WHERE id = ? AND org_id = ?").bind(entityId, ctx.orgId).first();
+    return Boolean(sig && (await canActorAccessSignal(db, ctx, actorId, sig)));
+  }
+  if (entityType === "deal_registration") {
+    const r = await db
+      .prepare("SELECT 1 AS ok FROM deal_registrations WHERE id = ? AND org_id = ? AND partner_employee_id = ? LIMIT 1")
+      .bind(entityId, ctx.orgId, actorId)
+      .first();
+    return Boolean(r);
+  }
+  if (entityType === "inquiry") {
+    const r = await db
+      .prepare(
+        `SELECT 1 AS ok FROM inquiries
+         WHERE id = ? AND org_id = ?
+           AND (referrer_employee_id = ? OR primary_owner_id = ? OR id IN (
+             SELECT inquiry_id FROM lead_assignments
+             WHERE org_id = ? AND primary_assignee_id = ? AND assignment_status IN ('pending_accept','accepted') AND inquiry_id != ''
+           ))
+         LIMIT 1`
+      )
+      .bind(entityId, ctx.orgId, actorId, actorId, ctx.orgId, actorId)
+      .first();
+    return Boolean(r);
+  }
+  if (entityType === "company") {
+    const r = await db
+      .prepare(
+        `SELECT 1 AS ok FROM companies
+         WHERE id = ? AND org_id = ? AND deleted_at IS NULL
+           AND (primary_owner_id = ? OR source_contributor_id = ? OR id IN (
+             SELECT company_id FROM lead_assignments
+             WHERE org_id = ? AND primary_assignee_id = ? AND assignment_status IN ('pending_accept','accepted') AND company_id != ''
+           ))
+         LIMIT 1`
+      )
+      .bind(entityId, ctx.orgId, actorId, actorId, ctx.orgId, actorId)
+      .first();
+    return Boolean(r);
+  }
+  if (entityType === "project") {
+    const r = await db
+      .prepare(
+        `SELECT 1 AS ok FROM projects
+         WHERE id = ? AND org_id = ?
+           AND (created_by = ? OR primary_owner_id = ? OR id IN (
+             SELECT project_id FROM lead_assignments
+             WHERE org_id = ? AND primary_assignee_id = ? AND assignment_status IN ('pending_accept','accepted') AND project_id != ''
+           ))
+         LIMIT 1`
+      )
+      .bind(entityId, ctx.orgId, actorId, actorId, ctx.orgId, actorId)
+      .first();
+    return Boolean(r);
+  }
+  return false;
+}
+
+async function canActorAccessAttachment(db, ctx, actorId, att) {
+  if (!att || att.org_id !== ctx.orgId) return false;
+  if (!isPartnerRole(ctx)) return true;
+  if (att.uploaded_by === actorId) return true;
+  if (String(att.visibility || "internal_only") !== "org_authorized") return false;
+  return canPartnerAccessEntity(db, ctx, actorId, att.entity_type, att.entity_id);
+}
+
+/**
+ * S05: Authoritative opt-out / compliance lock check for BOTH unlinked and company-linked signals.
+ */
+async function checkSignalOptOutState(db, ctx, sig) {
+  const signalOptedOut = Number(sig.opt_out_locked || 0) === 1 || sig.contact_result === "opted_out";
+  let companyOptOutStatus = "none";
+  let complianceBlocked = false;
+  if (sig.linked_company_id) {
+    const cmp = await db
+      .prepare("SELECT opt_out_status, compliance_status FROM companies WHERE id = ? AND org_id = ?")
+      .bind(sig.linked_company_id, ctx.orgId)
+      .first();
+    if (cmp) {
+      companyOptOutStatus = cmp.opt_out_status || "none";
+      complianceBlocked = cmp.compliance_status === "blocked";
+    }
+  }
+  return {
+    blocked: signalOptedOut || companyOptOutStatus !== "none" || complianceBlocked,
+    signalOptedOut,
+    companyOptOutStatus,
+    complianceBlocked,
+  };
+}
+
+/**
+ * N02: Strict task spend & currency validator (rejects fractional/negative/unsafe integers and missing/unknown currencies).
+ */
+function parseTaskSpendStrict(actualSpendRaw, currencyRaw, fallbackCurrency = "") {
+  if (actualSpendRaw === null || actualSpendRaw === undefined || actualSpendRaw === "") {
+    const cleanCur = String(currencyRaw ?? fallbackCurrency ?? "").trim().toUpperCase().slice(0, 10);
+    return { ok: true, minor: null, currency: cleanCur };
+  }
+  let minorBig;
+  try {
+    minorBig = parseExactSafeIntBigInt(actualSpendRaw, "actual_spend_minor", { allowNegative: false });
+  } catch (err) {
+    return { ok: false, code: "INVALID_SPEND_AMOUNT", error: `投入金额 actual_spend_minor 须为非负精确最小货币单位整数：${err.message}` };
+  }
+  const curCode = String(currencyRaw ?? fallbackCurrency ?? "").trim().toUpperCase();
+  if (!curCode) {
+    return { ok: false, code: "SPEND_CURRENCY_REQUIRED", error: "登记实际投入金额时必须明确币种 spend_currency（如 USD/CNY/JPY）" };
+  }
+  let spec;
+  try {
+    spec = getCurrencySpec(curCode);
+  } catch {
+    return { ok: false, code: "INVALID_SPEND_CURRENCY", error: `不支持的币种 ${curCode}（仅支持 USD/CNY/EUR/GBP/JPY/AED/SAR）` };
+  }
+  return { ok: true, minor: Number(minorBig), currency: spec.code };
+}
+
+/**
+ * N04: Strict half-open date window parser (bare YYYY-MM-DD interpreted in UTC+8 by default so same-day to=YYYY-MM-DD includes entire day).
+ */
+function parseDateWindow(fromRaw, toRaw, tzOffsetRaw) {
+  let tzOffsetMinutes = 480; // Default Asia/Shanghai / Asia/Singapore (UTC+8)
+  if (tzOffsetRaw !== undefined && tzOffsetRaw !== null && String(tzOffsetRaw).trim() !== "") {
+    const n = Number(tzOffsetRaw);
+    if (!Number.isInteger(n) || n < -720 || n > 840) {
+      return { ok: false, code: "INVALID_DATE_RANGE", error: "时区偏移 tz_offset_minutes 须为 -720 至 840 之间的整数分钟" };
+    }
+    tzOffsetMinutes = n;
+  }
+
+  function parseDateBoundary(raw, isEnd) {
+    if (!raw) return { ok: true, iso: null, ms: null, exclusive: false };
+    const bare = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (bare) {
+      const y = Number(bare[1]);
+      const m = Number(bare[2]);
+      const d = Number(bare[3]);
+      const check = new Date(Date.UTC(y, m - 1, d));
+      if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) {
+        return { ok: false, error: `日期 ${raw} 不存在` };
+      }
+      const utcMs = Date.UTC(y, m - 1, isEnd ? d + 1 : d) - tzOffsetMinutes * 60000;
+      return { ok: true, iso: new Date(utcMs).toISOString(), ms: utcMs, exclusive: isEnd };
+    }
+    const ms = Date.parse(raw);
+    if (!Number.isFinite(ms)) {
+      return { ok: false, error: `日期时间格式无效：${raw}（请使用 YYYY-MM-DD 或 ISO-8601）` };
+    }
+    return { ok: true, iso: new Date(ms).toISOString(), ms, exclusive: false };
+  }
+
+  const start = parseDateBoundary(fromRaw, false);
+  if (!start.ok) return { ok: false, code: "INVALID_DATE_RANGE", error: start.error };
+  const end = parseDateBoundary(toRaw, true);
+  if (!end.ok) return { ok: false, code: "INVALID_DATE_RANGE", error: end.error };
+
+  if (start.ms !== null && end.ms !== null) {
+    if ((end.exclusive && start.ms >= end.ms) || (!end.exclusive && start.ms > end.ms)) {
+      return { ok: false, code: "INVALID_DATE_RANGE", error: `无效日期区间：起始时间 (${fromRaw}) 晚于截止时间 (${toRaw})` };
+    }
+  }
+
+  return {
+    ok: true,
+    tzOffsetMinutes,
+    fromRaw: fromRaw || null,
+    toRaw: toRaw || null,
+    startIsoUtc: start.iso,
+    endIsoUtc: end.iso,
+    endExclusive: end.exclusive,
+    matches(tsStr) {
+      if (start.ms === null && end.ms === null) return true;
+      const ms = Date.parse(String(tsStr || ""));
+      if (!Number.isFinite(ms)) return false;
+      if (start.ms !== null && ms < start.ms) return false;
+      if (end.ms !== null) {
+        if (end.exclusive ? ms >= end.ms : ms > end.ms) return false;
+      }
+      return true;
+    },
+  };
 }
 
 /**
@@ -202,6 +414,12 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
   // 1. GET /api/v3/me/contexts — list available org contexts for explicit frontend context switcher
   if (path === "/api/v3/me/contexts" && method === "GET") {
     const now = nowIso();
+    const totalMemRow = await env.DB
+      .prepare("SELECT COUNT(*) AS cnt FROM org_memberships WHERE employee_id = ?")
+      .bind(auth.actor.id)
+      .first();
+    const totalMemCount = Number((totalMemRow && totalMemRow.cnt) || 0);
+
     const memRes = await env.DB
       .prepare(
         `SELECT m.id AS membership_id, m.org_id, m.role, m.can_finance_settle, m.partner_ref_code,
@@ -228,8 +446,9 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       lead_cap_dev: Number(r.lead_cap_dev || 15),
     }));
 
-    // Backward compatibility ONLY for legacy main-org internal staff with 0 explicit memberships
-    if (!contexts.length && ["super_admin", "manager", "staff"].includes(auth.actor.role)) {
+    // S02: Backward compatibility ONLY for legacy main-org internal staff with ZERO org_memberships rows of any status!
+    // Once an account has ANY org_memberships row (even disabled), NEVER fall back to org_friesgo_main!
+    if (totalMemCount === 0 && !contexts.length && ["super_admin", "manager", "staff"].includes(auth.actor.role)) {
       const mainOrg = await env.DB.prepare("SELECT id, org_type, name FROM orgs WHERE id = 'org_friesgo_main'").first();
       contexts.push({
         membership_id: "legacy_main",
@@ -799,13 +1018,21 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     }
     if (!title) return json({ ok: false, code: "TITLE_REQUIRED", error: "请填写发现任务名称" }, 400, cors);
 
+    let hoursTenths = 0;
+    if (body.hours_logged_tenths !== undefined && body.hours_logged_tenths !== null && body.hours_logged_tenths !== "") {
+      try {
+        hoursTenths = Number(parseExactSafeIntBigInt(body.hours_logged_tenths, "hours_logged_tenths", { allowNegative: false }));
+      } catch {
+        return json({ ok: false, code: "INVALID_HOURS", error: "工时 hours_logged_tenths 须为非负整数（0.1 小时为单位）" }, 400, cors);
+      }
+    }
+    const spendParsed = parseTaskSpendStrict(body.actual_spend_minor, body.spend_currency, "");
+    if (!spendParsed.ok) {
+      return json({ ok: false, code: spendParsed.code, error: spendParsed.error }, 400, cors);
+    }
+
     const now = nowIso();
     const id = randomId("tsk");
-    const hoursTenths = Math.max(0, Math.trunc(Number(body.hours_logged_tenths || 0)));
-    const actualSpend =
-      body.actual_spend_minor === null || body.actual_spend_minor === undefined || body.actual_spend_minor === ""
-        ? null
-        : Math.trunc(Number(body.actual_spend_minor));
 
     await env.DB
       .prepare(
@@ -832,15 +1059,32 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
         Math.max(1, Math.min(90, Number(body.review_window_days || 14) || 14)),
         Math.max(1, Math.min(1000, Number(body.candidate_cap || 50) || 50)),
         hoursTenths,
-        actualSpend,
-        String(body.spend_currency || "").slice(0, 10),
+        spendParsed.minor,
+        spendParsed.currency,
         auth.actor.id,
         now,
         now
       )
       .run();
 
-    return json({ ok: true, task: { id, org_id: ctx.orgId, platform, acquisition_mode: acqMode, title, country_scope: String(body.country_scope || "ANY") } }, 201, cors);
+    return json(
+      {
+        ok: true,
+        task: {
+          id,
+          org_id: ctx.orgId,
+          platform,
+          acquisition_mode: acqMode,
+          title,
+          country_scope: String(body.country_scope || "ANY"),
+          hours_logged_tenths: hoursTenths,
+          actual_spend_minor: spendParsed.minor,
+          spend_currency: spendParsed.currency,
+        },
+      },
+      201,
+      cors
+    );
   }
 
   const taskPatchMatch = path.match(/^\/api\/v3\/acq\/tasks\/([^/]+)$/);
@@ -852,18 +1096,28 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     const existing = await env.DB.prepare("SELECT * FROM discovery_tasks WHERE id = ? AND org_id = ?").bind(taskId, ctx.orgId).first();
     if (!existing) return json({ ok: false, code: "TASK_NOT_FOUND", error: "发现任务不存在" }, 404, cors);
     const body = await parseJsonBody(request, 8192);
-    const nextHours =
-      body.add_hours_tenths !== undefined
-        ? Number(existing.hours_logged_tenths || 0) + Math.max(0, Math.trunc(Number(body.add_hours_tenths) || 0))
-        : body.hours_logged_tenths !== undefined
-        ? Math.max(0, Math.trunc(Number(body.hours_logged_tenths) || 0))
-        : Number(existing.hours_logged_tenths || 0);
-    const nextSpend =
-      body.actual_spend_minor === undefined
-        ? existing.actual_spend_minor
-        : body.actual_spend_minor === null || body.actual_spend_minor === ""
-        ? null
-        : Math.trunc(Number(body.actual_spend_minor));
+
+    let nextHours = Number(existing.hours_logged_tenths || 0);
+    if (body.add_hours_tenths !== undefined && body.add_hours_tenths !== null && body.add_hours_tenths !== "") {
+      try {
+        nextHours += Number(parseExactSafeIntBigInt(body.add_hours_tenths, "add_hours_tenths", { allowNegative: false }));
+      } catch {
+        return json({ ok: false, code: "INVALID_HOURS", error: "追加工时 add_hours_tenths 须为非负整数" }, 400, cors);
+      }
+    } else if (body.hours_logged_tenths !== undefined && body.hours_logged_tenths !== null && body.hours_logged_tenths !== "") {
+      try {
+        nextHours = Number(parseExactSafeIntBigInt(body.hours_logged_tenths, "hours_logged_tenths", { allowNegative: false }));
+      } catch {
+        return json({ ok: false, code: "INVALID_HOURS", error: "工时 hours_logged_tenths 须为非负整数" }, 400, cors);
+      }
+    }
+
+    const rawSpend = body.actual_spend_minor === undefined ? existing.actual_spend_minor : body.actual_spend_minor;
+    const spendParsed = parseTaskSpendStrict(rawSpend, body.spend_currency, existing.spend_currency || "");
+    if (!spendParsed.ok) {
+      return json({ ok: false, code: spendParsed.code, error: spendParsed.error }, 400, cors);
+    }
+
     const nextStatus = ["active", "paused", "completed", "archived"].includes(body.status) ? body.status : existing.status;
     await env.DB
       .prepare(
@@ -871,9 +1125,20 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
          SET hours_logged_tenths = ?, actual_spend_minor = ?, spend_currency = ?, status = ?, updated_at = ?
          WHERE id = ? AND org_id = ?`
       )
-      .bind(nextHours, nextSpend, String(body.spend_currency ?? existing.spend_currency ?? ""), nextStatus, nowIso(), taskId, ctx.orgId)
+      .bind(nextHours, spendParsed.minor, spendParsed.currency, nextStatus, nowIso(), taskId, ctx.orgId)
       .run();
-    return json({ ok: true, id: taskId, hours_logged_tenths: nextHours, actual_spend_minor: nextSpend, status: nextStatus }, 200, cors);
+    return json(
+      {
+        ok: true,
+        id: taskId,
+        hours_logged_tenths: nextHours,
+        actual_spend_minor: spendParsed.minor,
+        spend_currency: spendParsed.currency,
+        status: nextStatus,
+      },
+      200,
+      cors
+    );
   }
 
   // =========================================================================
@@ -886,7 +1151,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     let sql = "SELECT * FROM demand_signals WHERE org_id = ?";
     const binds = [ctx.orgId];
     if (isPartnerRole(ctx)) {
-      sql += " AND (created_by = ? OR referrer_employee_id = ? OR id IN (SELECT signal_id FROM lead_assignments WHERE org_id = ? AND primary_assignee_id = ? AND signal_id != ''))";
+      sql += " AND (created_by = ? OR referrer_employee_id = ? OR id IN (SELECT signal_id FROM lead_assignments WHERE org_id = ? AND primary_assignee_id = ? AND assignment_status IN ('pending_accept','accepted') AND signal_id != ''))";
       binds.push(auth.actor.id, auth.actor.id, ctx.orgId, auth.actor.id);
     }
     if (plat) {
@@ -929,7 +1194,37 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       targetId: "",
       idemKey,
       requestBody: body,
-      executor: async () => {
+      executor: async ({ idemKey: activeIdemKey }) => {
+        // S08 Defense-in-depth: if an out-of-band crash left a committed signal row with same (org_id, created_by, idem_key), return it cleanly!
+        if (activeIdemKey) {
+          const existingByIdem = await env.DB
+            .prepare("SELECT * FROM demand_signals WHERE org_id = ? AND created_by = ? AND idem_key = ? LIMIT 1")
+            .bind(ctx.orgId, auth.actor.id, activeIdemKey)
+            .first();
+          if (existingByIdem) {
+            return {
+              status: 201,
+              body: {
+                ok: true,
+                signal: {
+                  id: existingByIdem.id,
+                  org_id: existingByIdem.org_id,
+                  source_platform: existingByIdem.source_platform,
+                  acquisition_mode: existingByIdem.acquisition_mode,
+                  signal_tier: existingByIdem.signal_tier,
+                  published_at: existingByIdem.published_at,
+                  audit_status: existingByIdem.audit_status,
+                  contact_result: existingByIdem.contact_result,
+                  judgment_tags: safeJsonParse(existingByIdem.judgment_tags_json, {}),
+                  missing_info: safeJsonParse(existingByIdem.missing_info_json, []),
+                  duplicateHints: [],
+                },
+              },
+              commitStmts: [],
+            };
+          }
+        }
+
         const sourcePlatform = String(body.source_platform || "facebook").trim().toLowerCase();
         const acqMode = String(body.acquisition_mode || "manual_discovery").trim().toLowerCase();
         const signalTier = VALID_SIGNAL_TIERS.has(body.signal_tier) ? body.signal_tier : "potential_demand";
@@ -1009,7 +1304,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
 
         const now = nowIso();
         const id = randomId("sig");
-        await env.DB
+        const insertStmt = env.DB
           .prepare(
             `INSERT INTO demand_signals (
                id, org_id, task_id, source_platform, acquisition_mode, signal_tier,
@@ -1017,8 +1312,9 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
                product_line, fulfillment_readiness, company_name, buyer_role, contact_name,
                contact_channel, demand_summary, usage_license_scope, ai_inferred_fields_json,
                judgment_tags_json, missing_info_json, audit_status, contact_result,
+               opt_out_locked, opt_out_at, idem_key,
                referrer_employee_id, linked_company_id, created_by, created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_verify', 'to_contact', ?, ?, ?, ?, ?)`
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_verify', 'to_contact', 0, NULL, ?, ?, ?, ?, ?, ?)`
           )
           .bind(
             id,
@@ -1044,13 +1340,13 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
             JSON.stringify(body.ai_inferred_fields && typeof body.ai_inferred_fields === "object" ? body.ai_inferred_fields : {}),
             JSON.stringify(judgmentTags),
             JSON.stringify(missingInfo),
+            activeIdemKey || "",
             isPartnerRole(ctx) ? auth.actor.id : String(body.referrer_employee_id || "").trim(),
             linkedCompanyId,
             auth.actor.id,
             now,
             now
-          )
-          .run();
+          );
 
         return {
           status: 201,
@@ -1070,6 +1366,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
               duplicateHints,
             },
           },
+          commitStmts: [insertStmt],
         };
       },
     });
@@ -1236,27 +1533,18 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     );
   }
 
-  // ACQ07: Generate editable reply draft ONLY from approved catalog facts; NEVER counts as outreach!
+  // ACQ07 / S03 / S05: Generate editable reply draft ONLY from approved catalog facts; NEVER counts as outreach!
   const sigDraftMatch = path.match(/^\/api\/v3\/acq\/signals\/([^/]+)\/draft$/);
   if (sigDraftMatch && method === "POST") {
     const signalId = decodeURIComponent(sigDraftMatch[1]);
     const sig = await env.DB.prepare("SELECT * FROM demand_signals WHERE id = ? AND org_id = ?").bind(signalId, ctx.orgId).first();
-    if (!sig) return json({ ok: false, code: "SIGNAL_NOT_FOUND", error: "需求信号不存在" }, 404, cors);
-
-    let optOutBlocked = sig.contact_result === "opted_out";
-    let companyOptOutStatus = "none";
-    if (sig.linked_company_id) {
-      const cmp = await env.DB
-        .prepare("SELECT opt_out_status, compliance_status FROM companies WHERE id = ? AND org_id = ?")
-        .bind(sig.linked_company_id, ctx.orgId)
-        .first();
-      if (cmp) {
-        companyOptOutStatus = cmp.opt_out_status || "none";
-        if (cmp.opt_out_status !== "none" || cmp.compliance_status === "blocked") {
-          optOutBlocked = true;
-        }
-      }
+    if (!sig || !(await canActorAccessSignal(env.DB, ctx, auth.actor.id, sig))) {
+      return json({ ok: false, code: "SIGNAL_NOT_FOUND", error: "需求信号不存在或无权访问" }, 404, cors);
     }
+
+    const optState = await checkSignalOptOutState(env.DB, ctx, sig);
+    const optOutBlocked = optState.blocked;
+    const companyOptOutStatus = optState.companyOptOutStatus;
 
     const activeAssign = await env.DB
       .prepare("SELECT primary_assignee_id, assignment_status FROM lead_assignments WHERE org_id = ? AND signal_id = ? AND assignment_status IN ('pending_accept','accepted') LIMIT 1")
@@ -1315,16 +1603,58 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     );
   }
 
-  // ACQ07 / ACQ09: Strict separation of copied vs manual_sent vs replied vs opted_out vs convert_inquiry
+  // ACQ07 / ACQ09 / S03 / S05: Strict separation of copied vs manual_sent vs replied vs opted_out vs convert_inquiry
   const sigActionMatch = path.match(/^\/api\/v3\/acq\/signals\/([^/]+)\/contact-action$/);
   if (sigActionMatch && method === "POST") {
     const signalId = decodeURIComponent(sigActionMatch[1]);
     const sig = await env.DB.prepare("SELECT * FROM demand_signals WHERE id = ? AND org_id = ?").bind(signalId, ctx.orgId).first();
-    if (!sig) return json({ ok: false, code: "SIGNAL_NOT_FOUND", error: "需求信号不存在" }, 404, cors);
+    if (!sig || !(await canActorAccessSignal(env.DB, ctx, auth.actor.id, sig))) {
+      return json({ ok: false, code: "SIGNAL_NOT_FOUND", error: "需求信号不存在或无权访问" }, 404, cors);
+    }
 
     const body = await parseJsonBody(request, 16384);
     const action = String(body.action || "").trim();
     const now = nowIso();
+
+    if (action === "opted_out") {
+      const stmts = [
+        env.DB
+          .prepare(
+            `UPDATE demand_signals
+             SET contact_result = 'opted_out',
+                 opt_out_locked = 1,
+                 opt_out_at = COALESCE(opt_out_at, ?),
+                 next_action = '已拒绝联系，停止开发',
+                 updated_at = ?
+             WHERE id = ? AND org_id = ?`
+          )
+          .bind(now, now, signalId, ctx.orgId),
+      ];
+      if (sig.linked_company_id) {
+        stmts.push(
+          env.DB
+            .prepare("UPDATE companies SET opt_out_status = 'all_blocked', derived_contact_status = 'stopped', updated_at = ? WHERE id = ? AND org_id = ?")
+            .bind(now, sig.linked_company_id, ctx.orgId)
+        );
+      }
+      await executeAtomicBatch(env.DB, stmts);
+      await writeAuditLog(env.DB, auth.actor, "V3_SIGNAL_OPT_OUT", "demand_signal", signalId, `org=${ctx.orgId} locked=1`);
+      return json({ ok: true, action: "opted_out", signal_id: signalId, contact_result: "opted_out", opt_out_locked: 1 }, 200, cors);
+    }
+
+    // S05: Hard monotonic opt-out lock — NEVER allow ANY ordinary action (replied, manual_sent, need_specs, waiting_reply, paused, invalid, convert_inquiry, copied) to overwrite or bypass opt_out_locked!
+    const optState = await checkSignalOptOutState(env.DB, ctx, sig);
+    if (optState.blocked) {
+      return json(
+        {
+          ok: false,
+          code: "OPT_OUT_BLOCKED",
+          error: "该信号或关联企业已处于退订/合规阻断锁定状态，禁止任何普通状态覆盖或继续触达（仅可由主管提供再授权凭证走审计解锁流程）",
+        },
+        409,
+        cors
+      );
+    }
 
     if (action === "copied" || action === "opened_source") {
       await env.DB
@@ -1347,19 +1677,6 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     }
 
     if (action === "manual_sent") {
-      // Strictly check live opt-out before permitting manual outreach logging
-      if (sig.contact_result === "opted_out") {
-        return json({ ok: false, code: "OPT_OUT_BLOCKED", error: "该信号已标记拒绝联系/退订，禁止继续触达" }, 409, cors);
-      }
-      if (sig.linked_company_id) {
-        const cmp = await env.DB
-          .prepare("SELECT opt_out_status, compliance_status FROM companies WHERE id = ? AND org_id = ?")
-          .bind(sig.linked_company_id, ctx.orgId)
-          .first();
-        if (cmp && (cmp.opt_out_status !== "none" || cmp.compliance_status === "blocked")) {
-          return json({ ok: false, code: "OPT_OUT_BLOCKED", error: "关联企业已处于退订/合规阻断状态，禁止继续触达" }, 409, cors);
-        }
-      }
       await env.DB
         .prepare(
           `UPDATE demand_signals
@@ -1417,24 +1734,6 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       return json({ ok: true, action: "replied", signal_id: signalId, contact_result: "active_dialogue" }, 200, cors);
     }
 
-    if (action === "opted_out") {
-      const stmts = [
-        env.DB
-          .prepare("UPDATE demand_signals SET contact_result = 'opted_out', next_action = '已拒绝联系，停止开发', updated_at = ? WHERE id = ? AND org_id = ?")
-          .bind(now, signalId, ctx.orgId),
-      ];
-      if (sig.linked_company_id) {
-        stmts.push(
-          env.DB
-            .prepare("UPDATE companies SET opt_out_status = 'all_blocked', derived_contact_status = 'stopped', updated_at = ? WHERE id = ? AND org_id = ?")
-            .bind(now, sig.linked_company_id, ctx.orgId)
-        );
-      }
-      await executeAtomicBatch(env.DB, stmts);
-      await writeAuditLog(env.DB, auth.actor, "V3_SIGNAL_OPT_OUT", "demand_signal", signalId, `org=${ctx.orgId}`);
-      return json({ ok: true, action: "opted_out", signal_id: signalId, contact_result: "opted_out" }, 200, cors);
-    }
-
     if (["need_specs", "waiting_reply", "paused", "invalid"].includes(action)) {
       await env.DB
         .prepare("UPDATE demand_signals SET contact_result = ?, next_action = ?, next_action_due_at = ?, updated_at = ? WHERE id = ? AND org_id = ?")
@@ -1490,8 +1789,56 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     return json({ ok: false, code: "INVALID_CONTACT_ACTION", error: "不支持的联系动作类型" }, 400, cors);
   }
 
+  // S05: Audited Manager/Owner Re-Consent Unlock (ONLY authorized path to lift opt_out_locked)
+  const sigReconsentMatch = path.match(/^\/api\/v3\/acq\/signals\/([^/]+)\/reconsent$/);
+  if (sigReconsentMatch && method === "POST") {
+    if (!isManagerRole(ctx) && ctx.role !== "independent_user") {
+      return json({ ok: false, code: "FORBIDDEN_RECONSENT", error: "仅主管/总负责人或独立空间所有者可登记客户再授权解锁" }, 403, cors);
+    }
+    const signalId = decodeURIComponent(sigReconsentMatch[1]);
+    const sig = await env.DB.prepare("SELECT * FROM demand_signals WHERE id = ? AND org_id = ?").bind(signalId, ctx.orgId).first();
+    if (!sig) return json({ ok: false, code: "SIGNAL_NOT_FOUND", error: "需求信号不存在" }, 404, cors);
+
+    const body = await parseJsonBody(request, 8192);
+    const reason = String(body.reason || "").trim();
+    const evidence = String(body.consent_evidence || "").trim();
+    if (reason.length < 5 || evidence.length < 5) {
+      return json({ ok: false, code: "RECONSENT_EVIDENCE_REQUIRED", error: "解除退订锁定须同时提供解锁原因（reason）与客户重新授权凭证（consent_evidence，至少 5 字符）" }, 400, cors);
+    }
+
+    if (sig.linked_company_id) {
+      const cmp = await env.DB
+        .prepare("SELECT opt_out_status, compliance_status FROM companies WHERE id = ? AND org_id = ?")
+        .bind(sig.linked_company_id, ctx.orgId)
+        .first();
+      if (cmp && (cmp.opt_out_status !== "none" || cmp.compliance_status === "blocked")) {
+        return json({ ok: false, code: "COMPANY_OPT_OUT_ACTIVE", error: "关联企业主档仍处于退订/合规阻断状态，无法单独解锁该信号" }, 409, cors);
+      }
+    }
+
+    const now = nowIso();
+    await env.DB
+      .prepare(
+        `UPDATE demand_signals
+         SET opt_out_locked = 0, contact_result = 'to_contact', next_action = '客户已重新授权，待人工复核跟进', updated_at = ?
+         WHERE id = ? AND org_id = ?`
+      )
+      .bind(now, signalId, ctx.orgId)
+      .run();
+    await writeAuditLog(
+      env.DB,
+      auth.actor,
+      "V3_SIGNAL_RECONSENT",
+      "demand_signal",
+      signalId,
+      `org=${ctx.orgId} reason=${reason.slice(0, 120)} evidence=${evidence.slice(0, 160)}`
+    );
+    return json({ ok: true, signal_id: signalId, opt_out_locked: 0, contact_result: "to_contact" }, 200, cors);
+  }
+
   // =========================================================================
-  // 8. ACQ10 Source Comparison with Honest Denominators (FB/IG/LI separated, YouTube excluded from Round-1)
+  // 8. ACQ10 / N02 / N03 / N04 Source Comparison with Honest Denominators,
+  //    Per-Currency Spend Breakdown, Matching Task Scope/Window & Zero-Yield Tasks
   // =========================================================================
   if (path === "/api/v3/acq/source-comparison" && method === "GET") {
     if (isPartnerRole(ctx)) {
@@ -1499,8 +1846,14 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     }
     const fromDate = String(url.searchParams.get("from") || "").trim();
     const toDate = String(url.searchParams.get("to") || "").trim();
+    const tzOffsetParam = url.searchParams.get("tz_offset_minutes");
     const countryFilter = String(url.searchParams.get("country") || "").trim().toLowerCase();
     const productFilter = String(url.searchParams.get("product_line") || "").trim().toLowerCase();
+
+    const win = parseDateWindow(fromDate, toDate, tzOffsetParam);
+    if (!win.ok) {
+      return json({ ok: false, code: win.code || "INVALID_DATE_RANGE", error: win.error }, 400, cors);
+    }
 
     const sigRes = await env.DB
       .prepare(
@@ -1513,59 +1866,147 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       .all();
 
     const taskRes = await env.DB
-      .prepare("SELECT platform, acquisition_mode, hours_logged_tenths, actual_spend_minor, spend_currency FROM discovery_tasks WHERE org_id = ?")
+      .prepare(
+        `SELECT id, platform, acquisition_mode, title, country_scope, product_keywords,
+                hours_logged_tenths, actual_spend_minor, spend_currency, status, created_at, updated_at
+         FROM discovery_tasks
+         WHERE org_id = ?`
+      )
       .bind(ctx.orgId)
       .all();
 
+    // Helper: check if a task matches productFilter when specified
+    const productMatchesTask = (t) => {
+      if (!productFilter) return true;
+      const hay = `${t.product_keywords || ""} ${t.title || ""}`.toLowerCase();
+      if (!hay.trim()) return false;
+      if (hay.includes(productFilter)) return true;
+      const aliases = {
+        valves: ["valve", "valves", "阀门"],
+        pe_pipe: ["pe_pipe", "pe pipe", "hdpe", "pe100", "pipe", "管道"],
+        cable: ["cable", "cables", "xlpe", "wire", "电缆"],
+        steel_structure: ["steel", "steel_structure", "h-beam", "钢结构"],
+      };
+      const terms = aliases[productFilter] || [productFilter];
+      return terms.some((term) => hay.includes(term));
+    };
+
+    // Helper: classify task country scope against countryFilter
+    const classifyTaskCountry = (t) => {
+      if (!countryFilter) return "direct_match";
+      const rawScope = String(t.country_scope || "ANY").trim().toLowerCase();
+      if (!rawScope || rawScope === "any" || rawScope === "all" || rawScope === "global") {
+        return "shared_unallocated";
+      }
+      const tokens = rawScope
+        .split(/[,;/|]+/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+      return tokens.includes(countryFilter) ? "direct_match" : "excluded";
+    };
+
     const taskAgg = new Map();
+    const sharedUnallocatedTasks = [];
+
     for (const t of taskRes.results || []) {
+      // N03/N04: apply the SAME date window and product/country scope to tasks!
+      const inDateWin = win.matches(t.created_at) || win.matches(t.updated_at);
+      if (!inDateWin) continue;
+      if (!productMatchesTask(t)) continue;
+
+      const countryMatch = classifyTaskCountry(t);
+      if (countryMatch === "excluded") continue;
+      if (countryMatch === "shared_unallocated") {
+        const spendObj =
+          t.actual_spend_minor !== null && t.actual_spend_minor !== undefined && t.spend_currency
+            ? {
+                minor: Number(t.actual_spend_minor),
+                currency: String(t.spend_currency).toUpperCase(),
+                formatted: (() => {
+                  try {
+                    return formatMinor(t.actual_spend_minor, t.spend_currency);
+                  } catch {
+                    return `${t.spend_currency} ${t.actual_spend_minor}`;
+                  }
+                })(),
+              }
+            : null;
+        sharedUnallocatedTasks.push({
+          id: t.id,
+          platform: t.platform,
+          acquisition_mode: t.acquisition_mode,
+          title: t.title,
+          country_scope: t.country_scope || "ANY",
+          hours_logged_tenths: Number(t.hours_logged_tenths || 0),
+          spend: spendObj,
+          effort_scope: "shared_unallocated",
+        });
+        continue;
+      }
+
       const key = `${t.platform}::${t.acquisition_mode}`;
       if (!taskAgg.has(key)) {
-        taskAgg.set(key, { task_count: 0, hours_logged_tenths: 0, spend_recorded_count: 0, actual_spend_minor: 0, spend_currencies: new Set() });
+        taskAgg.set(key, {
+          platform: t.platform,
+          acquisition_mode: t.acquisition_mode,
+          task_count: 0,
+          hours_logged_tenths: 0,
+          spend_recorded_count: 0,
+          spend_by_currency_big: new Map(),
+          earliest_at: t.created_at || null,
+          latest_at: t.updated_at || t.created_at || null,
+        });
       }
       const g = taskAgg.get(key);
       g.task_count += 1;
       g.hours_logged_tenths += Number(t.hours_logged_tenths || 0);
+      if (t.created_at && (!g.earliest_at || t.created_at < g.earliest_at)) g.earliest_at = t.created_at;
+      const tLatest = t.updated_at || t.created_at;
+      if (tLatest && (!g.latest_at || tLatest > g.latest_at)) g.latest_at = tLatest;
+
+      // N02: Strictly aggregate spend per currency — NEVER sum USD cents + JPY yen together!
       if (t.actual_spend_minor !== null && t.actual_spend_minor !== undefined) {
+        const curCode = String(t.spend_currency || "UNSPECIFIED").trim().toUpperCase() || "UNSPECIFIED";
+        const minorBig = BigInt(Math.trunc(Number(t.actual_spend_minor) || 0));
         g.spend_recorded_count += 1;
-        g.actual_spend_minor += Number(t.actual_spend_minor || 0);
-        if (t.spend_currency) g.spend_currencies.add(t.spend_currency);
+        g.spend_by_currency_big.set(curCode, (g.spend_by_currency_big.get(curCode) || 0n) + minorBig);
       }
     }
 
     const round1Buckets = new Map();
     const futureCandidatesBuckets = new Map();
 
+    const makeEmptyBucket = (platform, acqMode, earliestAt = null, latestAt = null) => ({
+      source_platform: platform,
+      acquisition_mode: acqMode,
+      checked_candidates: 0,
+      pending_verify_count: 0,
+      verified_completed: 0,
+      verified_valid: 0,
+      drafts_generated: 0,
+      copies_count: 0,
+      manual_outreach_count: 0,
+      replied_count: 0,
+      inquiry_ids: new Set(),
+      quoted_inquiry_ids: new Set(),
+      earliest_at: earliestAt,
+      latest_at: latestAt,
+    });
+
     for (const s of sigRes.results || []) {
-      if (fromDate && String(s.discovered_at || "") < fromDate) continue;
-      if (toDate && String(s.discovered_at || "") > toDate) continue;
+      if (!win.matches(s.discovered_at)) continue;
       if (countryFilter && String(s.country_en || "").toLowerCase() !== countryFilter) continue;
       if (productFilter && String(s.product_line || "").toLowerCase() !== productFilter) continue;
 
       const targetMap = s.source_platform === "youtube" ? futureCandidatesBuckets : round1Buckets;
       const key = `${s.source_platform}::${s.acquisition_mode}`;
       if (!targetMap.has(key)) {
-        targetMap.set(key, {
-          source_platform: s.source_platform,
-          acquisition_mode: s.acquisition_mode,
-          checked_candidates: 0,
-          pending_verify_count: 0,
-          verified_completed: 0,
-          verified_valid: 0,
-          drafts_generated: 0,
-          copies_count: 0,
-          manual_outreach_count: 0,
-          replied_count: 0,
-          inquiry_ids: new Set(),
-          quoted_inquiry_ids: new Set(),
-          earliest_at: s.discovered_at,
-          latest_at: s.discovered_at,
-        });
+        targetMap.set(key, makeEmptyBucket(s.source_platform, s.acquisition_mode, s.discovered_at, s.discovered_at));
       }
       const b = targetMap.get(key);
       b.checked_candidates += 1;
-      if (s.discovered_at < b.earliest_at) b.earliest_at = s.discovered_at;
-      if (s.discovered_at > b.latest_at) b.latest_at = s.discovered_at;
+      if (!b.earliest_at || s.discovered_at < b.earliest_at) b.earliest_at = s.discovered_at;
+      if (!b.latest_at || s.discovered_at > b.latest_at) b.latest_at = s.discovered_at;
 
       if (s.audit_status === "pending_verify") {
         b.pending_verify_count += 1;
@@ -1583,9 +2024,17 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       }
       if (s.inq_id) {
         b.inquiry_ids.add(s.inq_id);
-        if (s.inq_status === "quoted" || s.inq_quote_id) {
+        if (s.inq_status === "quoted") {
           b.quoted_inquiry_ids.add(s.inq_id);
         }
+      }
+    }
+
+    // N03: Seed zero-yield discovery tasks (0 signals, >0 hours or spend) into buckets so wasted effort is NEVER hidden!
+    for (const [key, t] of taskAgg.entries()) {
+      const targetMap = t.platform === "youtube" ? futureCandidatesBuckets : round1Buckets;
+      if (!targetMap.has(key)) {
+        targetMap.set(key, makeEmptyBucket(t.platform, t.acquisition_mode, t.earliest_at, t.latest_at));
       }
     }
 
@@ -1596,9 +2045,47 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
           b.verified_completed > 0 ? Math.round((b.verified_valid / b.verified_completed) * 10000) / 100 : null;
         const replyRatePct =
           b.manual_outreach_count > 0 ? Math.round((b.replied_count / b.manual_outreach_count) * 10000) / 100 : null;
+
+        const spendByCurrency = {};
+        const currencyCodes = [];
+        if (t && t.spend_by_currency_big.size > 0) {
+          for (const [code, minorBig] of Array.from(t.spend_by_currency_big.entries()).sort((a, c) => a[0].localeCompare(c[0]))) {
+            currencyCodes.push(code);
+            let decimals = 2;
+            let formatted = `${code} ${minorBig.toString()}`;
+            try {
+              const spec = getCurrencySpec(code);
+              decimals = spec.decimals;
+              formatted = `${spec.code} ${formatMinor(minorBig, spec.code)}`;
+            } catch {}
+            spendByCurrency[code] = {
+              minor: Number(minorBig),
+              decimals,
+              formatted,
+            };
+          }
+        }
+
+        let spendStatus = "unknown_not_recorded";
+        let actualSpendMinor = null;
+        let spendCurrency = null;
+        let spendDisplay = "未记录";
+        if (currencyCodes.length === 1) {
+          spendStatus = "recorded";
+          spendCurrency = currencyCodes[0];
+          actualSpendMinor = spendByCurrency[spendCurrency].minor;
+          spendDisplay = spendByCurrency[spendCurrency].formatted;
+        } else if (currencyCodes.length > 1) {
+          spendStatus = "multi_currency_separate";
+          spendCurrency = "MULTI";
+          actualSpendMinor = null; // Explicitly null so no caller mixes USD cents + JPY yen!
+          spendDisplay = currencyCodes.map((c) => spendByCurrency[c].formatted).join(" + ");
+        }
+
         return {
           source_platform: b.source_platform,
           acquisition_mode: b.acquisition_mode,
+          task_count: t ? t.task_count : 0,
           checked_candidates: b.checked_candidates,
           pending_verify_count: b.pending_verify_count,
           verified_completed: b.verified_completed,
@@ -1612,8 +2099,12 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
           inquiries_count: b.inquiry_ids.size,
           quoted_count: b.quoted_inquiry_ids.size,
           hours_logged_tenths: t ? t.hours_logged_tenths : null,
-          actual_spend_minor: t && t.spend_recorded_count > 0 ? t.actual_spend_minor : null,
-          spend_status: t && t.spend_recorded_count > 0 ? "recorded" : "unknown_not_recorded",
+          actual_spend_minor: actualSpendMinor,
+          spend_currency: spendCurrency,
+          spend_by_currency: spendByCurrency,
+          spend_display: spendDisplay,
+          spend_status: spendStatus,
+          zero_yield_task: b.checked_candidates === 0 && Boolean(t),
           sample_window: { earliest_at: b.earliest_at, latest_at: b.latest_at },
           small_sample_warning: b.checked_candidates < 20,
         };
@@ -1625,12 +2116,26 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
         orgId: ctx.orgId,
         round1Platforms: ["facebook", "instagram", "linkedin"],
         excludedFromRound1: ["youtube"],
+        observationWindow: {
+          from: win.fromRaw,
+          to: win.toRaw,
+          tz_offset_minutes: win.tzOffsetMinutes,
+          start_iso_utc: win.startIsoUtc,
+          end_iso_utc: win.endIsoUtc,
+          end_exclusive: win.endExclusive,
+        },
+        appliedFilters: {
+          country: countryFilter || null,
+          product_line: productFilter || null,
+        },
         groups: finalizeBuckets(round1Buckets),
         futureCandidates: finalizeBuckets(futureCandidatesBuckets),
+        sharedUnallocatedTasks,
         denominatorDefinitions: {
           verified_valid_rate_pct: "verified_valid / verified_completed (pending_verify excluded from denominator and listed separately)",
           reply_rate_pct: "replied_count / manual_outreach_count (drafts & copies strictly excluded from manual_outreach_count)",
-          actual_spend_minor: "null means unknown/not recorded; never shown as fake zero cost",
+          spend_by_currency: "strictly grouped per ISO currency; different currencies are NEVER summed together; empty/null means unknown_not_recorded",
+          tasks_scope: "discovery_tasks filtered by the same observationWindow/country/product_line; zero-yield tasks are always displayed",
         },
       },
       200,
@@ -1639,13 +2144,13 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
   }
 
   // =========================================================================
-  // 9. Inquiries & Verified Quote Linkage (ENG06 / ACQ10)
+  // 9. Inquiries & Verified Quote Linkage (ENG06 / ACQ10 / S06)
   // =========================================================================
   if (path === "/api/v3/inquiries" && method === "GET") {
     let sql = "SELECT * FROM inquiries WHERE org_id = ?";
     const binds = [ctx.orgId];
     if (isPartnerRole(ctx)) {
-      sql += " AND (referrer_employee_id = ? OR primary_owner_id = ? OR id IN (SELECT inquiry_id FROM lead_assignments WHERE org_id = ? AND primary_assignee_id = ? AND inquiry_id != ''))";
+      sql += " AND (referrer_employee_id = ? OR primary_owner_id = ? OR id IN (SELECT inquiry_id FROM lead_assignments WHERE org_id = ? AND primary_assignee_id = ? AND assignment_status IN ('pending_accept','accepted') AND inquiry_id != ''))";
       binds.push(auth.actor.id, auth.actor.id, ctx.orgId, auth.actor.id);
     }
     sql += " ORDER BY created_at DESC LIMIT 200";
@@ -1662,35 +2167,142 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     const inq = await env.DB.prepare("SELECT * FROM inquiries WHERE id = ? AND org_id = ?").bind(inquiryId, ctx.orgId).first();
     if (!inq) return json({ ok: false, code: "INQUIRY_NOT_FOUND", error: "询盘不存在" }, 404, cors);
 
-    const body = await parseJsonBody(request, 16384);
+    // S06: Check linked company compliance / opt-out before issuing quote
+    if (inq.company_id) {
+      const cmp = await env.DB
+        .prepare("SELECT opt_out_status, compliance_status FROM companies WHERE id = ? AND org_id = ?")
+        .bind(inq.company_id, ctx.orgId)
+        .first();
+      if (cmp && (cmp.compliance_status === "blocked" || cmp.opt_out_status !== "none")) {
+        return json(
+          { ok: false, code: "COMPLIANCE_OR_OPTOUT_BLOCKED", error: "关联客户处于合规阻断或退订状态，禁止出具报价" },
+          403,
+          cors
+        );
+      }
+    }
+
+    const body = await parseJsonBody(request, 32768);
+
+    // S06: Strict quote_tier, currency, total_minor, incoterm validation
+    const quoteTier = String(body.quote_tier || "official").trim().toLowerCase();
+    if (!VALID_QUOTE_TIERS.has(quoteTier)) {
+      return json({ ok: false, code: "INVALID_QUOTE_TIER", error: "quote_tier 仅支持 indicative / official / formal" }, 400, cors);
+    }
+    let currencySpec;
+    try {
+      currencySpec = getCurrencySpec(body.currency || "USD");
+    } catch {
+      return json({ ok: false, code: "INVALID_CURRENCY", error: `不支持的报价币种 ${String(body.currency || "")}（仅支持 USD/CNY/EUR/GBP/JPY/AED/SAR）` }, 400, cors);
+    }
+    let totalMinorBig;
+    try {
+      totalMinorBig = parseExactSafeIntBigInt(body.total_minor, "total_minor", { allowNegative: false });
+      if (totalMinorBig <= 0n) {
+        return json({ ok: false, code: "INVALID_TOTAL_MINOR", error: "报价总额 total_minor 必须为大于 0 的精确最小货币单位整数" }, 400, cors);
+      }
+    } catch (err) {
+      return json({ ok: false, code: "INVALID_TOTAL_MINOR", error: `报价总额 total_minor 无效：${err.message}` }, 400, cors);
+    }
+
+    const incoterm = String(body.incoterm || "FOB").trim().toUpperCase();
+    if (!VALID_INCOTERMS.has(incoterm)) {
+      return json({ ok: false, code: "INVALID_INCOTERM", error: `不支持的贸易术语 incoterm：${incoterm}` }, 400, cors);
+    }
+
+    // S06: Physically whitelist customer-facing item fields (strip factoryRmb, supplierCost, marginPct, internalNote, etc.)
+    const sanitizedItems = [];
+    if (body.items !== undefined) {
+      if (!Array.isArray(body.items)) {
+        return json({ ok: false, code: "INVALID_QUOTE_ITEMS", error: "items 必须为数组" }, 400, cors);
+      }
+      for (let idx = 0; idx < Math.min(body.items.length, 100); idx++) {
+        const it = body.items[idx];
+        if (!it || typeof it !== "object" || Array.isArray(it)) {
+          return json({ ok: false, code: "INVALID_QUOTE_ITEMS", error: `第 ${idx + 1} 行报价明细对象无效` }, 400, cors);
+        }
+        const cleanItem = {
+          sku: String(it.sku || "").trim().slice(0, 64),
+          description: String(it.description || it.name || "").trim().slice(0, 200),
+          spec: String(it.spec || "").trim().slice(0, 160),
+          unit: String(it.unit || "pcs").trim().slice(0, 24),
+        };
+        if (it.qty !== undefined && it.qty !== null && it.qty !== "") {
+          const qn = Number(it.qty);
+          if (!Number.isFinite(qn) || qn <= 0) {
+            return json({ ok: false, code: "INVALID_QUOTE_ITEMS", error: `第 ${idx + 1} 行数量 qty 必须大于 0` }, 400, cors);
+          }
+          cleanItem.qty = qn;
+        }
+        if (it.unit_price_minor !== undefined && it.unit_price_minor !== null && it.unit_price_minor !== "") {
+          try {
+            cleanItem.unit_price_minor = Number(parseExactSafeIntBigInt(it.unit_price_minor, "unit_price_minor", { allowNegative: false }));
+          } catch {
+            return json({ ok: false, code: "INVALID_QUOTE_ITEMS", error: `第 ${idx + 1} 行单价 unit_price_minor 须为非负整数` }, 400, cors);
+          }
+        }
+        if (it.subtotal_minor !== undefined && it.subtotal_minor !== null && it.subtotal_minor !== "") {
+          try {
+            cleanItem.subtotal_minor = Number(parseExactSafeIntBigInt(it.subtotal_minor, "subtotal_minor", { allowNegative: false }));
+          } catch {
+            return json({ ok: false, code: "INVALID_QUOTE_ITEMS", error: `第 ${idx + 1} 行小计 subtotal_minor 须为非负整数` }, 400, cors);
+          }
+        }
+        sanitizedItems.push(cleanItem);
+      }
+    }
+
+    // S06: Draft vs Confirmed Sent — default sent_confirmed = 0 unless manager/owner explicitly passes confirm_approved: true
+    const wantConfirm = body.confirm_approved === true;
+    if (wantConfirm && !isManagerRole(ctx) && ctx.role !== "independent_user") {
+      return json({ ok: false, code: "FORBIDDEN_QUOTE_CONFIRM", error: "仅主管/总负责人或独立空间所有者可确认正式发出报价" }, 403, cors);
+    }
+    const sentConfirmed = wantConfirm ? 1 : 0;
+    const nextInqStatus = sentConfirmed === 1 ? "quoted" : inq.status === "quoted" ? "quoted" : "rfq_in_progress";
+
     const now = nowIso();
     const quoteId = randomId("qt");
-    const refNo = String(body.ref_no || `FG-QT-${now.slice(0, 10).replace(/-/g, "")}-${randomHex(2).toUpperCase()}`).trim();
-    // Strip internal cost/margin fields strictly from external quote payload (REV04/Section 2.3)
+    const refNo = String(body.ref_no || `FG-QT-${now.slice(0, 10).replace(/-/g, "")}-${randomHex(2).toUpperCase()}`).trim().slice(0, 64);
+
+    // Strictly customer-facing payload with ZERO internal cost/margin fields
     const publicPayload = {
       inquiry_id: inquiryId,
       inquiry_no: inq.inquiry_no,
-      currency: String(body.currency || "USD").toUpperCase(),
-      total_minor: Number(body.total_minor || 0),
-      incoterm: String(body.incoterm || "FOB").toUpperCase(),
-      valid_until: String(body.valid_until || addDaysIso(14)),
-      items: Array.isArray(body.items) ? body.items : [],
+      currency: currencySpec.code,
+      total_minor: Number(totalMinorBig),
+      formatted_total: formatMinor(totalMinorBig, currencySpec.code),
+      incoterm,
+      valid_until: String(body.valid_until || addDaysIso(14)).slice(0, 40),
+      items: sanitizedItems,
     };
 
     const stmts = [
       env.DB
         .prepare(
           `INSERT INTO quote_records (quote_id, org_id, company_id, ref_no, quote_tier, profile_version, payload_json, sent_confirmed, created_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 'v3', ?, 1, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, 'v3', ?, ?, ?, ?, ?)`
         )
-        .bind(quoteId, ctx.orgId, inq.company_id || "unlinked_inquiry_buyer", refNo, String(body.quote_tier || "official"), JSON.stringify(publicPayload), auth.actor.id, now, now),
+        .bind(quoteId, ctx.orgId, inq.company_id || "unlinked_inquiry_buyer", refNo, quoteTier, JSON.stringify(publicPayload), sentConfirmed, auth.actor.id, now, now),
       env.DB
-        .prepare("UPDATE inquiries SET status = 'quoted', linked_quote_id = ?, updated_at = ? WHERE id = ? AND org_id = ?")
-        .bind(quoteId, now, inquiryId, ctx.orgId),
+        .prepare("UPDATE inquiries SET status = ?, linked_quote_id = ?, updated_at = ? WHERE id = ? AND org_id = ?")
+        .bind(nextInqStatus, quoteId, now, inquiryId, ctx.orgId),
     ];
     await executeAtomicBatch(env.DB, stmts);
-    await writeAuditLog(env.DB, auth.actor, "V3_INQUIRY_QUOTED", "inquiry", inquiryId, `quote=${quoteId} ref=${refNo}`);
-    return json({ ok: true, inquiry_id: inquiryId, quote_id: quoteId, ref_no: refNo, status: "quoted" }, 201, cors);
+    await writeAuditLog(env.DB, auth.actor, "V3_INQUIRY_QUOTED", "inquiry", inquiryId, `quote=${quoteId} ref=${refNo} sent=${sentConfirmed}`);
+    return json(
+      {
+        ok: true,
+        inquiry_id: inquiryId,
+        quote_id: quoteId,
+        ref_no: refNo,
+        status: nextInqStatus,
+        sent_confirmed: sentConfirmed,
+        quote_status: sentConfirmed === 1 ? "confirmed_sent" : "draft_pending_approval",
+        payload: publicPayload,
+      },
+      201,
+      cors
+    );
   }
 
   // =========================================================================
@@ -1805,7 +2417,32 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       targetId: "",
       idemKey,
       requestBody: body,
-      executor: async () => {
+      executor: async ({ idemKey: activeIdemKey }) => {
+        if (activeIdemKey) {
+          const existingByIdem = await env.DB
+            .prepare("SELECT * FROM deal_registrations WHERE org_id = ? AND partner_employee_id = ? AND idem_key = ? LIMIT 1")
+            .bind(ctx.orgId, auth.actor.id, activeIdemKey)
+            .first();
+          if (existingByIdem) {
+            return {
+              status: 201,
+              body: {
+                ok: true,
+                registration: {
+                  id: existingByIdem.id,
+                  reg_no: existingByIdem.reg_no,
+                  reg_tier: existingByIdem.reg_tier,
+                  status: existingByIdem.status,
+                  receipt_type: existingByIdem.receipt_type,
+                  expectedFeedbackWindow: "1–2 个工作日内由内部主管完成盲查重与归属核验",
+                  nextStep: "您无需重复提交；若需补充关系或项目证据，主管将在系统内给出明确补件提示。",
+                },
+              },
+              commitStmts: [],
+            };
+          }
+        }
+
         const regTier = String(body.reg_tier || "relationship_reg").trim();
         const companyName = String(body.company_name || "").trim();
         if (!VALID_REG_TIERS.has(regTier)) {
@@ -1828,13 +2465,13 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
         const id = randomId("drg");
         const regNo = `FG-REG-${now.slice(0, 10).replace(/-/g, "")}-${randomHex(3).toUpperCase()}`;
 
-        await env.DB
+        const insertStmt = env.DB
           .prepare(
             `INSERT INTO deal_registrations (
                id, org_id, reg_no, reg_tier, partner_employee_id, company_name, norm_name,
                country_en, website_domain, contact_channel, relationship_note, demand_evidence,
-               project_title, status, receipt_type, created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_audit', 'intake_receipt', ?, ?)`
+               project_title, status, receipt_type, idem_key, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_audit', 'intake_receipt', ?, ?, ?)`
           )
           .bind(
             id,
@@ -1850,10 +2487,10 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
             String(body.relationship_note || "").slice(0, 500),
             String(body.demand_evidence || "").slice(0, 1000),
             String(body.project_title || "").slice(0, 180),
+            activeIdemKey || "",
             now,
             now
-          )
-          .run();
+          );
 
         // REV07 Blind Dedupe: ALWAYS return identical neutral receipt to partner — zero leakage of existing company/owner!
         return {
@@ -1870,6 +2507,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
               nextStep: "您无需重复提交；若需补充关系或项目证据，主管将在系统内给出明确补件提示。",
             },
           },
+          commitStmts: [insertStmt],
         };
       },
     });
@@ -2334,6 +2972,13 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     sql += " ORDER BY a.updated_at DESC LIMIT 100";
     const res = await env.DB.prepare(sql).bind(...binds).all();
 
+    const rawPublicBase = String(
+      (env && env.PUBLIC_APP_URL) ||
+        (ctx.orgSettings && ctx.orgSettings.publicAppUrl) ||
+        "https://jasunmr389-ship-it.github.io/friesgo-market/"
+    ).trim();
+    const publicBase = rawPublicBase.endsWith("/") ? rawPublicBase : `${rawPublicBase}/`;
+
     const items = (res.results || []).map((r) => {
       let bucket = "to_first_contact";
       if (r.assignment_status === "pending_accept" || r.assignment_status === "pending_dispatch") {
@@ -2346,17 +2991,19 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
         bucket = "waiting_buyer_reply";
       }
 
-      // Personal WeChat desensitized copy card (zero customer phone/email/price/credentials!)
+      const deepLinkUrl = `${publicBase}index.html?v3_org=${encodeURIComponent(ctx.orgId)}&v3_todo=${encodeURIComponent(r.id)}#v3-todo=${encodeURIComponent(r.id)}`;
+
+      // N08: Personal WeChat desensitized copy card with full clickable HTTPS deep link (zero customer phone/email/price/credentials!)
       const wechatSafeCard = [
         `【FriesGo 待办提醒】${r.inquiry_no || r.id}`,
         `国家/产品：${r.sig_country || "待核实"} | ${r.sig_product || "待确认品类"}`,
         `当前状态：${r.assignment_status} / ${r.contact_result || r.business_stage}`,
         `摘要(已脱敏)：${redactPii(String(r.demand_summary || r.project_title || "").slice(0, 120))}`,
         `下一步：${r.next_action || (r.assignment_status === "pending_accept" ? "请登录工作台确认接单" : "请按规范跟进并登记联系结果")}`,
-        `直达链接：#v3-todo=${encodeURIComponent(r.id)}`,
+        `直达链接：${deepLinkUrl}`,
       ].join("\n");
 
-      return { ...r, action_bucket: bucket, wechatSafeCard };
+      return { ...r, action_bucket: bucket, deepLinkUrl, wechatSafeCard };
     });
 
     // Assignment history count summary (ENG06)
@@ -2378,7 +3025,7 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
   }
 
   // =========================================================================
-  // 13. ENG03 Auth-Proxied Sensitive Attachments (Zero Presigned URLs; Immediate 401 on Revoke)
+  // 13. ENG03 / S04 Auth-Proxied Sensitive Attachments (Zero Presigned URLs; Immediate 401 on Revoke; Partner Least-Privilege Visibility)
   // =========================================================================
   if (path === "/api/v3/attachments" && method === "POST") {
     const body = await parseJsonBody(request, 512 * 1024);
@@ -2386,6 +3033,9 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     const contentType = String(body.content_type || "text/plain; charset=utf-8").trim().slice(0, 80);
     const entityType = String(body.entity_type || "demand_signal").trim().slice(0, 40);
     const entityId = String(body.entity_id || "").trim().slice(0, 80);
+    if (!VALID_ATTACH_ENTITY_TYPES.has(entityType)) {
+      return json({ ok: false, code: "INVALID_ENTITY_TYPE", error: "不支持的附件关联业务类型" }, 400, cors);
+    }
     let contentB64 = String(body.content_b64 || "").trim();
     if (!contentB64 && typeof body.content_text === "string") {
       contentB64 = bytesToBase64(new TextEncoder().encode(body.content_text));
@@ -2393,10 +3043,25 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
     if (!contentB64 || !entityId) {
       return json({ ok: false, code: "ATTACHMENT_INVALID", error: "缺少附件内容或关联 entity_id" }, 400, cors);
     }
+    // S04: Partner can ONLY upload attachments to entities they own or are actively assigned to
+    if (isPartnerRole(ctx)) {
+      const canAttach = await canPartnerAccessEntity(env.DB, ctx, auth.actor.id, entityType, entityId);
+      if (!canAttach) {
+        return json({ ok: false, code: "RESOURCE_NOT_FOUND", error: "关联业务对象不存在或无权上传附件" }, 404, cors);
+      }
+    }
     const rawBytes = base64ToBytes(contentB64);
     if (rawBytes.length > 262144) {
       return json({ ok: false, code: "ATTACHMENT_TOO_LARGE", error: "首阶段单附件上限为 256 KB" }, 413, cors);
     }
+    // S04: Default visibility is 'internal_only' for internal/owner uploads; partner uploads default 'org_authorized'
+    const requestedVis = String(body.visibility || "").trim();
+    const visibility = isPartnerRole(ctx)
+      ? "org_authorized"
+      : requestedVis === "org_authorized"
+      ? "org_authorized"
+      : "internal_only";
+
     const sha = await sha256Hex(contentB64);
     const id = randomId("att");
     const now = nowIso();
@@ -2404,10 +3069,10 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
 
     await env.DB
       .prepare(
-        `INSERT INTO attachments_meta (id, org_id, entity_type, entity_id, filename, content_type, size_bytes, sha256, content_b64, uploaded_by, expires_at, deleted_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`
+        `INSERT INTO attachments_meta (id, org_id, entity_type, entity_id, filename, content_type, size_bytes, sha256, content_b64, visibility, uploaded_by, expires_at, deleted_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`
       )
-      .bind(id, ctx.orgId, entityType, entityId, filename, contentType, rawBytes.length, sha, contentB64, auth.actor.id, expiresAt, now)
+      .bind(id, ctx.orgId, entityType, entityId, filename, contentType, rawBytes.length, sha, contentB64, visibility, auth.actor.id, expiresAt, now)
       .run();
 
     return json(
@@ -2416,6 +3081,9 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
         attachment: {
           id,
           org_id: ctx.orgId,
+          entity_type: entityType,
+          entity_id: entityId,
+          visibility,
           filename,
           content_type: contentType,
           size_bytes: rawBytes.length,
@@ -2436,8 +3104,8 @@ export async function handleV3WorkspaceRoutes(request, env, cors, url) {
       .prepare("SELECT * FROM attachments_meta WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
       .bind(attachId, ctx.orgId)
       .first();
-    if (!row) {
-      return json({ ok: false, code: "ATTACHMENT_NOT_FOUND", error: "附件不存在或无权跨组织访问" }, 404, cors);
+    if (!row || !(await canActorAccessAttachment(env.DB, ctx, auth.actor.id, row))) {
+      return json({ ok: false, code: "ATTACHMENT_NOT_FOUND", error: "附件不存在或无权访问" }, 404, cors);
     }
     if (row.expires_at && row.expires_at <= nowIso()) {
       return json({ ok: false, code: "ATTACHMENT_EXPIRED", error: "附件已超过保存期限" }, 410, cors);

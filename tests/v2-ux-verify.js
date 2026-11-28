@@ -98,17 +98,11 @@ async function connectCdpTarget(wsUrl) {
   const { srv, port } = await startServer();
   const baseUrl = `http://127.0.0.1:${port}/`;
   const userDir = `/tmp/fg-v2-ux-verify-${Date.now()}`;
-  const debugPort = 9460 + Math.floor(Math.random() * 200);
-  const chrome = spawn(CHROME, [
-    "--headless=new",
-    "--no-sandbox",
-    "--disable-gpu",
-    "--no-first-run",
-    "--no-default-browser-check",
-    `--user-data-dir=${userDir}`,
-    `--remote-debugging-port=${debugPort}`,
-    "about:blank"
-  ]);
+  const { spawnChromeEphemeralCdp } = require("./_chrome.cjs");
+  const { proc: chrome, cdpPort: debugPort } = await spawnChromeEphemeralCdp({
+    profileDir: userDir,
+    url: "about:blank"
+  });
 
   try {
     let targets = null;

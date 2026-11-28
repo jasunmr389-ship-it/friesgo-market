@@ -169,17 +169,16 @@ async function acquirePublicIdemLease(db, scope, idemKey, reqHash, expiredInProg
   }
 }
 
-async function completePublicIdem(db, scope, idemKey, status, safeBodyObj) {
+function buildCompletePublicIdemStmt(db, scope, idemKey, status, safeBodyObj) {
   const cleanKey = String(idemKey || "").trim();
-  if (!cleanKey) return;
-  await db
+  if (!cleanKey) return null;
+  return db
     .prepare(
       `UPDATE idempotency_keys
        SET state = 'completed', response_status = ?, response_json = ?, updated_at = ?
        WHERE org_id = 'public' AND actor_id = 'anon' AND scope = ? AND target_id = '' AND idem_key = ?`
     )
-    .bind(status, JSON.stringify(safeBodyObj), nowIso(), scope, cleanKey)
-    .run();
+    .bind(status, JSON.stringify(safeBodyObj), nowIso(), scope, cleanKey);
 }
 
 async function releasePublicIdem(db, scope, idemKey) {
@@ -365,7 +364,19 @@ export async function handlePublicIntakeRoutes(request, env, cors, url) {
       const lookupSecret = `fglk_${randomHex(18)}`;
       const lookupSecretHash = await sha256Hex(`${applicationNo}:${lookupSecret}`);
 
-      await env.DB
+      // Safe cached replay body: NEVER store lookup_secret or applicant PII in idempotency_keys!
+      const safeReplayBody = {
+        ok: true,
+        application_no: applicationNo,
+        app_type: appType,
+        status: "submitted",
+        statusLabel: APP_STATUS_LABELS.submitted,
+        nextStep: APP_NEXT_STEPS.submitted,
+        lookupSecretNotice:
+          "查询密钥仅在首次创建成功时明文展示一次；若因断网未保存，请使用原登记联系方式联系官方运营人工核验重置。",
+      };
+
+      const insertAppStmt = env.DB
         .prepare(
           `INSERT INTO applications (
              id, application_no, lookup_secret_hash, idem_key, app_type, partner_mode,
@@ -392,21 +403,14 @@ export async function handlePublicIntakeRoutes(request, env, cors, url) {
           marketingOptIn ? 1 : 0,
           now,
           now
-        )
-        .run();
-
-      // Safe cached replay body: NEVER store lookup_secret or applicant PII in idempotency_keys!
-      const safeReplayBody = {
-        ok: true,
-        application_no: applicationNo,
-        app_type: appType,
-        status: "submitted",
-        statusLabel: APP_STATUS_LABELS.submitted,
-        nextStep: APP_NEXT_STEPS.submitted,
-        lookupSecretNotice:
-          "查询密钥仅在首次创建成功时明文展示一次；若因断网未保存，请使用原登记联系方式联系官方运营人工核验重置。",
-      };
-      await completePublicIdem(env.DB, "public_application", idemKey, 201, safeReplayBody);
+        );
+      const completeStmt = buildCompletePublicIdemStmt(env.DB, "public_application", idemKey, 201, safeReplayBody);
+      const batchStmts = completeStmt ? [insertAppStmt, completeStmt] : [insertAppStmt];
+      if (typeof env.DB.batch === "function") {
+        await env.DB.batch(batchStmts);
+      } else {
+        for (const s of batchStmts) await s.run();
+      }
 
       return json(
         {
@@ -590,6 +594,16 @@ export async function handlePublicIntakeRoutes(request, env, cors, url) {
         ...specsObj,
       };
 
+      const safeResp = {
+        ok: true,
+        inquiry_no: inquiryNo,
+        status: inquiryStatus,
+        refRecorded,
+        missingFieldsHint: missingFields,
+        nextStepCn: "已收到您的采购需求！官方团队将在工作时段通过您提供的渠道核对缺失规格并安排正式报价。",
+        nextStepEn: "Your inquiry has been received. Our export engineering desk will contact you via your chosen channel to confirm any missing specs and issue an official quotation.",
+      };
+
       const stmts = [
         env.DB
           .prepare(
@@ -599,9 +613,9 @@ export async function handlePublicIntakeRoutes(request, env, cors, url) {
                language, country_en, product_line, fulfillment_readiness, company_name,
                buyer_role, contact_name, contact_channel, demand_summary, usage_license_scope,
                ai_inferred_fields_json, judgment_tags_json, missing_info_json,
-               audit_status, audit_reason, contact_result, referrer_employee_id, linked_inquiry_id,
+               audit_status, audit_reason, contact_result, idem_key, referrer_employee_id, linked_inquiry_id,
                created_by, created_at, updated_at
-             ) VALUES (?, 'org_friesgo_main', ?, ?, ?, 'direct_inquiry', '', ?, ?, ?, ?, ?, ?, ?, 'needs_confirmation', ?, 'buyer', ?, ?, ?, 'buyer_direct_submission', '{}', ?, ?, 'verified_valid', 'buyer_rfq_direct', 'converted_inquiry', ?, ?, 'public_rfq', ?, ?)`
+             ) VALUES (?, 'org_friesgo_main', ?, ?, ?, 'direct_inquiry', '', ?, ?, ?, ?, ?, ?, ?, 'needs_confirmation', ?, 'buyer', ?, ?, ?, 'buyer_direct_submission', '{}', ?, ?, 'verified_valid', 'buyer_rfq_direct', 'converted_inquiry', ?, ?, ?, 'public_rfq', ?, ?)`
           )
           .bind(
             signalId,
@@ -625,6 +639,7 @@ export async function handlePublicIntakeRoutes(request, env, cors, url) {
               buyerRoleConfidence: "direct_buyer_submitted",
             }),
             JSON.stringify(missingFields),
+            idemKey,
             referrerEmployeeId,
             inquiryId,
             now,
@@ -672,6 +687,8 @@ export async function handlePublicIntakeRoutes(request, env, cors, url) {
           )
           .bind(randomId("aev"), assignmentId, opId, JSON.stringify({ inquiryNo, acquisitionMode, refRecorded }), now),
       ];
+      const completeStmt = buildCompletePublicIdemStmt(env.DB, "public_rfq", idemKey, 201, safeResp);
+      if (completeStmt) stmts.push(completeStmt);
 
       if (typeof env.DB.batch === "function") {
         await env.DB.batch(stmts);
@@ -679,16 +696,6 @@ export async function handlePublicIntakeRoutes(request, env, cors, url) {
         for (const s of stmts) await s.run();
       }
 
-      const safeResp = {
-        ok: true,
-        inquiry_no: inquiryNo,
-        status: inquiryStatus,
-        refRecorded,
-        missingFieldsHint: missingFields,
-        nextStepCn: "已收到您的采购需求！官方团队将在工作时段通过您提供的渠道核对缺失规格并安排正式报价。",
-        nextStepEn: "Your inquiry has been received. Our export engineering desk will contact you via your chosen channel to confirm any missing specs and issue an official quotation.",
-      };
-      await completePublicIdem(env.DB, "public_rfq", idemKey, 201, safeResp);
       return json({ ...safeResp, replayed: false }, 201, cors);
     } catch (err) {
       await releasePublicIdem(env.DB, "public_rfq", idemKey);

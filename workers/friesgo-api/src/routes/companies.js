@@ -1,7 +1,7 @@
 // Unified Enterprise Master Pool, Batch Dedupe, Lossless Reversible Merge,
 // Physically Isolated OSM Raw Pool (ODbL), Quotes/Compliance Ledger, and Metadata Search Logs
 
-import { requireAuth } from "../auth.js";
+import { requireLegacyMainInternal } from "../auth.js";
 import { randomId } from "../crypto.js";
 import {
   deriveContactStatus,
@@ -97,9 +97,11 @@ export async function recomputeCompanyDerivedState(db, companyId) {
  *   - Same normalized company name in same country with different/missing city
  *   - Same email or phone matching an existing company contact
  */
-export async function batchDedupeCandidates(db, rawCandidates) {
+export async function batchDedupeCandidates(db, rawCandidates, orgId = null) {
   const candidates = (Array.isArray(rawCandidates) ? rawCandidates : []).slice(0, 100);
   if (!candidates.length) return [];
+  const scopeClause = orgId ? " AND org_id = ?" : "";
+  const scopeBind = orgId ? [orgId] : [];
 
   const placeIds = new Set();
   const domains = new Set();
@@ -132,35 +134,38 @@ export async function batchDedupeCandidates(db, rawCandidates) {
     if (row && row.id && !row.deleted_at && !row.merged_into_id) byId.set(row.id, row);
   };
 
-  async function queryIn(sqlPrefix, values) {
+  async function queryIn(sqlPrefix, values, extraBinds = []) {
     const arr = Array.from(values);
     if (!arr.length) return [];
     const ph = arr.map(() => "?").join(",");
-    const res = await db.prepare(`${sqlPrefix} (${ph})`).bind(...arr).all();
+    const res = await db.prepare(`${sqlPrefix} (${ph})`).bind(...extraBinds, ...arr).all();
     return res.results || [];
   }
 
   if (placeIds.size) {
     (
       await queryIn(
-        "SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL AND google_place_id IN",
-        placeIds
+        `SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL${scopeClause} AND google_place_id IN`,
+        placeIds,
+        scopeBind
       )
     ).forEach(addComp);
   }
   if (domains.size) {
     (
       await queryIn(
-        "SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL AND website_domain IN",
-        domains
+        `SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL${scopeClause} AND website_domain IN`,
+        domains,
+        scopeBind
       )
     ).forEach(addComp);
   }
   if (normNames.size) {
     (
       await queryIn(
-        "SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL AND norm_name IN",
-        normNames
+        `SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL${scopeClause} AND norm_name IN`,
+        normNames,
+        scopeBind
       )
     ).forEach(addComp);
   }
@@ -169,8 +174,9 @@ export async function batchDedupeCandidates(db, rawCandidates) {
   const contactByPhone = new Map();
   if (emails.size) {
     const cRows = await queryIn(
-      "SELECT company_id, email, phone_e164 FROM company_contacts WHERE deleted_at IS NULL AND lower(email) IN",
-      emails
+      `SELECT company_id, email, phone_e164 FROM company_contacts WHERE deleted_at IS NULL${scopeClause} AND lower(email) IN`,
+      emails,
+      scopeBind
     );
     const extraCompIds = new Set();
     for (const cr of cRows) {
@@ -180,16 +186,18 @@ export async function batchDedupeCandidates(db, rawCandidates) {
     if (extraCompIds.size) {
       (
         await queryIn(
-          "SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL AND id IN",
-          extraCompIds
+          `SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL${scopeClause} AND id IN`,
+          extraCompIds,
+          scopeBind
         )
       ).forEach(addComp);
     }
   }
   if (phones.size) {
     const cRows = await queryIn(
-      "SELECT company_id, phone_e164 FROM company_contacts WHERE deleted_at IS NULL AND phone_e164 IN",
-      phones
+      `SELECT company_id, phone_e164 FROM company_contacts WHERE deleted_at IS NULL${scopeClause} AND phone_e164 IN`,
+      phones,
+      scopeBind
     );
     const extraCompIds = new Set();
     for (const cr of cRows) {
@@ -199,8 +207,9 @@ export async function batchDedupeCandidates(db, rawCandidates) {
     if (extraCompIds.size) {
       (
         await queryIn(
-          "SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL AND id IN",
-          extraCompIds
+          `SELECT * FROM companies WHERE deleted_at IS NULL AND merged_into_id IS NULL${scopeClause} AND id IN`,
+          extraCompIds,
+          scopeBind
         )
       ).forEach(addComp);
     }
@@ -340,7 +349,7 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   // 1. Paginated Global Pool / My Follow-ups / Team Activity list (strictly paginated <=50, indexed)
   if (path === "/api/companies" && method === "GET") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
 
     const view = url.searchParams.get("view") || "pool"; // pool | mine | team
@@ -353,6 +362,10 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
     const where = ["c.deleted_at IS NULL", "c.merged_into_id IS NULL"];
     const binds = [];
+    if (auth.v4) {
+      where.push("c.org_id = ?");
+      binds.push(auth.orgId);
+    }
 
     if (country && country !== "ALL") {
       where.push("c.country_en = ?");
@@ -462,17 +475,17 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   // 2. Batch Dedupe API (Map / Radar / CSV / Manual — single batch query, no N+1)
   if (path === "/api/companies/dedupe-batch" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 256 * 1024);
     const items = Array.isArray(body.items) ? body.items : [];
-    const results = await batchDedupeCandidates(env.DB, items);
+    const results = await batchDedupeCandidates(env.DB, items, auth.v4 ? auth.orgId : null);
     return json({ ok: true, results }, 200, cors);
   }
 
   // 3. Create Company in Unified Master Pool (with source provenance & Google Terms guard)
   if (path === "/api/companies" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 128 * 1024);
 
@@ -506,17 +519,21 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
     // Run dedupe unless caller explicitly passed force_create_new=true after human review
     if (!body.force_create_new) {
-      const check = await batchDedupeCandidates(env.DB, [
-        {
-          canonical_name: name,
-          country_en: country,
-          city,
-          website_domain: corpDom,
-          google_place_id: placeId || "",
-          email: body.email || "",
-          phone: body.phone || "",
-        },
-      ]);
+      const check = await batchDedupeCandidates(
+        env.DB,
+        [
+          {
+            canonical_name: name,
+            country_en: country,
+            city,
+            website_domain: corpDom,
+            google_place_id: placeId || "",
+            email: body.email || "",
+            phone: body.phone || "",
+          },
+        ],
+        auth.v4 ? auth.orgId : null
+      );
       const first = check[0];
       if (first && first.status === "high_match") {
         return json(
@@ -644,7 +661,7 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   // 4. Lossless Reversible Merge (super_admin | manager)
   if (path === "/api/companies/merge" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin", "manager"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin", "manager"] });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 32768);
     const sourceId = String(body.source_id || "").trim();
@@ -653,8 +670,10 @@ export async function handleCompanyRoutes(request, env, cors, url) {
       return json({ error: "请提供不同的源企业 ID 与目标主档 ID" }, 400, cors);
     }
 
-    const src = await env.DB.prepare("SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL AND merged_into_id IS NULL").bind(sourceId).first();
-    const tgt = await env.DB.prepare("SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL AND merged_into_id IS NULL").bind(targetId).first();
+    const orgSql = auth.v4 ? " AND org_id = ?" : "";
+    const orgBinds = auth.v4 ? [auth.orgId] : [];
+    const src = await env.DB.prepare(`SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL AND merged_into_id IS NULL${orgSql}`).bind(sourceId, ...orgBinds).first();
+    const tgt = await env.DB.prepare(`SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL AND merged_into_id IS NULL${orgSql}`).bind(targetId, ...orgBinds).first();
     if (!src || !tgt) return json({ error: "源企业或目标企业不存在或已被合并" }, 404, cors);
 
     const now = nowIso();
@@ -714,7 +733,7 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   // 5. Reversible Unmerge (super_admin)
   if (path === "/api/companies/unmerge" && method === "POST") {
-    const auth = await requireAuth(request, env, cors, { roles: ["super_admin"] });
+    const auth = await requireLegacyMainInternal(request, env, cors, { roles: ["super_admin"] });
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 16384);
     const auditId = String(body.audit_id || "").trim();
@@ -723,6 +742,11 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
     const m = safeJsonParse(aud.diff_summary, null);
     if (!m || !m.sourceId || !m.targetId) return json({ error: "合并还原清单损坏" }, 400, cors);
+    if (auth.v4) {
+      const srcMain = await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND org_id = ?").bind(m.sourceId, auth.orgId).first();
+      const tgtMain = await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND org_id = ?").bind(m.targetId, auth.orgId).first();
+      if (!srcMain || !tgtMain) return json({ error: "源企业或目标企业不属于当前主空间" }, 404, cors);
+    }
     const now = nowIso();
 
     await env.DB.prepare("UPDATE companies SET merged_into_id = NULL, updated_by = ?, updated_at = ? WHERE id = ?").bind(auth.actor.id, now, m.sourceId).run();
@@ -749,12 +773,16 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   // 6. OSM Raw Pending Pool (Physically isolated ODbL table)
   if (path === "/api/osm-pool" && method === "GET") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const country = String(url.searchParams.get("country") || "").trim();
     const onlyUnpromoted = url.searchParams.get("all") !== "1";
     const where = [];
     const binds = [];
+    if (auth.v4) {
+      where.push("org_id = ?");
+      binds.push(auth.orgId);
+    }
     if (country && country !== "ALL") {
       where.push("country_en = ?");
       binds.push(country);
@@ -769,7 +797,7 @@ export async function handleCompanyRoutes(request, env, cors, url) {
   }
 
   if (path === "/api/osm-pool/ingest" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 256 * 1024);
     const leads = (Array.isArray(body.items) ? body.items : []).slice(0, 100);
@@ -808,10 +836,12 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   const osmPromMatch = path.match(/^\/api\/osm-pool\/([^/]+)\/promote$/);
   if (osmPromMatch && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const osmId = decodeURIComponent(osmPromMatch[1]);
-    const raw = await env.DB.prepare("SELECT * FROM raw_osm_pool WHERE id = ?").bind(osmId).first();
+    const raw = auth.v4
+      ? await env.DB.prepare("SELECT * FROM raw_osm_pool WHERE id = ? AND org_id = ?").bind(osmId, auth.orgId).first()
+      : await env.DB.prepare("SELECT * FROM raw_osm_pool WHERE id = ?").bind(osmId).first();
     if (!raw) return json({ error: "OSM 待核实线索不存在" }, 404, cors);
     if (raw.promoted_company_id) {
       return json({ ok: true, alreadyPromoted: true, companyId: raw.promoted_company_id }, 200, cors);
@@ -890,7 +920,7 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   // 7. Team Search Task Metadata Ledger (metadata ONLY — never stores Google raw results)
   if (path === "/api/scrape-tasks" && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const body = await parseJsonBody(request, 16384);
     const id = randomId("tsk");
@@ -918,7 +948,7 @@ export async function handleCompanyRoutes(request, env, cors, url) {
   }
 
   if (path === "/api/scrape-tasks" && method === "GET") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const rows = await env.DB
       .prepare(
@@ -934,10 +964,12 @@ export async function handleCompanyRoutes(request, env, cors, url) {
   // 8. Company Detail / Update / Child Contacts, Quotes & Compliance Logs
   const compContactMatch = path.match(/^\/api\/companies\/([^/]+)\/contacts$/);
   if (compContactMatch && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const compId = decodeURIComponent(compContactMatch[1]);
-    const comp = await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
+    const comp = auth.v4
+      ? await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND org_id = ? AND deleted_at IS NULL").bind(compId, auth.orgId).first()
+      : await env.DB.prepare("SELECT id FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
     if (!comp) return json({ error: "企业不存在" }, 404, cors);
     const body = await parseJsonBody(request, 16384);
     const name = String(body.name || "").trim().slice(0, 80);
@@ -966,13 +998,18 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   const compQuoteMatch = path.match(/^\/api\/companies\/([^/]+)\/quotes$/);
   if (compQuoteMatch && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const compId = decodeURIComponent(compQuoteMatch[1]);
-    const comp = await env.DB
-      .prepare("SELECT id, canonical_name, compliance_status, opt_out_status FROM companies WHERE id = ? AND deleted_at IS NULL")
-      .bind(compId)
-      .first();
+    const comp = auth.v4
+      ? await env.DB
+          .prepare("SELECT id, canonical_name, compliance_status, opt_out_status FROM companies WHERE id = ? AND org_id = ? AND deleted_at IS NULL")
+          .bind(compId, auth.orgId)
+          .first()
+      : await env.DB
+          .prepare("SELECT id, canonical_name, compliance_status, opt_out_status FROM companies WHERE id = ? AND deleted_at IS NULL")
+          .bind(compId)
+          .first();
     if (!comp) return json({ error: "企业不存在" }, 404, cors);
 
     const body = await parseJsonBody(request, 65536);
@@ -1072,13 +1109,12 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   const compLogMatch = path.match(/^\/api\/companies\/([^/]+)\/compliance-logs$/);
   if (compLogMatch && method === "POST") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const compId = decodeURIComponent(compLogMatch[1]);
-    const comp = await env.DB
-      .prepare("SELECT id, compliance_status FROM companies WHERE id = ? AND deleted_at IS NULL")
-      .bind(compId)
-      .first();
+    const comp = auth.v4
+      ? await env.DB.prepare("SELECT id, compliance_status FROM companies WHERE id = ? AND org_id = ? AND deleted_at IS NULL").bind(compId, auth.orgId).first()
+      : await env.DB.prepare("SELECT id, compliance_status FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
     if (!comp) return json({ error: "企业不存在" }, 404, cors);
 
     const body = await parseJsonBody(request, 65536);
@@ -1133,10 +1169,12 @@ export async function handleCompanyRoutes(request, env, cors, url) {
 
   const compIdMatch = path.match(/^\/api\/companies\/([^/]+)$/);
   if (compIdMatch && method === "GET") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const compId = decodeURIComponent(compIdMatch[1]);
-    const comp = await env.DB.prepare("SELECT * FROM companies WHERE id = ?").bind(compId).first();
+    const comp = auth.v4
+      ? await env.DB.prepare("SELECT * FROM companies WHERE id = ? AND org_id = ?").bind(compId, auth.orgId).first()
+      : await env.DB.prepare("SELECT * FROM companies WHERE id = ?").bind(compId).first();
     if (!comp) return json({ error: "企业档案不存在" }, 404, cors);
     const now = nowIso();
     const [contacts, events, quotes, compLogs, sources, activeLock] = await Promise.all([
@@ -1170,12 +1208,14 @@ export async function handleCompanyRoutes(request, env, cors, url) {
   }
 
   if (compIdMatch && method === "PATCH") {
-    const auth = await requireAuth(request, env, cors);
+    const auth = await requireLegacyMainInternal(request, env, cors);
     if (!auth.ok) return auth.response;
     const compId = decodeURIComponent(compIdMatch[1]);
     const body = await parseJsonBody(request, 65536);
 
-    const cur = await env.DB.prepare("SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
+    const cur = auth.v4
+      ? await env.DB.prepare("SELECT * FROM companies WHERE id = ? AND org_id = ? AND deleted_at IS NULL").bind(compId, auth.orgId).first()
+      : await env.DB.prepare("SELECT * FROM companies WHERE id = ? AND deleted_at IS NULL").bind(compId).first();
     if (!cur) return json({ error: "企业档案不存在" }, 404, cors);
 
     // Optimistic concurrency check to prevent stale offline device overwriting newer server changes

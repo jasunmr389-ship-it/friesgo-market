@@ -278,9 +278,9 @@ export async function probeSchemaHealth(db, env = null) {
 }
 
 /**
- * REV01: Authoritative multi-tenant logical isolation context resolver.
+ * REV01 / S02: Authoritative multi-tenant logical isolation context resolver.
  * - Requires explicit X-FG-Org-Id when actor has multiple orgs or operates outside legacy main-only mode.
- * - Never silently falls back to org_friesgo_main on missing/invalid context.
+ * - Never silently falls back to org_friesgo_main once an actor has ANY org_memberships row (including disabled!).
  * - Denies super_admin default access to independent_trial orgs unless an explicit, unexpired, unrevoked support_access_grants record exists!
  */
 export async function resolveTenantContext(request, env, auth, cors, opts = {}) {
@@ -288,20 +288,37 @@ export async function resolveTenantContext(request, env, auth, cors, opts = {}) 
   const reqMemId = String(request.headers.get("X-FG-Membership-Id") || "").trim();
   const now = nowIso();
 
-  const memRowsRes = await env.DB
+  const allMemRowsRes = await env.DB
     .prepare(
       `SELECT m.*, o.org_type, o.name AS org_name, o.status AS org_status, o.settings_json AS org_settings_json
        FROM org_memberships m
        JOIN orgs o ON o.id = m.org_id
-       WHERE m.employee_id = ? AND m.status = 'active' AND o.status = 'active'
+       WHERE m.employee_id = ?
        ORDER BY CASE o.org_type WHEN 'company_main' THEN 0 ELSE 1 END, m.created_at ASC`
     )
     .bind(auth.actor.id)
     .all();
-  const memberships = memRowsRes.results || [];
+  const allMemberships = allMemRowsRes.results || [];
+  const memberships = allMemberships.filter((m) => m.status === "active" && m.org_status === "active");
 
-  // Backward compatibility ONLY for legacy main-org internal employees who have 0 explicit org_memberships rows
-  if (!memberships.length && ["super_admin", "manager", "staff"].includes(auth.actor.role)) {
+  // S02: If actor EVER had an org_memberships record and now has ZERO active memberships,
+  // fail-closed immediately — NEVER fall back to legacy org_friesgo_main!
+  if (allMemberships.length > 0 && memberships.length === 0) {
+    return {
+      ok: false,
+      response: json(
+        {
+          error: "当前账号组织成员身份已停用或所属数据空间不可用，已拦截默认主空间回落",
+          code: "ORG_MEMBERSHIP_DISABLED",
+        },
+        403,
+        cors
+      ),
+    };
+  }
+
+  // Backward compatibility ONLY for legacy main-org internal employees who have 0 org_memberships rows of any status
+  if (allMemberships.length === 0 && ["super_admin", "manager", "staff"].includes(auth.actor.role)) {
     if (reqOrgId && reqOrgId !== "org_friesgo_main") {
       // Check if super_admin has an explicit user-approved support grant for an independent_trial org
       if (auth.actor.role === "super_admin") {
@@ -316,6 +333,12 @@ export async function resolveTenantContext(request, env, auth, cors, opts = {}) 
           .bind(reqOrgId, auth.actor.id, now)
           .first();
         if (grant) {
+          if (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length && !opts.allowedRoles.includes("support_readonly")) {
+            return {
+              ok: false,
+              response: json({ error: "限时支持只读授权无权执行此写入操作", code: "FORBIDDEN_ORG_ROLE" }, 403, cors),
+            };
+          }
           await writeAuditLog(env.DB, auth.actor, "SUPPORT_GRANT_ACCESS", "org", reqOrgId, `grant_id=${grant.id} scope=${grant.scope}`);
           return {
             ok: true,
@@ -346,6 +369,12 @@ export async function resolveTenantContext(request, env, auth, cors, opts = {}) 
       return {
         ok: false,
         response: json({ error: "缺少明确的数据空间上下文头 X-FG-Org-Id", code: "ORG_CONTEXT_REQUIRED" }, 403, cors),
+      };
+    }
+    if (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length && !opts.allowedRoles.includes(auth.actor.role)) {
+      return {
+        ok: false,
+        response: json({ error: "当前空间角色无权执行此操作", code: "FORBIDDEN_ORG_ROLE" }, 403, cors),
       };
     }
     const mainOrg = await env.DB.prepare("SELECT * FROM orgs WHERE id = 'org_friesgo_main'").first();
@@ -386,6 +415,20 @@ export async function resolveTenantContext(request, env, auth, cors, opts = {}) 
 
   let chosen = memberships.find((m) => m.org_id === targetOrgId && (!reqMemId || m.id === reqMemId));
   if (!chosen) {
+    // S02: Explicitly reject if the actor had a membership in targetOrgId that is now disabled/inactive
+    const disabledTarget = allMemberships.find(
+      (m) => m.org_id === targetOrgId && (!reqMemId || m.id === reqMemId) && (m.status !== "active" || m.org_status !== "active")
+    );
+    if (disabledTarget) {
+      return {
+        ok: false,
+        response: json(
+          { error: "当前账号在目标数据空间的成员身份已停用或组织已冻结", code: "ORG_MEMBERSHIP_DISABLED" },
+          403,
+          cors
+        ),
+      };
+    }
     // Allow explicit time-bounded user support grant for super_admin on independent_trial org
     if (auth.actor.role === "super_admin") {
       const grant = await env.DB
@@ -399,6 +442,12 @@ export async function resolveTenantContext(request, env, auth, cors, opts = {}) 
         .bind(targetOrgId, auth.actor.id, now)
         .first();
       if (grant) {
+        if (Array.isArray(opts.allowedRoles) && opts.allowedRoles.length && !opts.allowedRoles.includes("support_readonly")) {
+          return {
+            ok: false,
+            response: json({ error: "限时支持只读授权无权执行此写入操作", code: "FORBIDDEN_ORG_ROLE" }, 403, cors),
+          };
+        }
         await writeAuditLog(env.DB, auth.actor, "SUPPORT_GRANT_ACCESS", "org", targetOrgId, `grant_id=${grant.id} scope=${grant.scope}`);
         return {
           ok: true,
@@ -444,7 +493,124 @@ export async function resolveTenantContext(request, env, auth, cors, opts = {}) 
 }
 
 /**
- * ENG01: Strong Idempotency Guard with request SHA-256 binding & in_progress lease recovery.
+ * S01: Guard for all legacy V2.1 main-org endpoints (/api/companies*, /api/osm-pool*, /api/locks*, /api/events*, /api/migrate*, /api/feedback*, /api/gmaps*, /api/admin*).
+ * - On Schema v3 (pre-V4): transparently delegates to requireAuth (100% V2.1 backward compatibility).
+ * - On Schema v4+: strictly permits ONLY active FriesGo main-org internal staff/manager/super_admin,
+ *   blocks independent_user / partner_* / disabled memberships / non-main X-FG-Org-Id with 403,
+ *   and returns { v4: true, orgId: 'org_friesgo_main' } so legacy queries enforce org_id = 'org_friesgo_main'.
+ */
+export async function requireLegacyMainInternal(request, env, cors, opts = {}) {
+  const auth = await requireAuth(request, env, cors, opts);
+  if (!auth.ok) return auth;
+
+  let isV4 = false;
+  try {
+    const tbl = await env.DB.prepare("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'orgs'").first();
+    isV4 = Boolean(tbl);
+  } catch {
+    isV4 = false;
+  }
+  if (!isV4) {
+    return { ...auth, v4: false, orgId: null, tenantCtx: null };
+  }
+
+  const reqOrgId = String(request.headers.get("X-FG-Org-Id") || "").trim();
+  if (reqOrgId && reqOrgId !== "org_friesgo_main") {
+    return {
+      ok: false,
+      response: json(
+        {
+          error: "旧版主公海/管理接口仅允许访问总部主空间（多租户逻辑隔离拦截）",
+          code: "FORBIDDEN_LEGACY_POOL",
+        },
+        403,
+        cors
+      ),
+    };
+  }
+
+  const allMemRowsRes = await env.DB
+    .prepare(
+      `SELECT m.*, o.org_type, o.name AS org_name, o.status AS org_status
+       FROM org_memberships m
+       JOIN orgs o ON o.id = m.org_id
+       WHERE m.employee_id = ?`
+    )
+    .bind(auth.actor.id)
+    .all();
+  const allMemberships = allMemRowsRes.results || [];
+  const internalRoles = ["super_admin", "manager", "staff"];
+
+  if (allMemberships.length > 0) {
+    const mainActive = allMemberships.find(
+      (m) => m.org_id === "org_friesgo_main" && m.status === "active" && m.org_status === "active"
+    );
+    if (!mainActive) {
+      const hadMainDisabled = allMemberships.some(
+        (m) => m.org_id === "org_friesgo_main" && (m.status !== "active" || m.org_status !== "active")
+      );
+      const anyActive = allMemberships.some((m) => m.status === "active" && m.org_status === "active");
+      const code = hadMainDisabled || !anyActive ? "ORG_MEMBERSHIP_DISABLED" : "FORBIDDEN_LEGACY_POOL";
+      return {
+        ok: false,
+        response: json(
+          {
+            error:
+              code === "ORG_MEMBERSHIP_DISABLED"
+                ? "当前账号组织成员身份已停用，禁止回落访问总部主公海接口"
+                : "仅 FriesGo 总部内部成员可访问主公海接口（独立空间与合作方请使用 /api/v3 隔离工作台）",
+            code,
+          },
+          403,
+          cors
+        ),
+      };
+    }
+    if (!internalRoles.includes(mainActive.role)) {
+      return {
+        ok: false,
+        response: json(
+          {
+            error: "合作方与独立试用角色禁止访问总部主公海接口，请使用授权范围的 /api/v3 协作工作台",
+            code: "FORBIDDEN_LEGACY_POOL",
+          },
+          403,
+          cors
+        ),
+      };
+    }
+    if (Array.isArray(opts.roles) && opts.roles.length && !opts.roles.includes(mainActive.role)) {
+      return {
+        ok: false,
+        response: json({ error: "权限不足，仅授权总部角色可执行此操作", code: "FORBIDDEN_ROLE" }, 403, cors),
+      };
+    }
+    return {
+      ...auth,
+      v4: true,
+      orgId: "org_friesgo_main",
+      tenantCtx: { orgId: "org_friesgo_main", orgType: mainActive.org_type, role: mainActive.role },
+    };
+  }
+
+  // Legacy main-org employee with 0 explicit membership rows
+  if (!internalRoles.includes(auth.actor.role)) {
+    return {
+      ok: false,
+      response: json({ error: "仅总部内部成员可访问主公海接口", code: "FORBIDDEN_LEGACY_POOL" }, 403, cors),
+    };
+  }
+  return {
+    ...auth,
+    v4: true,
+    orgId: "org_friesgo_main",
+    tenantCtx: { orgId: "org_friesgo_main", orgType: "company_main", role: auth.actor.role },
+  };
+}
+
+/**
+ * ENG01 / S08: Strong Idempotency Guard with request SHA-256 binding, in_progress lease recovery,
+ * and SINGLE-TRANSACTION atomic commit via db.batch([...commitStmts, completeIdemStmt]).
  * Caller MUST authenticate via requireAuth BEFORE invoking this so revoked sessions never replay cached responses!
  */
 export async function runIdempotentOperation(
@@ -453,7 +619,13 @@ export async function runIdempotentOperation(
 ) {
   const cleanKey = String(idemKey || "").trim();
   if (!cleanKey) {
-    return executor();
+    const out = await executor({ idemKey: "" });
+    const outStatus = Number((out && out.status) || 200);
+    const outBody = (out && out.body) || { ok: outStatus < 400 };
+    if (out && Array.isArray(out.commitStmts) && out.commitStmts.length > 0) {
+      await db.batch(out.commitStmts);
+    }
+    return { status: outStatus, body: outBody, replayed: false };
   }
   const reqHash = await sha256Hex(JSON.stringify(requestBody || {}));
   const now = nowIso();
@@ -533,19 +705,24 @@ export async function runIdempotentOperation(
   }
 
   try {
-    const out = await executor();
+    const out = await executor({ idemKey: cleanKey });
     const outStatus = Number((out && out.status) || 200);
     const outBody = (out && out.body) || { ok: outStatus < 400 };
-    // Persist completed response (do NOT cache 5xx transient server failures so client can retry safely)
+    const commitStmts = Array.isArray(out && out.commitStmts) ? out.commitStmts : [];
+    // S08: Persist business writes + completed idempotency state in ONE atomic transaction
     if (outStatus < 500) {
-      await db
+      const completeStmt = db
         .prepare(
           `UPDATE idempotency_keys
            SET state = 'completed', response_status = ?, response_json = ?, updated_at = ?
            WHERE org_id = ? AND actor_id = ? AND scope = ? AND target_id = ? AND idem_key = ?`
         )
-        .bind(outStatus, JSON.stringify(outBody), nowIso(), orgId, actorId, scope, targetId, cleanKey)
-        .run();
+        .bind(outStatus, JSON.stringify(outBody), nowIso(), orgId, actorId, scope, targetId, cleanKey);
+      if (commitStmts.length > 0) {
+        await db.batch([...commitStmts, completeStmt]);
+      } else {
+        await completeStmt.run();
+      }
     } else {
       await db
         .prepare(
@@ -557,7 +734,7 @@ export async function runIdempotentOperation(
     }
     return { status: outStatus, body: outBody, replayed: false };
   } catch (err) {
-    // Release in_progress lease on unhandled exception so retries are never permanently deadlocked
+    // Release in_progress lease on unhandled exception (atomic batch already rolled back any business writes)
     try {
       await db
         .prepare(

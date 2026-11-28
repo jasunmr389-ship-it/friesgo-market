@@ -965,9 +965,10 @@
         ? Promise.resolve({ snapId: null })
         : api.createSnapshot(o.reason || "覆盖恢复完整 JSON 备份前自动保护快照");
       return preStep.then(function (snap) {
-        return runTx(["leads", "compliance_logs"], "readwrite", function (tx, setRes) {
+        return runTx(["leads", "compliance_logs", "meta"], "readwrite", function (tx, setRes) {
           var lStore = tx.objectStore("leads");
           var cStore = tx.objectStore("compliance_logs");
+          var mStore = tx.objectStore("meta");
           var clL = lStore.clear();
           clL.onsuccess = function () {
             var seen = {};
@@ -984,30 +985,41 @@
                 trashRestored++;
               }
             }
+            var finishOverwrite = function (compCount) {
+              var restoredAt = new Date().toISOString();
+              mStore.put({
+                key: "schema",
+                version: APP_SCHEMA_VERSION,
+                migrationStatus: "verified",
+                migratedAt: restoredAt,
+                restoredOverwriteAt: restoredAt
+              });
+              setRes({
+                snapId: snap.snapId,
+                imported: activeIn.length,
+                trashRestored: trashRestored,
+                complianceRestored: compCount
+              });
+            };
             if (Array.isArray(b.complianceLogs)) {
               var clC = cStore.clear();
               clC.onsuccess = function () {
                 for (var k = 0; k < compIn.length; k++) {
                   cStore.put(compIn[k]);
                 }
-                setRes({
-                  snapId: snap.snapId,
-                  imported: activeIn.length,
-                  trashRestored: trashRestored,
-                  complianceRestored: compIn.length
-                });
+                finishOverwrite(compIn.length);
               };
             } else {
-              setRes({
-                snapId: snap.snapId,
-                imported: activeIn.length,
-                trashRestored: trashRestored,
-                complianceRestored: 0
-              });
+              finishOverwrite(0);
             }
           };
         });
       }).then(function (res) {
+        try {
+          localStorage.removeItem("friesgo_leads_v2");
+          localStorage.removeItem("friesgo_trash_v1");
+          localStorage.removeItem("friesgo_follow");
+        } catch (_) {}
         broadcastChange("overwrite_import", res);
         return res;
       });

@@ -42,18 +42,26 @@ jobs:
           echo "CHROME_PATH=$CHROME_BIN" >> "$GITHUB_ENV"
           "$CHROME_BIN" --version
 
-      - name: Syntax check core JS bundles
+      - name: Syntax check core, V3 frontend, and Worker JS bundles
         run: |
           node -c js/fg-core.js
           node -c js/fg-store.js
           node -c js/fg-cloud.js
           node -c js/fg-cloud-ui.js
+          node -c js/fg-v3-client.js
+          node -c js/fg-v3-ui.js
+          for f in workers/friesgo-api/src/*.js workers/friesgo-api/src/routes/*.js; do
+            node -c "$f"
+          done
 
       - name: Run Node Unit Tests (fg-core)
         run: node --test tests/unit-core-and-worker.test.js
 
       - name: Run Cloud API Security, RBAC, 2FA, Locks, Dedupe & Restore Tests
         run: node --test tests/m2a-api-security.test.js
+
+      - name: Run V3.0 Slice-1 Security, Isolation, Monetary, Public Intake & Browser Gate
+        run: node tests/v3-slice1-verify.js
 
       - name: Run V2.1 R01-R07 & CSV 10k Directed Reliability/Security Gate
         run: node tests/v21-r01-r07-verify.js
@@ -73,20 +81,44 @@ jobs:
       - name: Run V2.0 UX & Foreign-Trade Guardrails Browser Suite
         run: node tests/v2-ux-verify.js
 
+      - name: Run Phase 2A & 2B Regression Suites
+        run: |
+          node tests/phase2a-verify.js
+          node tests/phase2b-verify.js
+
+      - name: Run Full Audit & Overwrite Restore Persistence Suite
+        run: node tests/full-audit-suite.js
+
       - name: Run Full E2E & 10k Stress Suite
         run: node tests/e2e-and-stress.js
 
       - name: Run Policy Shelf-Life Check
         run: python3 scripts/check_policy_review.py
 
-      - name: Assemble exact tested static site artifact for GitHub Pages (R06)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Assemble & verify static site artifact for GitHub Pages (R06 / N01)
         run: |
           rm -rf _pages_dist
           mkdir -p _pages_dist
-          cp index.html privacy.html terms.html favicon.png apple-touch-icon.png _pages_dist/
+          cp index.html join.html rfq.html privacy.html terms.html favicon.png apple-touch-icon.png _pages_dist/
           cp -R js data _pages_dist/
           touch _pages_dist/.nojekyll
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const requiredHtml = ["index.html", "join.html", "rfq.html", "privacy.html", "terms.html"];
+            for (const f of requiredHtml) {
+              const p = path.join("_pages_dist", f);
+              if (!fs.existsSync(p)) throw new Error("Missing packaged HTML: " + p);
+              const html = fs.readFileSync(p, "utf8");
+              for (const m of html.matchAll(/<script[^>]+src="([^"]+)"/gi)) {
+                const src = m[1].split("?")[0];
+                if (/^https?:\/\//i.test(src)) continue;
+                const jsPath = path.join("_pages_dist", src);
+                if (!fs.existsSync(jsPath)) throw new Error("Missing script referenced by " + f + ": " + jsPath);
+              }
+            }
+            console.log("PASS _pages_dist asset completeness verified:", requiredHtml.join(", "));
+          '
 
       - name: Upload verified GitHub Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
