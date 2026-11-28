@@ -141,15 +141,34 @@ async function connectCdpTarget(wsUrl) {
 }
 
 async function probeSafariWebDriver() {
+  const safariBin = "/System/Cryptexes/App/usr/bin/safaridriver";
+  if (process.platform !== "darwin" || !fs.existsSync(safariBin)) {
+    return {
+      available: false,
+      reason: `safaridriver unavailable on ${process.platform} (${safariBin} not present)`
+    };
+  }
   return new Promise((resolve) => {
+    let settled = false;
+    let timer = null;
+    const done = (result) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve(result);
+    };
     let proc;
     try {
-      proc = spawn("/System/Cryptexes/App/usr/bin/safaridriver", ["--port", "9529"], { stdio: "ignore" });
+      proc = spawn(safariBin, ["--port", "9529"], { stdio: "ignore" });
     } catch (e) {
-      resolve({ available: false, reason: "safaridriver binary not found: " + e.message });
+      done({ available: false, reason: "safaridriver binary not found: " + e.message });
       return;
     }
-    setTimeout(() => {
+    proc.on("error", (err) => {
+      done({ available: false, reason: "safaridriver spawn error: " + err.message });
+    });
+    timer = setTimeout(() => {
+      if (settled) return;
       const req = http.request(
         {
           hostname: "127.0.0.1",
@@ -166,23 +185,23 @@ async function probeSafariWebDriver() {
             try {
               const parsed = JSON.parse(body);
               if (parsed && parsed.value && parsed.value.sessionId) {
-                resolve({ available: true, sessionId: parsed.value.sessionId });
+                done({ available: true, sessionId: parsed.value.sessionId });
               } else {
-                resolve({
+                done({
                   available: false,
                   httpStatus: res.statusCode,
                   safariDriverMessage: (parsed && parsed.value && parsed.value.message) || body.slice(0, 240)
                 });
               }
             } catch (_) {
-              resolve({ available: false, safariDriverMessage: body.slice(0, 240) });
+              done({ available: false, safariDriverMessage: body.slice(0, 240) });
             }
           });
         }
       );
       req.on("error", (err) => {
         try { proc.kill(); } catch (_) {}
-        resolve({ available: false, reason: err.message });
+        done({ available: false, reason: err.message });
       });
       req.write(JSON.stringify({ capabilities: { alwaysMatch: { browserName: "safari" } } }));
       req.end();
